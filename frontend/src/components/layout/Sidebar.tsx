@@ -7,6 +7,7 @@ import {
   Inbox,
   LayoutDashboard,
   LogOut,
+  UserCheck,
   type LucideIcon,
 } from 'lucide-react'
 import { useAuth } from '../../lib/auth-context'
@@ -33,6 +34,7 @@ const groups: NavGroup[] = [
     items: [
       { to: '/leads', label: 'Lead Capture & Intake', icon: Inbox },
       { to: '/qualification', label: 'Lead Qualification & Scoring', icon: ClipboardCheck },
+      { to: '/assignment', label: 'Lead Assignment & Ownership', icon: UserCheck },
     ],
   },
 ]
@@ -74,7 +76,9 @@ export default function Sidebar({ role }: { role: Role }) {
             {initials(user?.name)}
           </span>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium text-foreground">{user?.name ?? 'Signed out'}</p>
+            <p className="truncate text-sm font-medium text-foreground">
+              {user?.name ?? 'Signed out'}
+            </p>
             <p className="truncate text-xs text-muted-foreground">{user?.email ?? ''}</p>
           </div>
           <span className="shrink-0 rounded bg-secondary px-1.5 py-0.5 text-xs font-medium uppercase text-secondary-foreground">

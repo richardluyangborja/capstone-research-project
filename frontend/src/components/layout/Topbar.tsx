@@ -1,4 +1,5 @@
-import { Bell, Moon, Sun } from 'lucide-react'
+import { Moon, Sun } from 'lucide-react'
+import NotificationBell from './NotificationBell'
 
 interface TopbarProps {
   title?: string
@@ -22,13 +23,7 @@ export default function Topbar({ title }: TopbarProps) {
           <Sun className="h-4 w-4 dark:hidden" aria-hidden="true" />
           <Moon className="hidden h-4 w-4 dark:block" aria-hidden="true" />
         </button>
-        <button
-          type="button"
-          aria-label="Notifications"
-          className="rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-foreground"
-        >
-          <Bell className="h-4 w-4" aria-hidden="true" />
-        </button>
+        <NotificationBell />
       </div>
     </header>
   )

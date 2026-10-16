@@ -49,6 +49,9 @@ class LeadResource extends JsonResource
                 'name' => $this->owner->name,
             ]),
             'owner_id' => $this->owner_id,
+            // Assignment affordances (spec 03)
+            'can_claim' => $this->owner_id === null,
+            'can_reassign' => (bool) $request->user()?->can('assign', [$this->resource]),
             // Sensitive: hidden from salesrep (ADR-0004)
             'budget_rate' => $this->when(
                 $request->user()?->canSeeSensitiveData() ?? false,
