@@ -57,5 +57,7 @@ class DatabaseSeeder extends Seeder
             'password' => 'password',
             'role' => Role::Superadmin,
         ]);
+
+        $this->call(DemoLeadSeeder::class);
     }
 }

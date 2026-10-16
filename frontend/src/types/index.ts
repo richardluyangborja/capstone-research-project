@@ -25,6 +25,10 @@ export type ActivityType = 'call' | 'email' | 'meeting' | 'walk_in' | 'task' | '
 
 export type ActivityStatus = 'open' | 'done' | 'cancelled'
 
+export type ActivityCategory = 'system' | 'activity'
+
+export type AgingLevel = 'stale' | 'at_risk' | 'archive'
+
 export interface Lead {
   id: string
   reference: string
@@ -50,11 +54,17 @@ export interface Lead {
   disqualification_reason: DisqualificationReason | null
   status: LeadStatus
   status_changed_at: string | null
+  last_activity_at: string | null
   notes: string | null
   owner: { id: number; name: string } | null
   owner_id: number | null
   can_claim: boolean
   can_reassign: boolean
+  can_update: boolean
+  allowed_transitions: LeadStatus[]
+  is_archived: boolean
+  aging: AgingLevel | null
+  days_since_activity: number
   budget_rate?: string
   missing_criteria: string[]
   meets_criteria: boolean
@@ -72,6 +82,7 @@ export interface AssignmentTarget {
 
 export interface Activity {
   id: string
+  category: ActivityCategory
   type: ActivityType
   subject: string
   body: string | null
@@ -81,11 +92,23 @@ export interface Activity {
   created_at: string
 }
 
+export interface LeadTimeline {
+  data: Activity[]
+  meta: {
+    status: LeadStatus
+    status_changed_at: string | null
+    last_activity_at: string | null
+    aging: AgingLevel | null
+    days_since_activity: number
+  }
+}
+
 export interface LeadSummary {
   all: number
   mine: number
   unassigned: number
   team: number
+  archived: number
 }
 
 export interface NotificationItem {

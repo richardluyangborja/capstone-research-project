@@ -68,13 +68,35 @@ Ownership rules as before. salesrep may transition own leads; manager+ within sc
 
 ## Acceptance criteria
 
-- [ ] Illegal transitions return 422 and do not change state.
-- [ ] Logging a first outbound activity moves `new` → `contacted`.
-- [ ] Converted leads reject further status changes (read-only).
-- [ ] `?filter[stale]=true` returns leads past the configured inactivity threshold.
-- [ ] Archiving hides the lead from default lists without deleting it.
+- [x] Illegal transitions return 422 and do not change state.
+- [x] Logging a first outbound activity moves `new` → `contacted`.
+- [x] Converted leads reject further status changes (read-only).
+- [x] `?filter[stale]=true` returns leads past the configured inactivity threshold.
+- [x] Archiving hides the lead from default lists without deleting it.
 
 ## Open questions
 
-- Confirm aging thresholds (14/30/60) and whether they are fixed or per-tenant config.
-- Should status changes require a reason (e.g., disqualification already does)?
+**Resolved** (see ADR-0009):
+
+- Aging thresholds are **configurable** — `backend/config/crm.php`, defaults 14 / 30 / 60
+  (`CRM_STALE_DAYS` / `CRM_AT_RISK_DAYS` / `CRM_ARCHIVE_DAYS`). Computed on read.
+- Status changes take an **optional note**; only disqualification requires text (`reason`).
+
+## Implementation notes
+
+- Transitions are applied by `Lead::transitionTo()`: it validates against the table above, stamps
+  `status_changed_at`, refreshes `last_activity_at`, and dispatches `LeadStatusChanged`, whose
+  listener writes the `system` activity.
+- `PATCH /leads/{id}/status` cannot bypass submodule 2 — qualifying without the minimum criteria and
+  disqualifying without a reason both return 422. `POST /leads/{id}/qualify|disqualify|nurture`
+  remain as wrappers over the same transition.
+- `POST /leads/{id}/activities` logs an activity; contact types (`call`, `email`, `meeting`,
+  `walk_in`) advance a `new` lead to `contacted`. This is a minimal slice of the deferred
+  communication-history module, added only to satisfy the rule above.
+- `converted` is not offered by `PATCH /status` — lead→client conversion (submodule 8) owns it.
+- The submodule-3 `GET /leads/{id}/activities` endpoint was replaced by
+  `GET /leads/{id}/timeline` (same rows, plus a `category` and status/aging `meta`).
+- `archived` leads are excluded from the list, summary counts and report views unless
+  `filter[status]=archived` (or `filter[archived]=true`) is passed; `summary` gained an `archived`
+  count.
+

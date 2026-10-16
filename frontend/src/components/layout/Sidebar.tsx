@@ -4,6 +4,7 @@ import {
   ChevronDown,
   ClipboardCheck,
   Handshake,
+  History,
   Inbox,
   LayoutDashboard,
   LogOut,
@@ -35,6 +36,7 @@ const groups: NavGroup[] = [
       { to: '/leads', label: 'Lead Capture & Intake', icon: Inbox },
       { to: '/qualification', label: 'Lead Qualification & Scoring', icon: ClipboardCheck },
       { to: '/assignment', label: 'Lead Assignment & Ownership', icon: UserCheck },
+      { to: '/lifecycle', label: 'Lead Lifecycle & Status', icon: History },
     ],
   },
 ]

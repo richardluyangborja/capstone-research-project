@@ -8,7 +8,6 @@ use App\Http\Requests\AssignLeadRequest;
 use App\Http\Requests\BulkAssignLeadsRequest;
 use App\Http\Requests\BulkTransferLeadsRequest;
 use App\Http\Resources\LeadResource;
-use App\Models\Activity;
 use App\Models\Lead;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Collection;
@@ -74,33 +73,6 @@ class LeadAssignmentController extends Controller
         return response()->json([
             'message' => sprintf('%d lead(s) transferred from %s to %s.', $leads->count(), $from->name, $to->name),
             'data' => ['transferred' => $leads->count()],
-        ]);
-    }
-
-    public function activities(Request $request, Lead $lead): JsonResponse
-    {
-        $this->authorize('view', $lead);
-
-        $activities = $lead->activities()
-            ->with('owner:id,name')
-            ->orderByDesc('occurred_at')
-            ->orderByDesc('created_at')
-            ->limit(100)
-            ->get();
-
-        return response()->json([
-            'data' => $activities->map(fn (Activity $activity): array => [
-                'id' => $activity->id,
-                'type' => $activity->type,
-                'subject' => $activity->subject,
-                'body' => $activity->body,
-                'status' => $activity->status,
-                'occurred_at' => $activity->occurred_at,
-                'owner' => $activity->owner
-                    ? ['id' => $activity->owner->id, 'name' => $activity->owner->name]
-                    : null,
-                'created_at' => $activity->created_at,
-            ]),
         ]);
     }
 

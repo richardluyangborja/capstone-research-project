@@ -7,6 +7,7 @@ import Assignment from '../pages/Assignment'
 import DashboardHome from '../pages/DashboardHome'
 import LeadDetail from '../pages/LeadDetail'
 import LeadsList from '../pages/LeadsList'
+import Lifecycle from '../pages/Lifecycle'
 import Login from '../pages/Login'
 import NewLead from '../pages/NewLead'
 import NotFound from '../pages/NotFound'
@@ -31,6 +32,7 @@ export default function AppRouter() {
           <Route path="/leads/:id" element={<LeadDetail />} />
           <Route path="/qualification" element={<Qualification />} />
           <Route path="/assignment" element={<Assignment />} />
+          <Route path="/lifecycle" element={<Lifecycle />} />
         </Route>
       </Route>
 

@@ -1,6 +1,7 @@
 import type { Tone } from '../components/common/StatusBadge'
 import type {
   ActivityType,
+  AgingLevel,
   DisqualificationReason,
   LeadRating,
   LeadSource,
@@ -60,4 +61,12 @@ export const disqualificationReasonLabels: Record<DisqualificationReason, string
   bad_fit: 'Bad fit',
   duplicate: 'Duplicate',
   other: 'Other',
+}
+
+// Aging buckets (spec 04 §3). Thresholds live in the backend config/crm.php;
+// the UI only renders the computed level. Tones escalate orange → red.
+export const agingMeta: Record<AgingLevel, { label: string; tone: Tone }> = {
+  stale: { label: 'Stale', tone: 'cost' },
+  at_risk: { label: 'At risk', tone: 'warm' },
+  archive: { label: 'Archive due', tone: 'danger' },
 }

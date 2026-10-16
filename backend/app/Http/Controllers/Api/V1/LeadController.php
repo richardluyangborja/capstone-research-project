@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Enums\LeadStatus;
 use App\Enums\Role;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreLeadRequest;
@@ -22,11 +23,25 @@ class LeadController extends Controller
         /** @var array<string, mixed> $filters */
         $filters = (array) $request->input('filter', []);
 
+        $statuses = filled($filters['status'] ?? null)
+            ? explode(',', (string) $filters['status'])
+            : [];
+
+        // Archived leads are hidden from default lists (spec 04 §4); opt in with
+        // `filter[status]=archived` or `filter[archived]=true`.
+        $includeArchived = in_array(LeadStatus::Archived->value, $statuses, true)
+            || filter_var($filters['archived'] ?? false, FILTER_VALIDATE_BOOLEAN);
+
+        $stale = $filters['stale'] ?? null;
+        $staleEnabled = ! in_array($stale, [null, false, '', '0', 'false'], true);
+
         $leads = Lead::query()
             ->with('owner')
             ->visibleTo($request->user())
             ->search($request->string('search')->toString() ?: null)
-            ->when($filters['status'] ?? null, fn ($query, $status) => $query->whereIn('status', explode(',', (string) $status)))
+            ->when($statuses !== [], fn ($query) => $query->whereIn('status', $statuses))
+            ->when(! $includeArchived, fn ($query) => $query->where('status', '!=', LeadStatus::Archived->value))
+            ->when($staleEnabled, fn ($query) => $query->stale($stale))
             ->when($filters['rating'] ?? null, fn ($query, $rating) => $query->whereIn('rating', explode(',', (string) $rating)))
             ->when($filters['urgency'] ?? null, fn ($query, $urgency) => $query->whereIn('urgency', explode(',', (string) $urgency)))
             ->when($filters['source'] ?? null, fn ($query, $source) => $query->where('source', $source))
@@ -49,7 +64,9 @@ class LeadController extends Controller
     {
         $user = $request->user();
 
-        $base = fn () => Lead::query()->visibleTo($user);
+        $base = fn () => Lead::query()
+            ->visibleTo($user)
+            ->where('status', '!=', LeadStatus::Archived->value);
 
         return response()->json([
             'data' => [
@@ -59,6 +76,10 @@ class LeadController extends Controller
                 'team' => $user->team_id !== null
                     ? $base()->whereHas('owner', fn ($query) => $query->where('team_id', $user->team_id))->count()
                     : 0,
+                'archived' => Lead::query()
+                    ->visibleTo($user)
+                    ->where('status', LeadStatus::Archived->value)
+                    ->count(),
             ],
         ]);
     }
