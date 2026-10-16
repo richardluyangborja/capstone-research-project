@@ -4,11 +4,13 @@ import PublicLayout from '../components/layout/PublicLayout'
 import ProtectedRoute from '../components/ProtectedRoute'
 import { useAuth } from '../lib/auth-context'
 import DashboardHome from '../pages/DashboardHome'
+import LeadDetail from '../pages/LeadDetail'
 import LeadsList from '../pages/LeadsList'
 import Login from '../pages/Login'
 import NewLead from '../pages/NewLead'
 import NotFound from '../pages/NotFound'
 import PublicHome from '../pages/PublicHome'
+import Qualification from '../pages/Qualification'
 
 // CRM dashboard routes are added here as submodules are implemented (see resources/specs/).
 export default function AppRouter() {
@@ -25,6 +27,8 @@ export default function AppRouter() {
           <Route path="/dashboard" element={<DashboardHome />} />
           <Route path="/leads" element={<LeadsList />} />
           <Route path="/leads/new" element={<NewLead />} />
+          <Route path="/leads/:id" element={<LeadDetail />} />
+          <Route path="/qualification" element={<Qualification />} />
         </Route>
       </Route>
 

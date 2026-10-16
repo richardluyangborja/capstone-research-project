@@ -24,6 +24,15 @@ export type LeadSource =
 
 export type Urgency = 'low' | 'medium' | 'high'
 
+export type DisqualificationReason =
+  | 'no_budget'
+  | 'no_need'
+  | 'competitor'
+  | 'unresponsive'
+  | 'bad_fit'
+  | 'duplicate'
+  | 'other'
+
 export interface Lead {
   id: string
   reference: string
@@ -40,13 +49,22 @@ export interface Lead {
   estimated_headcount: number | null
   needed_roles: string | null
   target_start_date: string | null
+  authority_confirmed: boolean
+  work_site: string | null
   urgency: Urgency | null
   rating: LeadRating | null
+  score: number | null
+  qualification_notes: string | null
+  disqualification_reason: DisqualificationReason | null
   status: LeadStatus
+  status_changed_at: string | null
   notes: string | null
   owner: { id: number; name: string } | null
   owner_id: number | null
   budget_rate?: string
+  missing_criteria: string[]
+  meets_criteria: boolean
+  can_qualify: boolean
   created_at: string
   updated_at: string
 }

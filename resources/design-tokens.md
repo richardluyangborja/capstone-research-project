@@ -30,3 +30,9 @@ Dark mode
 Logo Text
 PRIMEPOWER: light #db3c3c, dark #db3c3c
 DEPARTMENT: light #0c0a0a, dark #0c0a0a
+
+Qualification rating (non-domain semantic color)
+
+- Hot  light #EA580C, dark #FB923C
+- Warm light #D97706, dark #FBBF24
+- Cold light #64748B, dark #94A3B8
