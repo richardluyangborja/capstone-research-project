@@ -33,6 +33,14 @@
   --domain-people: #16a34a; /* green  */
   --domain-activity: #9333ea; /* purple */
   --domain-cost: #ea580c; /* orange */
+
+  /* Brand logo (design-tokens.md → "Logo Text") */
+  --logo-brand: #db3c3c;
+
+  /* Qualification rating (not a data domain — see design-tokens.md) */
+  --rating-hot: #ea580c;
+  --rating-warm: #d97706;
+  --rating-cold: #64748b;
 }
 
 .dark {
@@ -56,6 +64,10 @@
   --input: rgba(144, 167, 185, 0.12);
   --ring: #33a1e6;
   --sidebar: #131e29;
+  --logo-brand: #db3c3c;
+  --rating-hot: #fb923c;
+  --rating-warm: #fbbf24;
+  --rating-cold: #94a3b8;
 }
 
 @layer base {

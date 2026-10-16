@@ -8,14 +8,14 @@ check this list first:
 
 - `DashboardShell`, `Sidebar`, `Topbar` — **done** (`../layout/`)
 - `PublicLayout` — **done** (`../layout/`)
-- `StatCard` — stat with domain color (counts=blue, people=green, activity=purple, cost=orange)
-- `ChartCard` — line + donut chart wrapper
-- `PageHeader`
-- `DataTable` — list/tables with filters, pagination, bulk actions
-- `StatusBadge`
-- `AlertItem`
-- `FormCard`
-- `EmptyState`
+- `StatCard` — stat with domain color (counts=blue, people=green, activity=purple, cost=orange) — **done**
+- `PageHeader` — **done**
+- `StatusBadge` — token-mapped badge (status + rating tones) — **done**
+- `AlertItem` — inline alert (info/success/warning/danger) — **done**
+- `FormCard` — titled card with optional footer — **done**
+- `EmptyState` — empty list placeholder — **done**
+- `ChartCard` — line + donut chart wrapper — pending
+- `DataTable` — list/tables with filters, pagination, bulk actions — pending
 
 Rules: tokens/utilities only (no hardcoded hex or arbitrary px); icons from `lucide-react`; render
 dashboards inside `DashboardShell`.

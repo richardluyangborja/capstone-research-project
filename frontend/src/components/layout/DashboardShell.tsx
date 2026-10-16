@@ -17,9 +17,9 @@ export default function DashboardShell({ role = 'salesrep', title }: DashboardSh
 
   return (
     <div className="flex h-full">
-      <Sidebar />
+      <Sidebar role={role} />
       <div className="flex min-w-0 flex-1 flex-col">
-        <Topbar role={role} title={title ?? titleFromPath(pathname)} />
+        <Topbar title={title ?? titleFromPath(pathname)} />
         <main className="flex-1 overflow-auto bg-background p-6">
           <Outlet />
         </main>

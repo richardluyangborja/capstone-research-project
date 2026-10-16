@@ -38,16 +38,23 @@ Laravel's own and is separate from `frontend/`.
 
 **Implemented:** JWT auth (`php-open-source-saver/jwt-auth`, `api` guard — ADR-0008) with
 `POST /api/v1/auth/login`, `GET /api/v1/auth/me`, `POST /api/v1/auth/logout`; teams + roles on
-`users` (seeded, no faker); **submodule 01 — Lead Capture & Intake** (`app/Models/Lead.php`, ULID
-migrations, `LeadPolicy`, `LeadResource`, `StoreLeadRequest`, `LeadController`) exposed under
-`/api/v1/leads` (index/store/show/destroy + `POST /leads/{id}/restore`), with advisory duplicate
-checking and role/ownership scoping (ADR-0004). Frontend has `/login`, `/leads` and `/leads/new`
-wired to the API via `src/lib/auth.tsx` + `src/lib/leads.ts`.
+`users` (seeded, no faker).
 
-**Not implemented yet:** the remaining submodules (02 qualification workflow, 03 assignment, 04
-lifecycle transitions, 06–09) and the Companies/Contacts/Opportunities models + routes. Lead
-qualification columns already exist on `leads` (`rating`, `score`, `urgency`, …) but no workflow
-endpoints. Add them per `resources/specs/`.
+- **Submodule 01 — Lead Capture & Intake:** `/api/v1/leads` (index/store/show/destroy +
+  `POST /leads/{id}/restore`), advisory duplicate check, role/ownership scoping (ADR-0004).
+- **Submodule 02 — Lead Qualification & Scoring:** `PATCH /leads/{id}/qualification`,
+  `POST /leads/{id}/rate|qualify|disqualify|nurture`. Minimum criteria (headcount + roles + a
+  contact channel) are enforced on `/qualify` (422 lists what's missing); a weighted checklist
+  score (0–100) and derived hot/warm/cold rating are stored; edits are blocked once
+  disqualified/converted. `filter[status|rating|urgency]` accept comma-separated values.
+
+Frontend routes: `/login`, `/leads`, `/leads/new`, `/leads/:id` (qualification panel), and
+`/qualification` (worklist). The sidebar is **grouped by module** — only implemented submodules are
+listed under `Lead & Client Tracking`. Account + logout live in the sidebar footer; the brand is
+"Primepower Manpower Services / Customer Relationship Management".
+
+**Not implemented yet:** the remaining submodules (03 assignment, 04 lifecycle transitions, 06–09)
+and the Companies/Contacts/Opportunities models + routes. Add them per `resources/specs/`.
 
 **Demo accounts** (password `password`, via `php artisan migrate:fresh --seed`):
 `salesrep@primepower.test`, `manager@primepower.test`, `admin@primepower.test`,
@@ -74,11 +81,13 @@ sign-off). Full color values: `resources/design-tokens.md`.
 - Tokens live in `tailwind.config.js` and `index.css`. **No hardcoded hex or arbitrary px** —
   tokens/utility classes only. Light + dark mode values are both defined.
 - Fixed color mapping per data domain: **blue = counts, green = people, purple = activity,
-  orange = cost.**
+  orange = cost.** Brand logo text uses `logo-brand`; lead rating uses `rating-hot|warm|cold` — all
+  documented in `resources/design-tokens.md`.
 - Shared components live in `frontend/src/components/common/` (required list in its `README.md`)
   and `frontend/src/components/layout/`. Reuse before creating; anything used by 2+ subsystems/roles
   belongs in `common/` — no duplicate implementations. Built so far: DashboardShell, Sidebar, Topbar,
-  PublicLayout, PageHeader, StatCard; the rest are added as features need them.
+  PublicLayout, PageHeader, StatCard, StatusBadge, AlertItem, FormCard, EmptyState; the rest are
+  added as features need them.
 - Layouts: public site uses `PublicLayout` (no sidebar); **all** dashboards (User/Admin/Superadmin)
   share one `DashboardShell` differentiated only by a `role` prop. Per-role layouts are not permitted.
 - Standard dashboard home rows: 4 primary StatCards, then 4 secondary StatCards, then a chart

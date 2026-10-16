@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\LeadController;
+use App\Http\Controllers\Api\V1\LeadQualificationController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -23,5 +24,12 @@ Route::prefix('v1')->group(function (): void {
 
         Route::post('leads/{id}/restore', [LeadController::class, 'restore']);
         Route::apiResource('leads', LeadController::class)->only(['index', 'store', 'show', 'destroy']);
+
+        // Submodule 02 — Lead Qualification & Scoring
+        Route::patch('leads/{lead}/qualification', [LeadQualificationController::class, 'updateQualification']);
+        Route::post('leads/{lead}/rate', [LeadQualificationController::class, 'rate']);
+        Route::post('leads/{lead}/qualify', [LeadQualificationController::class, 'qualify']);
+        Route::post('leads/{lead}/disqualify', [LeadQualificationController::class, 'disqualify']);
+        Route::post('leads/{lead}/nurture', [LeadQualificationController::class, 'nurture']);
     });
 });

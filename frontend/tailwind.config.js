@@ -24,6 +24,14 @@ export default {
         people: 'var(--domain-people)',
         activity: 'var(--domain-activity)',
         cost: 'var(--domain-cost)',
+        // Brand logo text
+        'logo-brand': 'var(--logo-brand)',
+        // Qualification rating (hot / warm / cold)
+        rating: {
+          hot: 'var(--rating-hot)',
+          warm: 'var(--rating-warm)',
+          cold: 'var(--rating-cold)',
+        },
       },
       borderRadius: {
         lg: 'var(--radius)',

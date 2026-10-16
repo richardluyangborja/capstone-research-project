@@ -1,6 +1,7 @@
 import { useState, type FormEvent, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import PageHeader from '../components/common/PageHeader'
+import AlertItem from '../components/common/AlertItem'
 import { createLead, type NewLeadInput } from '../lib/leads'
 
 interface FieldErrors {
@@ -76,24 +77,25 @@ export default function NewLead() {
       />
 
       {message && (
-        <p className="mb-4 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          {message}
-        </p>
+        <div className="mb-4">
+          <AlertItem variant="danger">{message}</AlertItem>
+        </div>
       )}
 
       {duplicates.length > 0 && (
-        <div className="mb-4 rounded-md border border-cost/40 bg-cost/10 px-4 py-3 text-sm text-foreground">
-          <p className="font-medium">Lead saved — possible duplicates found</p>
-          <ul className="mt-1 list-inside list-disc text-muted-foreground">
-            {duplicates.map((duplicate) => (
-              <li key={duplicate.reference}>
-                {duplicate.reference} — {duplicate.company_name}
-              </li>
-            ))}
-          </ul>
-          <Link to="/leads" className="mt-2 inline-block font-medium text-primary">
-            Back to leads
-          </Link>
+        <div className="mb-4">
+          <AlertItem variant="warning" title="Lead saved — possible duplicates found">
+            <ul className="list-inside list-disc">
+              {duplicates.map((duplicate) => (
+                <li key={duplicate.reference}>
+                  {duplicate.reference} — {duplicate.company_name}
+                </li>
+              ))}
+            </ul>
+            <Link to="/leads" className="mt-2 inline-block font-medium text-primary">
+              Back to leads
+            </Link>
+          </AlertItem>
         </div>
       )}
 

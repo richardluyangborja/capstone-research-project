@@ -26,7 +26,9 @@ class LeadController extends Controller
             ->with('owner')
             ->visibleTo($request->user())
             ->search($request->string('search')->toString() ?: null)
-            ->when($filters['status'] ?? null, fn ($query, $status) => $query->where('status', $status))
+            ->when($filters['status'] ?? null, fn ($query, $status) => $query->whereIn('status', explode(',', (string) $status)))
+            ->when($filters['rating'] ?? null, fn ($query, $rating) => $query->whereIn('rating', explode(',', (string) $rating)))
+            ->when($filters['urgency'] ?? null, fn ($query, $urgency) => $query->whereIn('urgency', explode(',', (string) $urgency)))
             ->when($filters['source'] ?? null, fn ($query, $source) => $query->where('source', $source))
             ->when($filters['owner'] ?? null, function ($query, $owner) use ($request) {
                 return match ($owner) {

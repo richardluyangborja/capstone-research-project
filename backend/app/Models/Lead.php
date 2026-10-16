@@ -134,4 +134,79 @@ class Lead extends Model
                 ->orWhereRaw('LOWER(reference) LIKE ?', [$like]);
         });
     }
+
+    /**
+     * Minimum criteria for `qualified` (spec 02 §2): headcount + roles + a contact channel.
+     *
+     * @return array<int, string>
+     */
+    public function missingQualificationCriteria(): array
+    {
+        $missing = [];
+
+        if (blank($this->estimated_headcount)) {
+            $missing[] = 'estimated_headcount';
+        }
+
+        if (blank($this->needed_roles)) {
+            $missing[] = 'needed_roles';
+        }
+
+        if (blank($this->contact_email) && blank($this->contact_phone)) {
+            $missing[] = 'contact';
+        }
+
+        return $missing;
+    }
+
+    public function meetsQualificationCriteria(): bool
+    {
+        return $this->missingQualificationCriteria() === [];
+    }
+
+    /**
+     * Weighted checklist completeness, 0–100 (spec 02 §3).
+     * Weights: headcount 20, roles 20, contact 10, budget 20, authority 15, site 10, start date 5.
+     */
+    public function qualificationScore(): int
+    {
+        $score = 0;
+
+        $score += filled($this->estimated_headcount) ? 20 : 0;
+        $score += filled($this->needed_roles) ? 20 : 0;
+        $score += (filled($this->contact_email) || filled($this->contact_phone)) ? 10 : 0;
+        $score += filled($this->budget_rate) ? 20 : 0;
+        $score += $this->authority_confirmed ? 15 : 0;
+        $score += filled($this->work_site) ? 10 : 0;
+        $score += filled($this->target_start_date) ? 5 : 0;
+
+        return $score;
+    }
+
+    /**
+     * Derive Hot/Warm/Cold from the checklist score when no explicit rating is given.
+     */
+    public function deriveRating(): LeadRating
+    {
+        $score = $this->score ?? $this->qualificationScore();
+
+        return match (true) {
+            $score >= 75 => LeadRating::Hot,
+            $score >= 45 => LeadRating::Warm,
+            default => LeadRating::Cold,
+        };
+    }
+
+    /**
+     * Qualification fields are editable only in these states (spec 02 §6).
+     */
+    public function isQualifiable(): bool
+    {
+        return in_array($this->status, [
+            LeadStatus::New,
+            LeadStatus::Contacted,
+            LeadStatus::Qualified,
+            LeadStatus::Nurture,
+        ], true);
+    }
 }
