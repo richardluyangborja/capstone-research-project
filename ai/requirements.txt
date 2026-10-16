@@ -1,0 +1,4 @@
+# Python dependencies for the AI/ML service (lightweight, per resources/system-ai-feature.md).
+fastapi>=0.115
+uvicorn[standard]>=0.32
+pydantic-settings>=2.6

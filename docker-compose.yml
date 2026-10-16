@@ -1,0 +1,23 @@
+# Local Postgres for the CRM backend. Start with: docker compose up -d db
+# Credentials mirror backend/.env (DB_*) — change both together.
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: primepower-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: primepower
+      POSTGRES_USER: primepower
+      POSTGRES_PASSWORD: secret
+    ports:
+      - '5432:5432'
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U primepower -d primepower']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  db_data:

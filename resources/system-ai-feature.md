@@ -1,0 +1,1 @@
+this system will have an ai/ml-based dashboard and management reports. the ai/ml will be a python service using super lightweight libraries that can support the minimal requirements of this system. the ai/ml will also be used for action suggestions and other additional features as the iteration progesses.

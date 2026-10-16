@@ -1,0 +1,75 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Design tokens — values from resources/design-tokens.md (single source of truth).
+   Never hardcode hex values in components; use these tokens / Tailwind utilities. */
+:root {
+  --background: #f2f7fc;
+  --foreground: #0a1b2e;
+  --card: #edf5fb;
+  --card-foreground: #0a1b2e;
+  --popover: #edf5fb;
+  --popover-foreground: #0a1b2e;
+  --primary: #007dcc;
+  --primary-foreground: #faf9f6;
+  --secondary: #e4f0f8;
+  --secondary-foreground: #0a1b2e;
+  --muted: #e4f0f8;
+  --muted-foreground: #486f91;
+  --accent: #007dcc;
+  --accent-foreground: #faf9f6;
+  --destructive: #d32f2f;
+  --destructive-foreground: #faf9f6;
+  --border: rgba(0, 125, 204, 0.15);
+  --input: rgba(0, 125, 204, 0.15);
+  --ring: #007dcc;
+  --sidebar: #edf5fb;
+  --switch: #8fbddc;
+  --radius: 0.75rem;
+
+  /* Data-domain colors (fixed mapping) */
+  --domain-counts: #2563eb; /* blue   */
+  --domain-people: #16a34a; /* green  */
+  --domain-activity: #9333ea; /* purple */
+  --domain-cost: #ea580c; /* orange */
+}
+
+.dark {
+  --background: #0f1b26;
+  --foreground: #e3edf5;
+  --card: #16222e;
+  --card-foreground: #e3edf5;
+  --popover: #16222e;
+  --popover-foreground: #e3edf5;
+  --primary: #33a1e6;
+  --primary-foreground: #0f1b26;
+  --secondary: #1d2a37;
+  --secondary-foreground: #e3edf5;
+  --muted: #1d2a37;
+  --muted-foreground: #90a7b9;
+  --accent: #33a1e6;
+  --accent-foreground: #0f1b26;
+  --destructive: #ef4444;
+  --destructive-foreground: #0f1b26;
+  --border: rgba(144, 167, 185, 0.12);
+  --input: rgba(144, 167, 185, 0.12);
+  --ring: #33a1e6;
+  --sidebar: #131e29;
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-background font-sans text-foreground antialiased;
+  }
+}
