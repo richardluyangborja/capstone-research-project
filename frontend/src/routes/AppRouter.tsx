@@ -1,7 +1,12 @@
 import { Route, Routes } from 'react-router-dom'
 import DashboardShell from '../components/layout/DashboardShell'
 import PublicLayout from '../components/layout/PublicLayout'
+import ProtectedRoute from '../components/ProtectedRoute'
+import { useAuth } from '../lib/auth-context'
 import DashboardHome from '../pages/DashboardHome'
+import LeadsList from '../pages/LeadsList'
+import Login from '../pages/Login'
+import NewLead from '../pages/NewLead'
 import NotFound from '../pages/NotFound'
 import PublicHome from '../pages/PublicHome'
 
@@ -13,11 +18,24 @@ export default function AppRouter() {
         <Route path="/" element={<PublicHome />} />
       </Route>
 
-      <Route path="/dashboard" element={<DashboardShell role="salesrep" />}>
-        <Route index element={<DashboardHome />} />
+      <Route path="/login" element={<Login />} />
+
+      <Route element={<ProtectedRoute />}>
+        <Route element={<DashboardLayout />}>
+          <Route path="/dashboard" element={<DashboardHome />} />
+          <Route path="/leads" element={<LeadsList />} />
+          <Route path="/leads/new" element={<NewLead />} />
+        </Route>
       </Route>
 
       <Route path="*" element={<NotFound />} />
     </Routes>
   )
+}
+
+// Single shared shell for every role (design system rule) — role comes from the session.
+function DashboardLayout() {
+  const { user } = useAuth()
+
+  return <DashboardShell role={user?.role ?? 'salesrep'} />
 }
