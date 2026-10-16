@@ -9,6 +9,7 @@ use App\Http\Requests\RateLeadRequest;
 use App\Http\Requests\UpdateQualificationRequest;
 use App\Http\Resources\LeadResource;
 use App\Models\Lead;
+use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 
 class LeadQualificationController extends Controller
@@ -41,25 +42,14 @@ class LeadQualificationController extends Controller
         return new LeadResource($lead->load('owner'));
     }
 
-    public function qualify(Lead $lead): LeadResource
+    public function qualify(Request $request, Lead $lead): LeadResource
     {
         $this->authorize('update', $lead);
         $this->guardEditable($lead);
 
-        $missing = $lead->missingQualificationCriteria();
-
-        if ($missing !== []) {
-            throw ValidationException::withMessages([
-                'criteria' => ['Lead does not meet minimum qualification criteria: '.implode(', ', $missing).'.'],
-            ]);
-        }
-
-        $lead->status = LeadStatus::Qualified;
-        $lead->status_changed_at = now();
-        $lead->last_activity_at = now();
         $lead->score ??= $lead->qualificationScore();
         $lead->rating ??= $lead->deriveRating();
-        $lead->save();
+        $lead->transitionTo(LeadStatus::Qualified, $request->user());
 
         return new LeadResource($lead->load('owner'));
     }
@@ -77,23 +67,17 @@ class LeadQualificationController extends Controller
             $lead->qualification_notes = $data['notes'];
         }
 
-        $lead->status = LeadStatus::Disqualified;
-        $lead->status_changed_at = now();
-        $lead->last_activity_at = now();
-        $lead->save();
+        $lead->transitionTo(LeadStatus::Disqualified, $request->user(), $data['notes'] ?? null);
 
         return new LeadResource($lead->load('owner'));
     }
 
-    public function nurture(Lead $lead): LeadResource
+    public function nurture(Request $request, Lead $lead): LeadResource
     {
         $this->authorize('update', $lead);
         $this->guardEditable($lead);
 
-        $lead->status = LeadStatus::Nurture;
-        $lead->status_changed_at = now();
-        $lead->last_activity_at = now();
-        $lead->save();
+        $lead->transitionTo(LeadStatus::Nurture, $request->user());
 
         return new LeadResource($lead->load('owner'));
     }

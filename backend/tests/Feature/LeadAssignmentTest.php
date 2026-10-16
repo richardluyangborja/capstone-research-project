@@ -223,7 +223,7 @@ class LeadAssignmentTest extends TestCase
             ->assertJsonPath('data.team', 1);
     }
 
-    public function test_activities_endpoint_lists_assignment_history(): void
+    public function test_timeline_endpoint_lists_assignment_history(): void
     {
         $admin = User::factory()->admin()->create();
         $rep = User::factory()->salesrep()->create();
@@ -233,9 +233,10 @@ class LeadAssignmentTest extends TestCase
             ->postJson("/api/v1/leads/{$lead->id}/assign", ['owner_id' => $rep->id]);
 
         $this->actingAs($admin, 'api')
-            ->getJson("/api/v1/leads/{$lead->id}/activities")
+            ->getJson("/api/v1/leads/{$lead->id}/timeline")
             ->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.type', ActivityType::System->value);
+            ->assertJsonPath('data.0.type', ActivityType::System->value)
+            ->assertJsonPath('data.0.category', 'system');
     }
 }

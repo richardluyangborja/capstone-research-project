@@ -6,6 +6,7 @@ import StatusBadge from '../components/common/StatusBadge'
 import EmptyState from '../components/common/EmptyState'
 import AlertItem from '../components/common/AlertItem'
 import LeadOwnerControl from '../components/common/LeadOwnerControl'
+import LeadAgingBadge from '../components/common/LeadAgingBadge'
 import {
   assignLead,
   bulkAssignLeads,
@@ -19,7 +20,7 @@ import { formatDate } from '../lib/format'
 import { useAuth } from '../lib/auth-context'
 import type { AssignmentTarget, Lead, LeadStatus } from '../types'
 
-type ViewKey = 'all' | 'mine' | 'unassigned' | 'team'
+type ViewKey = 'all' | 'mine' | 'unassigned' | 'team' | 'archived'
 
 const statusOptions: { value: LeadStatus | ''; label: string }[] = [
   { value: '', label: 'All statuses' },
@@ -28,6 +29,7 @@ const statusOptions: { value: LeadStatus | ''; label: string }[] = [
   { value: 'qualified', label: 'Qualified' },
   { value: 'nurture', label: 'Nurture' },
   { value: 'disqualified', label: 'Disqualified' },
+  { value: 'archived', label: 'Archived' },
 ]
 
 // Owner filter per view (submodule 03). `mine` = the caller's own leads.
@@ -36,6 +38,7 @@ const ownerFilter: Record<ViewKey, string | undefined> = {
   mine: 'me',
   unassigned: 'unassigned',
   team: 'team',
+  archived: undefined,
 }
 
 export default function LeadsList() {
@@ -49,42 +52,48 @@ export default function LeadsList() {
     mine: 0,
     unassigned: 0,
     team: 0,
+    archived: 0,
   })
   const [view, setView] = useState<ViewKey>('all')
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState<string>('')
+  const [staleOnly, setStaleOnly] = useState(false)
   const [selected, setSelected] = useState<string[]>([])
   const [bulkOwner, setBulkOwner] = useState<string>('')
   const [busy, setBusy] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
-  const load = useCallback(async (term: string, statusFilter: string, activeView: ViewKey) => {
-    setLoading(true)
-    setError('')
-    try {
-      const [response, summary, assignable] = await Promise.all([
-        listLeads({
-          search: term || undefined,
-          status: statusFilter || undefined,
-          owner: ownerFilter[activeView],
-        }),
-        getLeadSummary(),
-        getAssignableUsers(),
-      ])
-      setLeads(response.data)
-      setCounts(summary)
-      setTargets(assignable)
-      setSelected([])
-    } catch {
-      setError('Could not load leads. Please try again.')
-    } finally {
-      setLoading(false)
-    }
-  }, [])
+  const load = useCallback(
+    async (term: string, statusFilter: string, activeView: ViewKey, stale: boolean) => {
+      setLoading(true)
+      setError('')
+      try {
+        const [response, summary, assignable] = await Promise.all([
+          listLeads({
+            search: term || undefined,
+            status: activeView === 'archived' ? 'archived' : statusFilter || undefined,
+            owner: ownerFilter[activeView],
+            stale: stale ? 'true' : undefined,
+          }),
+          getLeadSummary(),
+          getAssignableUsers(),
+        ])
+        setLeads(response.data)
+        setCounts(summary)
+        setTargets(assignable)
+        setSelected([])
+      } catch {
+        setError('Could not load leads. Please try again.')
+      } finally {
+        setLoading(false)
+      }
+    },
+    [],
+  )
 
   useEffect(() => {
-    void load('', '', 'all')
+    void load('', '', 'all', false)
   }, [load])
 
   const refreshCounts = async () => {
@@ -128,7 +137,7 @@ export default function LeadsList() {
     try {
       await bulkAssignLeads(selected, Number(bulkOwner))
       setBulkOwner('')
-      await load(search, status, view)
+      await load(search, status, view, staleOnly)
     } catch {
       setError('Could not assign the selected leads.')
     } finally {
@@ -148,11 +157,12 @@ export default function LeadsList() {
     { key: 'mine', label: 'My Leads' },
     { key: 'unassigned', label: 'Unassigned' },
     ...(canReassign ? [{ key: 'team' as ViewKey, label: 'Team' }] : []),
+    { key: 'archived', label: 'Archived' },
   ]
 
   const changeView = (next: ViewKey) => {
     setView(next)
-    void load(search, status, next)
+    void load(search, status, next, staleOnly)
   }
 
   return (
@@ -200,7 +210,7 @@ export default function LeadsList() {
         className="mb-4 flex flex-wrap items-center gap-2"
         onSubmit={(event) => {
           event.preventDefault()
-          void load(search, status, view)
+          void load(search, status, view, staleOnly)
         }}
       >
         <div className="relative w-full max-w-sm">
@@ -217,17 +227,32 @@ export default function LeadsList() {
           />
         </div>
 
-        <select
-          value={status}
-          onChange={(event) => setStatus(event.target.value)}
-          className="rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground outline-none focus:ring-2 focus:ring-ring"
-        >
-          {statusOptions.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
+        {view !== 'archived' && (
+          <select
+            value={status}
+            onChange={(event) => setStatus(event.target.value)}
+            className="rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground outline-none focus:ring-2 focus:ring-ring"
+          >
+            {statusOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        )}
+
+        <label className="inline-flex items-center gap-2 rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground">
+          <input
+            type="checkbox"
+            checked={staleOnly}
+            onChange={(event) => {
+              setStaleOnly(event.target.checked)
+              void load(search, status, view, event.target.checked)
+            }}
+            className="h-4 w-4 rounded border-input"
+          />
+          Stale only
+        </label>
 
         <button
           type="submit"
@@ -311,6 +336,7 @@ export default function LeadsList() {
                 <th className="px-4 py-3 font-medium">Source</th>
                 <th className="px-4 py-3 font-medium">Status</th>
                 <th className="px-4 py-3 font-medium">Rating</th>
+                <th className="px-4 py-3 font-medium">Aging</th>
                 <th className="px-4 py-3 font-medium">Owner</th>
                 <th className="px-4 py-3 font-medium">Created</th>
               </tr>
@@ -318,7 +344,10 @@ export default function LeadsList() {
             <tbody>
               {loading && (
                 <tr>
-                  <td colSpan={8} className="px-4 py-6 text-center text-muted-foreground">
+                  <td
+                    colSpan={canReassign ? 9 : 8}
+                    className="px-4 py-6 text-center text-muted-foreground"
+                  >
                     Loading…
                   </td>
                 </tr>
@@ -365,6 +394,13 @@ export default function LeadsList() {
                         <StatusBadge tone={leadRatingMeta[lead.rating].tone}>
                           {leadRatingMeta[lead.rating].label}
                         </StatusBadge>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3">
+                      {lead.aging ? (
+                        <LeadAgingBadge aging={lead.aging} days={lead.days_since_activity} />
                       ) : (
                         <span className="text-muted-foreground">—</span>
                       )}

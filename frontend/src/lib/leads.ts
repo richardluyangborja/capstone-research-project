@@ -1,5 +1,12 @@
 import { api } from './api'
-import type { Activity, AssignmentTarget, Lead, LeadSummary, Paginated } from '../types'
+import type {
+  Activity,
+  AssignmentTarget,
+  Lead,
+  LeadSummary,
+  LeadTimeline,
+  Paginated,
+} from '../types'
 
 export interface LeadFilters {
   search?: string
@@ -7,6 +14,8 @@ export interface LeadFilters {
   rating?: string
   source?: string
   owner?: string
+  stale?: string
+  archived?: string
 }
 
 export interface NewLeadInput {
@@ -55,6 +64,8 @@ const buildParams = (filters: LeadFilters): Record<string, string> => {
   if (filters.rating) params['filter[rating]'] = filters.rating
   if (filters.source) params['filter[source]'] = filters.source
   if (filters.owner) params['filter[owner]'] = filters.owner
+  if (filters.stale) params['filter[stale]'] = filters.stale
+  if (filters.archived) params['filter[archived]'] = filters.archived
   return params
 }
 
@@ -148,8 +159,38 @@ export const getLeadSummary = async (): Promise<LeadSummary> => {
   return data.data
 }
 
-export const getLeadActivities = async (id: string): Promise<Activity[]> => {
-  const { data } = await api.get<{ data: Activity[] }>(`/leads/${id}/activities`)
+export const getLeadTimeline = async (id: string): Promise<LeadTimeline> => {
+  const { data } = await api.get<LeadTimeline>(`/leads/${id}/timeline`)
+  return data
+}
+
+// --- Submodule 04: lifecycle & status --------------------------------------
+
+export const updateLeadStatus = async (
+  id: string,
+  input: { status: string; reason?: string; note?: string },
+): Promise<Lead> => {
+  const { data } = await api.patch<{ data: Lead }>(`/leads/${id}/status`, input)
+  return data.data
+}
+
+export const archiveLead = async (id: string): Promise<Lead> => {
+  const { data } = await api.post<{ data: Lead }>(`/leads/${id}/archive`)
+  return data.data
+}
+
+export interface LogActivityInput {
+  type: string
+  subject: string
+  body?: string
+  occurred_at?: string
+}
+
+export const logLeadActivity = async (id: string, input: LogActivityInput): Promise<Lead> => {
+  const { data } = await api.post<{ data: Lead; activity: Activity }>(
+    `/leads/${id}/activities`,
+    input,
+  )
   return data.data
 }
 

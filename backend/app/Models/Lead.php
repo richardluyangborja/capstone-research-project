@@ -2,12 +2,14 @@
 
 namespace App\Models;
 
+use App\Enums\AgingLevel;
 use App\Enums\DisqualificationReason;
 use App\Enums\LeadRating;
 use App\Enums\LeadSource;
 use App\Enums\LeadStatus;
 use App\Enums\Role;
 use App\Enums\Urgency;
+use App\Events\LeadStatusChanged;
 use Database\Factories\LeadFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
@@ -16,6 +18,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class Lead extends Model
 {
@@ -219,5 +223,96 @@ class Lead extends Model
             LeadStatus::Qualified,
             LeadStatus::Nurture,
         ], true);
+    }
+
+    /**
+     * Apply a legal lifecycle transition (spec 04 §1–2).
+     *
+     * Illegal transitions raise a 422 validation error. Every change stamps
+     * `status_changed_at`, refreshes `last_activity_at` (so aging restarts), and
+     * records a `system` activity through the LeadStatusChanged event.
+     */
+    public function transitionTo(LeadStatus $status, ?User $actor = null, ?string $note = null): void
+    {
+        if (! $this->status->canTransitionTo($status)) {
+            throw ValidationException::withMessages([
+                'status' => [sprintf('Cannot change status from %s to %s.', $this->status->value, $status->value)],
+            ]);
+        }
+
+        // The status machine cannot bypass the submodule 02 qualification gate.
+        if ($status === LeadStatus::Qualified) {
+            $missing = $this->missingQualificationCriteria();
+
+            if ($missing !== []) {
+                throw ValidationException::withMessages([
+                    'criteria' => ['Lead does not meet minimum qualification criteria: '.implode(', ', $missing).'.'],
+                ]);
+            }
+
+            $this->score ??= $this->qualificationScore();
+            $this->rating ??= $this->deriveRating();
+        }
+
+        $from = $this->status;
+
+        DB::transaction(function () use ($from, $status, $actor, $note): void {
+            $this->status = $status;
+            $this->status_changed_at = now();
+            $this->last_activity_at = now();
+            $this->save();
+
+            LeadStatusChanged::dispatch($this, $from, $status, $actor, $note);
+        });
+    }
+
+    /**
+     * Days since the last recorded activity, falling back to the status change and
+     * finally to capture (spec 04 §3).
+     */
+    public function daysSinceActivity(): int
+    {
+        $since = $this->last_activity_at ?? $this->status_changed_at ?? $this->created_at;
+
+        return (int) $since?->diffInDays(now());
+    }
+
+    /**
+     * Aging bucket from `config/crm.php` (spec 04 §3). Terminal/archived leads never age.
+     */
+    public function agingLevel(): ?AgingLevel
+    {
+        if ($this->status->isTerminal() || $this->status === LeadStatus::Archived) {
+            return null;
+        }
+
+        $days = $this->daysSinceActivity();
+
+        return match (true) {
+            $days >= (int) config('crm.aging.archive_days') => AgingLevel::Archive,
+            $days >= (int) config('crm.aging.at_risk_days') => AgingLevel::AtRisk,
+            $days >= (int) config('crm.aging.stale_days') => AgingLevel::Stale,
+            default => null,
+        };
+    }
+
+    /**
+     * Non-terminal, non-archived leads with no activity for the given threshold (spec 04 §3).
+     * Accepts a specific level (`stale` / `at_risk` / `archive`) or any truthy value for `stale`.
+     */
+    public function scopeStale(Builder $query, bool|string $level = true): Builder
+    {
+        $days = match ($level) {
+            'archive' => (int) config('crm.aging.archive_days'),
+            'at_risk' => (int) config('crm.aging.at_risk_days'),
+            default => (int) config('crm.aging.stale_days'),
+        };
+
+        return $query
+            ->whereNotIn('status', [LeadStatus::Converted->value, LeadStatus::Archived->value])
+            ->whereRaw(
+                'COALESCE(last_activity_at, status_changed_at, created_at) <= ?',
+                [now()->subDays($days)->toDateTimeString()],
+            );
     }
 }

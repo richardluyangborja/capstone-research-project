@@ -19,7 +19,7 @@ import { formatDate } from '../lib/format'
 import { useAuth } from '../lib/auth-context'
 import type { AssignmentTarget, Lead, LeadSummary } from '../types'
 
-const emptySummary: LeadSummary = { all: 0, mine: 0, unassigned: 0, team: 0 }
+const emptySummary: LeadSummary = { all: 0, mine: 0, unassigned: 0, team: 0, archived: 0 }
 
 // Submodule 03 workspace: the shared unassigned queue, team workload, and bulk transfer.
 export default function Assignment() {

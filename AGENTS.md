@@ -48,22 +48,38 @@ Laravel's own and is separate from `frontend/`.
   score (0–100) and derived hot/warm/cold rating are stored; edits are blocked once
   disqualified/converted. `filter[status|rating|urgency]` accept comma-separated values.
 - **Submodule 03 — Lead Assignment & Ownership:** `POST /leads/{id}/assign|claim`,
-  `POST /leads/bulk-assign|bulk-transfer`, `GET /leads/{id}/activities`, `GET /leads/summary`,
-  `GET /users/assignable`; database notifications + `GET /notifications`,
-  `POST /notifications/{id}/read|read-all`. Salesrep → self only, manager → their team,
-  admin → any (ADR-0004). The unassigned queue is a **shared, claimable pool** visible to all roles;
-  a salesrep must claim before editing. Reassignment writes an `Activity` (type `system`) and
-  notifies the new owner. Round-robin distribution is **deferred** (spec 03 §3).
+  `POST /leads/bulk-assign|bulk-transfer`, `GET /leads/summary`, `GET /users/assignable`; database
+  notifications + `GET /notifications`, `POST /notifications/{id}/read|read-all`. Salesrep → self
+  only, manager → their team, admin → any (ADR-0004). The unassigned queue is a **shared, claimable
+  pool** visible to all roles; a salesrep must claim before editing. Reassignment writes an
+  `Activity` (type `system`) and notifies the new owner. Round-robin distribution is **deferred**
+  (spec 03 §3).
+- **Submodule 04 — Lead Lifecycle & Status:** `PATCH /leads/{id}/status`,
+  `POST /leads/{id}/archive`, `POST /leads/{id}/activities`, `GET /leads/{id}/timeline`,
+  `GET /leads?filter[stale]=true|at_risk|archive`. A state machine (`LeadStatus::allowedTransitions`)
+  rejects illegal moves with 422; every change stamps `status_changed_at`, refreshes
+  `last_activity_at`, and records a `system` activity via the `LeadStatusChanged` event. The status
+  endpoint **cannot bypass submodule 02** (qualifying still needs the minimum criteria,
+  disqualifying a reason); `qualify|disqualify|nurture` are wrappers over `Lead::transitionTo()`.
+  `converted` is terminal and is only reached by the submodule-08 conversion flow (ADR-0009).
+  Aging (stale/at-risk/archive-due) is **computed on read** from `config/crm.php`
+  (`CRM_STALE_DAYS` 14 / `CRM_AT_RISK_DAYS` 30 / `CRM_ARCHIVE_DAYS` 60). `archived` is a status, not a
+  delete: archived leads are hidden from default lists and counts unless
+  `filter[status]=archived` (or `filter[archived]=true`). The old
+  `GET /leads/{id}/activities` was replaced by `/timeline`.
 
-Frontend routes: `/login`, `/leads` (views: All / My Leads / Unassigned / Team, inline owner
-control + bulk assign), `/leads/new`, `/leads/:id` (qualification panel + ownership + activity
-history), `/qualification` (worklist), and `/assignment` (unassigned queue, team workload, bulk
-transfer). The topbar bell shows assignment notifications. The sidebar is **grouped by module** —
-only implemented submodules are listed under `Lead & Client Tracking`. Account + logout live in the
-sidebar footer; the brand is "Primepower Manpower Services / Customer Relationship Management".
+Frontend routes: `/login`, `/leads` (views: All / My Leads / Unassigned / Team / Archived, inline
+owner control, bulk assign, status/rating/aging columns, "Stale only" filter), `/leads/new`,
+`/leads/:id` (qualification panel + lifecycle control + ownership + activity form + timeline),
+`/qualification` (worklist), `/assignment` (unassigned queue, team workload, bulk transfer), and
+`/lifecycle` (aging / stale triage worklist). The topbar bell shows assignment notifications. The
+sidebar is **grouped by module** — only implemented submodules are listed under
+`Lead & Client Tracking`. Account + logout live in the sidebar footer; the brand is "Primepower
+Manpower Services / Customer Relationship Management".
 
-**Not implemented yet:** the remaining submodules (04 lifecycle transitions, 06–09) and the
-Companies/Contacts/Opportunities models + routes. Add them per `resources/specs/`.
+**Not implemented yet:** the remaining submodules (06–09) and the Companies/Contacts/Opportunities
+models + routes. Add them per `resources/specs/`. Conversion (`qualified → converted`) is reserved
+for submodule 08 (ADR-0009).
 
 **Demo accounts** (password `password`, via `php artisan migrate:fresh --seed`):
 `salesrep@primepower.test`, `salesrep2@primepower.test` (same team), `manager@primepower.test`,

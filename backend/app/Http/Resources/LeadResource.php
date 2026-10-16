@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Enums\LeadStatus;
 use App\Models\Lead;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -52,6 +53,15 @@ class LeadResource extends JsonResource
             // Assignment affordances (spec 03)
             'can_claim' => $this->owner_id === null,
             'can_reassign' => (bool) $request->user()?->can('assign', [$this->resource]),
+            'can_update' => (bool) $request->user()?->can('update', $this->resource),
+            // Lifecycle affordances (spec 04)
+            'allowed_transitions' => array_map(
+                fn ($status): string => $status->value,
+                $this->status->actionableTransitions(),
+            ),
+            'is_archived' => $this->status === LeadStatus::Archived,
+            'aging' => $this->agingLevel()?->value,
+            'days_since_activity' => $this->daysSinceActivity(),
             // Sensitive: hidden from salesrep (ADR-0004)
             'budget_rate' => $this->when(
                 $request->user()?->canSeeSensitiveData() ?? false,

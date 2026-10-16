@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\LeadAssignmentController;
 use App\Http\Controllers\Api\V1\LeadController;
+use App\Http\Controllers\Api\V1\LeadLifecycleController;
 use App\Http\Controllers\Api\V1\LeadQualificationController;
 use App\Http\Controllers\Api\V1\NotificationController;
 use App\Http\Controllers\Api\V1\UserController;
@@ -50,6 +51,11 @@ Route::prefix('v1')->group(function (): void {
         // Submodule 03 — Lead Assignment & Ownership
         Route::post('leads/{lead}/assign', [LeadAssignmentController::class, 'assign']);
         Route::post('leads/{lead}/claim', [LeadAssignmentController::class, 'claim']);
-        Route::get('leads/{lead}/activities', [LeadAssignmentController::class, 'activities']);
+
+        // Submodule 04 — Lead Lifecycle & Status
+        Route::patch('leads/{lead}/status', [LeadLifecycleController::class, 'updateStatus']);
+        Route::post('leads/{lead}/archive', [LeadLifecycleController::class, 'archive']);
+        Route::post('leads/{lead}/activities', [LeadLifecycleController::class, 'logActivity']);
+        Route::get('leads/{lead}/timeline', [LeadLifecycleController::class, 'timeline']);
     });
 });

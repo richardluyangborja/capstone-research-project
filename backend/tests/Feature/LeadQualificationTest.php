@@ -18,14 +18,17 @@ class LeadQualificationTest extends TestCase
     public function test_qualify_fails_when_minimum_criteria_are_missing(): void
     {
         $user = User::factory()->salesrep()->create();
-        $lead = Lead::factory()->create(['owner_id' => $user->id]);
+        $lead = Lead::factory()->create([
+            'owner_id' => $user->id,
+            'status' => LeadStatus::Contacted,
+        ]);
 
         $this->actingAs($user, 'api')
             ->postJson("/api/v1/leads/{$lead->id}/qualify")
             ->assertStatus(422)
             ->assertJsonValidationErrors('criteria');
 
-        $this->assertSame(LeadStatus::New, $lead->fresh()->status);
+        $this->assertSame(LeadStatus::Contacted, $lead->fresh()->status);
     }
 
     public function test_qualify_succeeds_when_criteria_are_met(): void
@@ -33,6 +36,7 @@ class LeadQualificationTest extends TestCase
         $user = User::factory()->salesrep()->create();
         $lead = Lead::factory()->create([
             'owner_id' => $user->id,
+            'status' => LeadStatus::Contacted,
             'estimated_headcount' => 8,
             'needed_roles' => 'Warehouse staff, forklift operators',
             'contact_email' => 'hr@acme.test',
@@ -76,7 +80,10 @@ class LeadQualificationTest extends TestCase
     public function test_nurture_sets_status_without_a_reason(): void
     {
         $user = User::factory()->salesrep()->create();
-        $lead = Lead::factory()->create(['owner_id' => $user->id]);
+        $lead = Lead::factory()->create([
+            'owner_id' => $user->id,
+            'status' => LeadStatus::Contacted,
+        ]);
 
         $this->actingAs($user, 'api')
             ->postJson("/api/v1/leads/{$lead->id}/nurture")
