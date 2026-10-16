@@ -36,9 +36,22 @@ Run from the repo root unless a directory is noted; start the DB first.
 it before backend work. Backend asset tooling (`backend/package.json`, `backend/vite.config.js`) is
 Laravel's own and is separate from `frontend/`.
 
-**Implemented:** JWT auth package (`php-open-source-saver/jwt-auth`, `api` guard — ADR-0008).
-**Not implemented yet:** auth login/me endpoints, teams/roles, and the CRM models/migrations and
-`/api/v1` resource routes. Add them per `resources/specs/`.
+**Implemented:** JWT auth (`php-open-source-saver/jwt-auth`, `api` guard — ADR-0008) with
+`POST /api/v1/auth/login`, `GET /api/v1/auth/me`, `POST /api/v1/auth/logout`; teams + roles on
+`users` (seeded, no faker); **submodule 01 — Lead Capture & Intake** (`app/Models/Lead.php`, ULID
+migrations, `LeadPolicy`, `LeadResource`, `StoreLeadRequest`, `LeadController`) exposed under
+`/api/v1/leads` (index/store/show/destroy + `POST /leads/{id}/restore`), with advisory duplicate
+checking and role/ownership scoping (ADR-0004). Frontend has `/login`, `/leads` and `/leads/new`
+wired to the API via `src/lib/auth.tsx` + `src/lib/leads.ts`.
+
+**Not implemented yet:** the remaining submodules (02 qualification workflow, 03 assignment, 04
+lifecycle transitions, 06–09) and the Companies/Contacts/Opportunities models + routes. Lead
+qualification columns already exist on `leads` (`rating`, `score`, `urgency`, …) but no workflow
+endpoints. Add them per `resources/specs/`.
+
+**Demo accounts** (password `password`, via `php artisan migrate:fresh --seed`):
+`salesrep@primepower.test`, `manager@primepower.test`, `admin@primepower.test`,
+`superadmin@primepower.test`.
 
 ## Conventions that differ from framework defaults
 
