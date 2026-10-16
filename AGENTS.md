@@ -47,18 +47,27 @@ Laravel's own and is separate from `frontend/`.
   contact channel) are enforced on `/qualify` (422 lists what's missing); a weighted checklist
   score (0–100) and derived hot/warm/cold rating are stored; edits are blocked once
   disqualified/converted. `filter[status|rating|urgency]` accept comma-separated values.
+- **Submodule 03 — Lead Assignment & Ownership:** `POST /leads/{id}/assign|claim`,
+  `POST /leads/bulk-assign|bulk-transfer`, `GET /leads/{id}/activities`, `GET /leads/summary`,
+  `GET /users/assignable`; database notifications + `GET /notifications`,
+  `POST /notifications/{id}/read|read-all`. Salesrep → self only, manager → their team,
+  admin → any (ADR-0004). The unassigned queue is a **shared, claimable pool** visible to all roles;
+  a salesrep must claim before editing. Reassignment writes an `Activity` (type `system`) and
+  notifies the new owner. Round-robin distribution is **deferred** (spec 03 §3).
 
-Frontend routes: `/login`, `/leads`, `/leads/new`, `/leads/:id` (qualification panel), and
-`/qualification` (worklist). The sidebar is **grouped by module** — only implemented submodules are
-listed under `Lead & Client Tracking`. Account + logout live in the sidebar footer; the brand is
-"Primepower Manpower Services / Customer Relationship Management".
+Frontend routes: `/login`, `/leads` (views: All / My Leads / Unassigned / Team, inline owner
+control + bulk assign), `/leads/new`, `/leads/:id` (qualification panel + ownership + activity
+history), `/qualification` (worklist), and `/assignment` (unassigned queue, team workload, bulk
+transfer). The topbar bell shows assignment notifications. The sidebar is **grouped by module** —
+only implemented submodules are listed under `Lead & Client Tracking`. Account + logout live in the
+sidebar footer; the brand is "Primepower Manpower Services / Customer Relationship Management".
 
-**Not implemented yet:** the remaining submodules (03 assignment, 04 lifecycle transitions, 06–09)
-and the Companies/Contacts/Opportunities models + routes. Add them per `resources/specs/`.
+**Not implemented yet:** the remaining submodules (04 lifecycle transitions, 06–09) and the
+Companies/Contacts/Opportunities models + routes. Add them per `resources/specs/`.
 
 **Demo accounts** (password `password`, via `php artisan migrate:fresh --seed`):
-`salesrep@primepower.test`, `manager@primepower.test`, `admin@primepower.test`,
-`superadmin@primepower.test`.
+`salesrep@primepower.test`, `salesrep2@primepower.test` (same team), `manager@primepower.test`,
+`admin@primepower.test`, `superadmin@primepower.test`.
 
 ## Conventions that differ from framework defaults
 
@@ -70,8 +79,11 @@ and the Companies/Contacts/Opportunities models + routes. Add them per `resource
 - **Icons:** use `lucide` (lucide-react) only.
 - **Locale / currency is PH-based:** `en-PH`, `Asia/Manila` (store UTC), dates `DD MMM YYYY`, PH
   address/phone formats, and **single currency PHP (₱)** — no multi-currency.
+- **Ownership scoping** is enforced server-side on every lead query and policy check; the shared
+  unassigned queue is the one documented exception to salesrep "own records only" (ADR-0004).
 - **IDs are non-sequential ULIDs** on every URL/list-exposed entity — never expose
-  auto-incrementing IDs in the API/URL (ADR-0007).
+  auto-incrementing IDs in the API/URL (ADR-0007). (`users.id` is the one exception: the seeded
+  staff table uses bigint ids, never routed as URL-exposed resources.)
 
 ## Mandatory design system
 
@@ -79,7 +91,9 @@ Announced in `resources/departamental-design-instruction.md` (agreed default, pe
 sign-off). Full color values: `resources/design-tokens.md`.
 
 - Tokens live in `tailwind.config.js` and `index.css`. **No hardcoded hex or arbitrary px** —
-  tokens/utility classes only. Light + dark mode values are both defined.
+  tokens/utility classes only. Light + dark mode values are both defined. Tokens are hex `var()`s,
+  so opacity modifiers (`bg-counts/15`) resolve through `color-mix` — see the `withAlpha` helper in
+  `tailwind.config.js` (Tailwind v3 cannot alpha a plain `var()` colour).
 - Fixed color mapping per data domain: **blue = counts, green = people, purple = activity,
   orange = cost.** Brand logo text uses `logo-brand`; lead rating uses `rating-hot|warm|cold` — all
   documented in `resources/design-tokens.md`.

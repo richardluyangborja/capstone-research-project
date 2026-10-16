@@ -35,6 +35,15 @@ class DatabaseSeeder extends Seeder
             'team_id' => $team->id,
         ]);
 
+        // A second salesrep so assignment/workload/transfer are demonstrable (submodule 03).
+        User::create([
+            'name' => 'Liza Lopez',
+            'email' => 'salesrep2@primepower.test',
+            'password' => 'password',
+            'role' => Role::Salesrep,
+            'team_id' => $team->id,
+        ]);
+
         User::create([
             'name' => 'Ada Admin',
             'email' => 'admin@primepower.test',

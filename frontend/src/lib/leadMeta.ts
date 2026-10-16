@@ -1,5 +1,12 @@
 import type { Tone } from '../components/common/StatusBadge'
-import type { DisqualificationReason, LeadRating, LeadSource, LeadStatus, Urgency } from '../types'
+import type {
+  ActivityType,
+  DisqualificationReason,
+  LeadRating,
+  LeadSource,
+  LeadStatus,
+  Urgency,
+} from '../types'
 
 export const leadStatusMeta: Record<LeadStatus, { label: string; tone: Tone }> = {
   new: { label: 'New', tone: 'counts' },
@@ -33,6 +40,16 @@ export const urgencyLabels: Record<Urgency, string> = {
   low: 'Low',
   medium: 'Medium',
   high: 'High',
+}
+
+export const activityTypeMeta: Record<ActivityType, { label: string; tone: Tone }> = {
+  call: { label: 'Call', tone: 'people' },
+  email: { label: 'Email', tone: 'counts' },
+  meeting: { label: 'Meeting', tone: 'activity' },
+  walk_in: { label: 'Walk-in', tone: 'people' },
+  task: { label: 'Task', tone: 'cost' },
+  note: { label: 'Note', tone: 'neutral' },
+  system: { label: 'System', tone: 'neutral' },
 }
 
 export const disqualificationReasonLabels: Record<DisqualificationReason, string> = {

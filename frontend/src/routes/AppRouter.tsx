@@ -3,6 +3,7 @@ import DashboardShell from '../components/layout/DashboardShell'
 import PublicLayout from '../components/layout/PublicLayout'
 import ProtectedRoute from '../components/ProtectedRoute'
 import { useAuth } from '../lib/auth-context'
+import Assignment from '../pages/Assignment'
 import DashboardHome from '../pages/DashboardHome'
 import LeadDetail from '../pages/LeadDetail'
 import LeadsList from '../pages/LeadsList'
@@ -29,6 +30,7 @@ export default function AppRouter() {
           <Route path="/leads/new" element={<NewLead />} />
           <Route path="/leads/:id" element={<LeadDetail />} />
           <Route path="/qualification" element={<Qualification />} />
+          <Route path="/assignment" element={<Assignment />} />
         </Route>
       </Route>
 

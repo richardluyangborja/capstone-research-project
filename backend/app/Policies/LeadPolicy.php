@@ -15,7 +15,13 @@ class LeadPolicy
 
     public function view(User $user, Lead $lead): bool
     {
-        return $this->canAccess($user, $lead);
+        // The unassigned queue is a shared, claimable pool — visible to every role
+        // (ADR-0004 clarification — see submodule 03).
+        if ($lead->owner_id === null) {
+            return true;
+        }
+
+        return $this->ownsOrOversees($user, $lead);
     }
 
     public function create(User $user): bool
@@ -25,17 +31,23 @@ class LeadPolicy
 
     public function update(User $user, Lead $lead): bool
     {
-        return $this->canAccess($user, $lead);
+        // Working an unassigned lead requires claiming it first (salesrep);
+        // managers/admins may edit the queue directly.
+        if ($lead->owner_id === null) {
+            return $user->role !== Role::Salesrep;
+        }
+
+        return $this->ownsOrOversees($user, $lead);
     }
 
     public function delete(User $user, Lead $lead): bool
     {
-        return $this->canAccess($user, $lead);
+        return $this->update($user, $lead);
     }
 
     public function restore(User $user, Lead $lead): bool
     {
-        return $this->canAccess($user, $lead);
+        return $this->update($user, $lead);
     }
 
     public function forceDelete(User $user, Lead $lead): bool
@@ -44,16 +56,47 @@ class LeadPolicy
     }
 
     /**
-     * Role + ownership scoping (ADR-0004): salesrep own, manager team + queue, admin all.
+     * (Re)assign a lead (spec 03 §2): salesrep → self only, manager → their team, admin → any.
+     * A null target asks "may this user assign to others at all".
      */
-    private function canAccess(User $user, Lead $lead): bool
+    public function assign(User $user, Lead $lead, ?User $target = null): bool
+    {
+        if (! $this->view($user, $lead)) {
+            return false;
+        }
+
+        if ($user->role->isAdmin()) {
+            return $target === null || $target->role === Role::Salesrep;
+        }
+
+        if ($user->role === Role::Manager) {
+            if ($target === null) {
+                return true;
+            }
+
+            return $target->role === Role::Salesrep
+                && $target->team_id !== null
+                && $target->team_id === $user->team_id;
+        }
+
+        return $target !== null && $target->id === $user->id;
+    }
+
+    /**
+     * Any role may claim an unassigned lead from the shared queue (spec 03).
+     */
+    public function claim(User $user, Lead $lead): bool
+    {
+        return $lead->owner_id === null;
+    }
+
+    /**
+     * Role + ownership scoping (ADR-0004): salesrep own, manager team, admin all.
+     */
+    private function ownsOrOversees(User $user, Lead $lead): bool
     {
         if ($user->role->isAdmin()) {
             return true;
-        }
-
-        if ($lead->owner_id === null) {
-            return $user->role === Role::Manager;
         }
 
         if ($user->role === Role::Manager) {

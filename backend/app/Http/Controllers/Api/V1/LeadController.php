@@ -34,6 +34,7 @@ class LeadController extends Controller
                 return match ($owner) {
                     'me' => $query->where('owner_id', $request->user()->id),
                     'unassigned' => $query->whereNull('owner_id'),
+                    'team' => $query->whereHas('owner', fn ($q) => $q->where('team_id', $request->user()->team_id)),
                     default => $query->where('owner_id', $owner),
                 };
             })
@@ -42,6 +43,24 @@ class LeadController extends Controller
             ->appends($request->query());
 
         return LeadResource::collection($leads);
+    }
+
+    public function summary(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        $base = fn () => Lead::query()->visibleTo($user);
+
+        return response()->json([
+            'data' => [
+                'all' => $base()->count(),
+                'mine' => $base()->where('owner_id', $user->id)->count(),
+                'unassigned' => $base()->whereNull('owner_id')->count(),
+                'team' => $user->team_id !== null
+                    ? $base()->whereHas('owner', fn ($query) => $query->where('team_id', $user->team_id))->count()
+                    : 0,
+            ],
+        ]);
     }
 
     public function store(StoreLeadRequest $request): JsonResponse

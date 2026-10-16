@@ -4,10 +4,22 @@ import { Plus, Search } from 'lucide-react'
 import PageHeader from '../components/common/PageHeader'
 import StatusBadge from '../components/common/StatusBadge'
 import EmptyState from '../components/common/EmptyState'
-import { listLeads } from '../lib/leads'
+import AlertItem from '../components/common/AlertItem'
+import LeadOwnerControl from '../components/common/LeadOwnerControl'
+import {
+  assignLead,
+  bulkAssignLeads,
+  claimLead,
+  getAssignableUsers,
+  getLeadSummary,
+  listLeads,
+} from '../lib/leads'
 import { leadRatingMeta, leadSourceLabels, leadStatusMeta } from '../lib/leadMeta'
 import { formatDate } from '../lib/format'
-import type { Lead, LeadStatus } from '../types'
+import { useAuth } from '../lib/auth-context'
+import type { AssignmentTarget, Lead, LeadStatus } from '../types'
+
+type ViewKey = 'all' | 'mine' | 'unassigned' | 'team'
 
 const statusOptions: { value: LeadStatus | ''; label: string }[] = [
   { value: '', label: 'All statuses' },
@@ -18,22 +30,52 @@ const statusOptions: { value: LeadStatus | ''; label: string }[] = [
   { value: 'disqualified', label: 'Disqualified' },
 ]
 
+// Owner filter per view (submodule 03). `mine` = the caller's own leads.
+const ownerFilter: Record<ViewKey, string | undefined> = {
+  all: undefined,
+  mine: 'me',
+  unassigned: 'unassigned',
+  team: 'team',
+}
+
 export default function LeadsList() {
+  const { user } = useAuth()
+  const canReassign = user?.role !== 'salesrep'
+
   const [leads, setLeads] = useState<Lead[]>([])
+  const [targets, setTargets] = useState<AssignmentTarget[]>([])
+  const [counts, setCounts] = useState<Record<ViewKey, number>>({
+    all: 0,
+    mine: 0,
+    unassigned: 0,
+    team: 0,
+  })
+  const [view, setView] = useState<ViewKey>('all')
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState<string>('')
+  const [selected, setSelected] = useState<string[]>([])
+  const [bulkOwner, setBulkOwner] = useState<string>('')
+  const [busy, setBusy] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
-  const load = useCallback(async (term: string, statusFilter: string) => {
+  const load = useCallback(async (term: string, statusFilter: string, activeView: ViewKey) => {
     setLoading(true)
     setError('')
     try {
-      const response = await listLeads({
-        search: term || undefined,
-        status: statusFilter || undefined,
-      })
+      const [response, summary, assignable] = await Promise.all([
+        listLeads({
+          search: term || undefined,
+          status: statusFilter || undefined,
+          owner: ownerFilter[activeView],
+        }),
+        getLeadSummary(),
+        getAssignableUsers(),
+      ])
       setLeads(response.data)
+      setCounts(summary)
+      setTargets(assignable)
+      setSelected([])
     } catch {
       setError('Could not load leads. Please try again.')
     } finally {
@@ -42,14 +84,82 @@ export default function LeadsList() {
   }, [])
 
   useEffect(() => {
-    void load('', '')
+    void load('', '', 'all')
   }, [load])
+
+  const refreshCounts = async () => {
+    try {
+      setCounts(await getLeadSummary())
+    } catch {
+      // non-critical
+    }
+  }
+
+  const replaceLead = (updated: Lead) =>
+    setLeads((previous) => previous.map((lead) => (lead.id === updated.id ? updated : lead)))
+
+  const onClaim = async (lead: Lead) => {
+    setBusy(true)
+    try {
+      replaceLead(await claimLead(lead.id))
+      await refreshCounts()
+    } catch {
+      setError(`Could not claim ${lead.reference}.`)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const onAssign = async (lead: Lead, ownerId: number) => {
+    setBusy(true)
+    try {
+      replaceLead(await assignLead(lead.id, ownerId))
+      await refreshCounts()
+    } catch {
+      setError(`Could not reassign ${lead.reference}.`)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const onBulkAssign = async () => {
+    if (!bulkOwner || selected.length === 0) return
+    setBusy(true)
+    try {
+      await bulkAssignLeads(selected, Number(bulkOwner))
+      setBulkOwner('')
+      await load(search, status, view)
+    } catch {
+      setError('Could not assign the selected leads.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const toggleSelected = (id: string) =>
+    setSelected((previous) =>
+      previous.includes(id) ? previous.filter((value) => value !== id) : [...previous, id],
+    )
+
+  const allSelected = leads.length > 0 && selected.length === leads.length
+
+  const tabs: { key: ViewKey; label: string }[] = [
+    { key: 'all', label: 'All' },
+    { key: 'mine', label: 'My Leads' },
+    { key: 'unassigned', label: 'Unassigned' },
+    ...(canReassign ? [{ key: 'team' as ViewKey, label: 'Team' }] : []),
+  ]
+
+  const changeView = (next: ViewKey) => {
+    setView(next)
+    void load(search, status, next)
+  }
 
   return (
     <div>
       <PageHeader
         title="Leads"
-        description="Capture, qualify and track prospective clients."
+        description="Capture, qualify, assign and track prospective clients."
         actions={
           <Link
             to="/leads/new"
@@ -61,11 +171,36 @@ export default function LeadsList() {
         }
       />
 
+      <div className="mb-4 flex flex-wrap gap-1 rounded-lg border border-border bg-card p-1">
+        {tabs.map((tab) => {
+          const active = tab.key === view
+          return (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => changeView(tab.key)}
+              className={`inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                active ? 'bg-secondary text-primary' : 'text-muted-foreground hover:bg-muted'
+              }`}
+            >
+              {tab.label}
+              <span
+                className={`rounded px-1.5 text-xs ${
+                  active ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
+                }`}
+              >
+                {counts[tab.key]}
+              </span>
+            </button>
+          )
+        })}
+      </div>
+
       <form
         className="mb-4 flex flex-wrap items-center gap-2"
         onSubmit={(event) => {
           event.preventDefault()
-          void load(search, status)
+          void load(search, status, view)
         }}
       >
         <div className="relative w-full max-w-sm">
@@ -103,9 +238,42 @@ export default function LeadsList() {
       </form>
 
       {error && (
-        <p className="mb-4 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          {error}
-        </p>
+        <div className="mb-4">
+          <AlertItem variant="danger">{error}</AlertItem>
+        </div>
+      )}
+
+      {canReassign && selected.length > 0 && (
+        <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-secondary px-3 py-2 text-sm">
+          <span className="font-medium text-secondary-foreground">{selected.length} selected</span>
+          <select
+            value={bulkOwner}
+            onChange={(event) => setBulkOwner(event.target.value)}
+            className="rounded-md border border-input bg-card px-2 py-1.5 text-sm text-foreground outline-none focus:ring-2 focus:ring-ring"
+          >
+            <option value="">Assign to…</option>
+            {targets.map((target) => (
+              <option key={target.id} value={target.id}>
+                {target.name}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            disabled={busy || !bulkOwner}
+            onClick={() => void onBulkAssign()}
+            className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground disabled:opacity-60"
+          >
+            Assign selected
+          </button>
+          <button
+            type="button"
+            onClick={() => setSelected([])}
+            className="rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:text-foreground"
+          >
+            Clear
+          </button>
+        </div>
       )}
 
       {!loading && leads.length === 0 ? (
@@ -127,6 +295,17 @@ export default function LeadsList() {
           <table className="w-full text-left text-sm">
             <thead className="border-b border-border text-xs uppercase text-muted-foreground">
               <tr>
+                {canReassign && (
+                  <th className="px-4 py-3 font-medium">
+                    <input
+                      type="checkbox"
+                      aria-label="Select all"
+                      checked={allSelected}
+                      onChange={() => setSelected(allSelected ? [] : leads.map((lead) => lead.id))}
+                      className="h-4 w-4 rounded border-input"
+                    />
+                  </th>
+                )}
                 <th className="px-4 py-3 font-medium">Reference</th>
                 <th className="px-4 py-3 font-medium">Company</th>
                 <th className="px-4 py-3 font-medium">Source</th>
@@ -139,7 +318,7 @@ export default function LeadsList() {
             <tbody>
               {loading && (
                 <tr>
-                  <td colSpan={7} className="px-4 py-6 text-center text-muted-foreground">
+                  <td colSpan={8} className="px-4 py-6 text-center text-muted-foreground">
                     Loading…
                   </td>
                 </tr>
@@ -148,6 +327,17 @@ export default function LeadsList() {
               {!loading &&
                 leads.map((lead) => (
                   <tr key={lead.id} className="border-b border-border last:border-0">
+                    {canReassign && (
+                      <td className="px-4 py-3">
+                        <input
+                          type="checkbox"
+                          aria-label={`Select ${lead.reference}`}
+                          checked={selected.includes(lead.id)}
+                          onChange={() => toggleSelected(lead.id)}
+                          className="h-4 w-4 rounded border-input"
+                        />
+                      </td>
+                    )}
                     <td className="px-4 py-3">
                       <Link to={`/leads/${lead.id}`} className="font-mono text-xs text-primary">
                         {lead.reference}
@@ -162,7 +352,9 @@ export default function LeadsList() {
                         {lead.contact_email ? ` · ${lead.contact_email}` : ''}
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-muted-foreground">{leadSourceLabels[lead.source]}</td>
+                    <td className="px-4 py-3 text-muted-foreground">
+                      {leadSourceLabels[lead.source]}
+                    </td>
                     <td className="px-4 py-3">
                       <StatusBadge tone={leadStatusMeta[lead.status].tone}>
                         {leadStatusMeta[lead.status].label}
@@ -177,10 +369,18 @@ export default function LeadsList() {
                         <span className="text-muted-foreground">—</span>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-muted-foreground">
-                      {lead.owner?.name ?? 'Unassigned'}
+                    <td className="px-4 py-3">
+                      <LeadOwnerControl
+                        lead={lead}
+                        targets={targets}
+                        busy={busy}
+                        onClaim={() => void onClaim(lead)}
+                        onAssign={(ownerId) => void onAssign(lead, ownerId)}
+                      />
                     </td>
-                    <td className="px-4 py-3 text-muted-foreground">{formatDate(lead.created_at)}</td>
+                    <td className="px-4 py-3 text-muted-foreground">
+                      {formatDate(lead.created_at)}
+                    </td>
                   </tr>
                 ))}
             </tbody>

@@ -14,6 +14,7 @@ check this list first:
 - `AlertItem` — inline alert (info/success/warning/danger) — **done**
 - `FormCard` — titled card with optional footer — **done**
 - `EmptyState` — empty list placeholder — **done**
+- `LeadOwnerControl` — claim / reassign a lead's owner — **done**
 - `ChartCard` — line + donut chart wrapper — pending
 - `DataTable` — list/tables with filters, pagination, bulk actions — pending
 

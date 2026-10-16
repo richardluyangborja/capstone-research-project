@@ -5,9 +5,14 @@ import PageHeader from '../components/common/PageHeader'
 import FormCard from '../components/common/FormCard'
 import StatusBadge from '../components/common/StatusBadge'
 import AlertItem from '../components/common/AlertItem'
+import LeadOwnerControl from '../components/common/LeadOwnerControl'
 import {
+  assignLead,
+  claimLead,
   disqualifyLead,
+  getAssignableUsers,
   getLead,
+  getLeadActivities,
   nurtureLead,
   parseValidationError,
   qualifyLead,
@@ -16,14 +21,22 @@ import {
   type QualificationInput,
 } from '../lib/leads'
 import {
+  activityTypeMeta,
   disqualificationReasonLabels,
   leadRatingMeta,
   leadSourceLabels,
   leadStatusMeta,
   urgencyLabels,
 } from '../lib/leadMeta'
-import { formatDate } from '../lib/format'
-import type { DisqualificationReason, Lead, LeadRating, Urgency } from '../types'
+import { formatDate, formatDateTime } from '../lib/format'
+import type {
+  Activity,
+  AssignmentTarget,
+  DisqualificationReason,
+  Lead,
+  LeadRating,
+  Urgency,
+} from '../types'
 
 interface ChecklistForm {
   estimated_headcount: string
@@ -74,12 +87,22 @@ export default function LeadDetail() {
   const [disqualifyReason, setDisqualifyReason] = useState<DisqualificationReason>('no_budget')
   const [disqualifyNotes, setDisqualifyNotes] = useState('')
 
+  const [targets, setTargets] = useState<AssignmentTarget[]>([])
+  const [activities, setActivities] = useState<Activity[]>([])
+  const [assignBusy, setAssignBusy] = useState(false)
+
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const data = await getLead(id)
+      const [data, assignable, history] = await Promise.all([
+        getLead(id),
+        getAssignableUsers(),
+        getLeadActivities(id),
+      ])
       setLead(data)
       setForm(formFromLead(data))
+      setTargets(assignable)
+      setActivities(history)
     } catch {
       setErrors({})
       setAlertVariant('danger')
@@ -115,7 +138,11 @@ export default function LeadDetail() {
     }
   }
 
-  const run = async (action: () => Promise<Lead>, success: string, fallback: string): Promise<boolean> => {
+  const run = async (
+    action: () => Promise<Lead>,
+    success: string,
+    fallback: string,
+  ): Promise<boolean> => {
     setSaving(true)
     try {
       applyResult(await action(), success)
@@ -137,11 +164,41 @@ export default function LeadDetail() {
     if (ok) setDisqualifyOpen(false)
   }
 
+  const onClaimLead = async () => {
+    setAssignBusy(true)
+    try {
+      const updated = await claimLead(id)
+      applyResult(updated, 'Lead claimed.')
+      setActivities(await getLeadActivities(id))
+    } catch (error) {
+      handleFailure(error, 'Could not claim this lead.')
+    } finally {
+      setAssignBusy(false)
+    }
+  }
+
+  const onAssignLead = async (ownerId: number) => {
+    setAssignBusy(true)
+    try {
+      const updated = await assignLead(id, ownerId)
+      applyResult(updated, 'Owner updated.')
+      setActivities(await getLeadActivities(id))
+    } catch (error) {
+      handleFailure(error, 'Could not reassign this lead.')
+    } finally {
+      setAssignBusy(false)
+    }
+  }
+
   const showBudget = lead?.budget_rate !== undefined
 
   const onSaveChecklist = async (event: FormEvent) => {
     event.preventDefault()
-    await run(() => updateQualification(id, toInput(form, showBudget)), 'Qualification saved.', 'Could not save.')
+    await run(
+      () => updateQualification(id, toInput(form, showBudget)),
+      'Qualification saved.',
+      'Could not save.',
+    )
   }
 
   if (loading && !lead) {
@@ -163,7 +220,10 @@ export default function LeadDetail() {
 
   return (
     <div>
-      <Link to="/leads" className="mb-3 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+      <Link
+        to="/leads"
+        className="mb-3 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+      >
         <ArrowLeft className="h-4 w-4" aria-hidden="true" />
         Back to leads
       </Link>
@@ -171,9 +231,7 @@ export default function LeadDetail() {
       <PageHeader
         title={lead.company_name}
         description={`${lead.reference} · ${lead.contact_name}`}
-        actions={
-          <StatusBadge tone={statusMeta.tone}>{statusMeta.label}</StatusBadge>
-        }
+        actions={<StatusBadge tone={statusMeta.tone}>{statusMeta.label}</StatusBadge>}
       />
 
       {message && (
@@ -279,7 +337,11 @@ export default function LeadDetail() {
                 />
               </Field>
 
-              <Field label="Qualification notes" error={errors.qualification_notes} className="md:col-span-2">
+              <Field
+                label="Qualification notes"
+                error={errors.qualification_notes}
+                className="md:col-span-2"
+              >
                 <textarea
                   rows={2}
                   value={form.qualification_notes}
@@ -313,9 +375,63 @@ export default function LeadDetail() {
               <Detail label="Created" value={formatDate(lead.created_at)} />
             </dl>
           </FormCard>
+
+          <FormCard title="Activity history" description="Ownership changes and system events.">
+            {activities.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No activity recorded yet.</p>
+            ) : (
+              <ul className="flex flex-col gap-4">
+                {activities.map((activity) => {
+                  const meta = activityTypeMeta[activity.type]
+                  return (
+                    <li key={activity.id} className="flex gap-3">
+                      <StatusBadge tone={meta.tone}>{meta.label}</StatusBadge>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm text-foreground">{activity.subject}</p>
+                        {activity.body && (
+                          <p className="mt-0.5 text-xs text-muted-foreground">{activity.body}</p>
+                        )}
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          {activity.owner?.name ? `${activity.owner.name} · ` : ''}
+                          {formatDateTime(activity.occurred_at ?? activity.created_at)}
+                        </p>
+                      </div>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </FormCard>
         </div>
 
         <div className="flex flex-col gap-6">
+          <FormCard title="Ownership">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">Responsible salesrep</span>
+              <span className="text-sm font-medium text-foreground">
+                {lead.owner?.name ?? 'Unassigned'}
+              </span>
+            </div>
+
+            {(lead.can_claim || lead.can_reassign) && (
+              <div className="mt-4">
+                <LeadOwnerControl
+                  lead={lead}
+                  targets={targets}
+                  busy={assignBusy}
+                  onClaim={() => void onClaimLead()}
+                  onAssign={(ownerId) => void onAssignLead(ownerId)}
+                />
+              </div>
+            )}
+
+            {lead.can_claim && (
+              <p className="mt-2 text-xs text-muted-foreground">
+                Claim this lead to work it — you then own its qualification.
+              </p>
+            )}
+          </FormCard>
+
           <FormCard title="Assessment">
             <div className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">Rating</span>
@@ -346,7 +462,13 @@ export default function LeadDetail() {
                     key={rating}
                     type="button"
                     disabled={saving}
-                    onClick={() => void run(() => rateLead(id, { rating }), `Rated ${rating}.`, 'Could not rate.')}
+                    onClick={() =>
+                      void run(
+                        () => rateLead(id, { rating }),
+                        `Rated ${rating}.`,
+                        'Could not rate.',
+                      )
+                    }
                     className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted disabled:opacity-60"
                   >
                     {leadRatingMeta[rating].label}
@@ -362,7 +484,9 @@ export default function LeadDetail() {
                 <button
                   type="button"
                   disabled={saving}
-                  onClick={() => void run(() => qualifyLead(id), 'Lead qualified.', 'Could not qualify.')}
+                  onClick={() =>
+                    void run(() => qualifyLead(id), 'Lead qualified.', 'Could not qualify.')
+                  }
                   className="rounded-md bg-people px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60"
                 >
                   Mark qualified
@@ -370,7 +494,9 @@ export default function LeadDetail() {
                 <button
                   type="button"
                   disabled={saving}
-                  onClick={() => void run(() => nurtureLead(id), 'Moved to nurture.', 'Could not update.')}
+                  onClick={() =>
+                    void run(() => nurtureLead(id), 'Moved to nurture.', 'Could not update.')
+                  }
                   className="rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-60"
                 >
                   Move to nurture
@@ -389,14 +515,18 @@ export default function LeadDetail() {
                   <Field label="Reason" error={errors.reason}>
                     <select
                       value={disqualifyReason}
-                      onChange={(event) => setDisqualifyReason(event.target.value as DisqualificationReason)}
+                      onChange={(event) =>
+                        setDisqualifyReason(event.target.value as DisqualificationReason)
+                      }
                       className={inputClass}
                     >
-                      {(Object.keys(disqualificationReasonLabels) as DisqualificationReason[]).map((value) => (
-                        <option key={value} value={value}>
-                          {disqualificationReasonLabels[value]}
-                        </option>
-                      ))}
+                      {(Object.keys(disqualificationReasonLabels) as DisqualificationReason[]).map(
+                        (value) => (
+                          <option key={value} value={value}>
+                            {disqualificationReasonLabels[value]}
+                          </option>
+                        ),
+                      )}
                     </select>
                   </Field>
                   <Field label="Notes" error={errors.notes}>

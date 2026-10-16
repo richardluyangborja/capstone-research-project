@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Lead extends Model
@@ -99,8 +100,16 @@ class Lead extends Model
         return $this->belongsTo(User::class, 'owner_id');
     }
 
+    public function activities(): MorphMany
+    {
+        return $this->morphMany(Activity::class, 'subjectable', 'subject_type', 'subject_id');
+    }
+
     /**
      * Role + ownership scoping (ADR-0004): salesrep own, manager team + queue, admin all.
+     *
+     * The unassigned queue is a shared, claimable pool, so it is visible to every role
+     * (ADR-0004 clarification — see submodule 03).
      */
     public function scopeVisibleTo(Builder $query, User $user): Builder
     {
@@ -115,7 +124,9 @@ class Lead extends Model
             });
         }
 
-        return $query->where('owner_id', $user->id);
+        return $query->where(function (Builder $query) use ($user): void {
+            $query->where('owner_id', $user->id)->orWhereNull('owner_id');
+        });
     }
 
     public function scopeSearch(Builder $query, ?string $term): Builder

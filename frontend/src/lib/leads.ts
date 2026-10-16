@@ -1,5 +1,5 @@
 import { api } from './api'
-import type { Lead, Paginated } from '../types'
+import type { Activity, AssignmentTarget, Lead, LeadSummary, Paginated } from '../types'
 
 export interface LeadFilters {
   search?: string
@@ -78,7 +78,10 @@ export const updateQualification = async (id: string, input: QualificationInput)
   return data.data
 }
 
-export const rateLead = async (id: string, input: { rating?: string; score?: number }): Promise<Lead> => {
+export const rateLead = async (
+  id: string,
+  input: { rating?: string; score?: number },
+): Promise<Lead> => {
   const { data } = await api.post<{ data: Lead }>(`/leads/${id}/rate`, input)
   return data.data
 }
@@ -98,6 +101,55 @@ export const disqualifyLead = async (
 
 export const nurtureLead = async (id: string): Promise<Lead> => {
   const { data } = await api.post<{ data: Lead }>(`/leads/${id}/nurture`)
+  return data.data
+}
+
+// --- Submodule 03: assignment & ownership ---------------------------------
+
+export const claimLead = async (id: string): Promise<Lead> => {
+  const { data } = await api.post<{ data: Lead }>(`/leads/${id}/claim`)
+  return data.data
+}
+
+export const assignLead = async (id: string, ownerId: number): Promise<Lead> => {
+  const { data } = await api.post<{ data: Lead }>(`/leads/${id}/assign`, { owner_id: ownerId })
+  return data.data
+}
+
+export const bulkAssignLeads = async (
+  leadIds: string[],
+  ownerId: number,
+): Promise<{ assigned: number }> => {
+  const { data } = await api.post<{ data: { assigned: number } }>('/leads/bulk-assign', {
+    lead_ids: leadIds,
+    owner_id: ownerId,
+  })
+  return data.data
+}
+
+export const bulkTransferLeads = async (
+  fromUserId: number,
+  toUserId: number,
+): Promise<{ transferred: number }> => {
+  const { data } = await api.post<{ data: { transferred: number } }>('/leads/bulk-transfer', {
+    from_user_id: fromUserId,
+    to_user_id: toUserId,
+  })
+  return data.data
+}
+
+export const getAssignableUsers = async (): Promise<AssignmentTarget[]> => {
+  const { data } = await api.get<{ data: AssignmentTarget[] }>('/users/assignable')
+  return data.data
+}
+
+export const getLeadSummary = async (): Promise<LeadSummary> => {
+  const { data } = await api.get<{ data: LeadSummary }>('/leads/summary')
+  return data.data
+}
+
+export const getLeadActivities = async (id: string): Promise<Activity[]> => {
+  const { data } = await api.get<{ data: Activity[] }>(`/leads/${id}/activities`)
   return data.data
 }
 
