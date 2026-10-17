@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from 'react'
-import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft } from 'lucide-react'
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { ArrowLeft, Plus, SquareKanban } from 'lucide-react'
 import PageHeader from '../components/common/PageHeader'
 import FormCard from '../components/common/FormCard'
 import StatusBadge from '../components/common/StatusBadge'
@@ -67,6 +67,15 @@ import type {
 
 type TabKey = 'overview' | 'contacts' | 'sites' | 'opportunities' | 'contracts' | 'activities'
 
+const tabKeys: TabKey[] = [
+  'overview',
+  'contacts',
+  'sites',
+  'opportunities',
+  'contracts',
+  'activities',
+]
+
 interface CompanyForm {
   name: string
   trade_name: string
@@ -115,6 +124,8 @@ interface ContractForm {
   value: string
   terms: string
   renewal_of_contract_id: string
+  /** Set when the contract is created from a won deal (module 02 §5). */
+  opportunity_id: string
 }
 
 interface ChurnForm {
@@ -156,6 +167,7 @@ const emptyContract: ContractForm = {
   value: '',
   terms: '',
   renewal_of_contract_id: '',
+  opportunity_id: '',
 }
 
 const formFromContact = (contact: Contact): ContactForm => ({
@@ -202,6 +214,10 @@ export default function CompanyDetail() {
   const { id = '' } = useParams()
   const navigate = useNavigate()
   const location = useLocation()
+  const [searchParams] = useSearchParams()
+  // A won deal can deep-link here to start its contract (module 02 §5).
+  const requestedTab = searchParams.get('tab')
+  const linkedOpportunityId = searchParams.get('opportunity_id') ?? ''
   const duplicates =
     (location.state as { duplicates?: DuplicateCompany[] } | null)?.duplicates ?? []
   const notice = (location.state as { notice?: string } | null)?.notice ?? ''
@@ -217,11 +233,17 @@ export default function CompanyDetail() {
   const [targets, setTargets] = useState<AssignmentTarget[]>([])
   const [activities, setActivities] = useState<Activity[]>([])
 
-  const [tab, setTab] = useState<TabKey>('overview')
+  const [tab, setTab] = useState<TabKey>(
+    requestedTab && tabKeys.includes(requestedTab as TabKey)
+      ? (requestedTab as TabKey)
+      : 'overview',
+  )
   const [form, setForm] = useState<CompanyForm | null>(null)
   const [siteForm, setSiteForm] = useState<SiteForm | null>(null)
   const [contactForm, setContactForm] = useState<ContactForm | null>(null)
-  const [contractForm, setContractForm] = useState<ContractForm | null>(null)
+  const [contractForm, setContractForm] = useState<ContractForm | null>(
+    linkedOpportunityId ? { ...emptyContract, opportunity_id: linkedOpportunityId } : null,
+  )
   const [churnForm, setChurnForm] = useState<ChurnForm | null>(null)
   const [contractStatus, setContractStatus] = useState('')
   const [contactRole, setContactRole] = useState('')
@@ -498,6 +520,7 @@ export default function CompanyDetail() {
         value: contractForm.value.trim() === '' ? null : Number(contractForm.value),
         terms: blankToNull(contractForm.terms),
         renewal_of_contract_id: blankToNull(contractForm.renewal_of_contract_id),
+        opportunity_id: blankToNull(contractForm.opportunity_id),
       })
 
       setContractForm(null)
@@ -847,7 +870,14 @@ export default function CompanyDetail() {
       key: 'name',
       header: 'Deal',
       className: 'font-medium text-foreground',
-      render: (deal) => deal.name,
+      render: (deal) => (
+        <Link
+          to={`/opportunities/${deal.id}`}
+          className="font-medium text-foreground hover:underline"
+        >
+          {deal.name}
+        </Link>
+      ),
     },
     {
       key: 'stage',
@@ -1993,6 +2023,16 @@ export default function CompanyDetail() {
       {tab === 'opportunities' && (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <div className="flex flex-col gap-6 lg:col-span-2">
+            <div className="flex items-center justify-end">
+              <Link
+                to={`/opportunities/new?company_id=${id}`}
+                className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground"
+              >
+                <Plus className="h-4 w-4" aria-hidden="true" />
+                Add deal
+              </Link>
+            </div>
+
             <DataTable
               columns={opportunityColumns}
               rows={opportunities}
@@ -2002,17 +2042,23 @@ export default function CompanyDetail() {
               empty={
                 <EmptyState
                   title="No deals yet"
-                  description="A deal is opened when a qualified lead is converted into this account."
+                  description="Open a deal here, or convert a qualified lead into this account."
+                  action={
+                    <Link
+                      to={`/opportunities/new?company_id=${id}`}
+                      className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground"
+                    >
+                      <Plus className="h-4 w-4" aria-hidden="true" />
+                      Add deal
+                    </Link>
+                  }
                 />
               }
             />
           </div>
 
           <div className="flex flex-col gap-6">
-            <FormCard
-              title="Deal pipeline"
-              description="Stage moves, proposals and win/loss are handled by the pipeline module."
-            >
+            <FormCard title="Engagements" description="Every deal on this account, open or closed.">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Deals</span>
                 <span className="text-foreground">{company.counts.opportunities}</span>
@@ -2023,6 +2069,23 @@ export default function CompanyDetail() {
                   {opportunities.filter((deal) => deal.is_open).length}
                 </span>
               </div>
+              <div className="mt-3 flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Open value</span>
+                <span className="text-cost">
+                  {formatCurrency(
+                    opportunities
+                      .filter((deal) => deal.is_open)
+                      .reduce((total, deal) => total + Number(deal.amount ?? 0), 0),
+                  )}
+                </span>
+              </div>
+              <Link
+                to="/pipeline"
+                className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline"
+              >
+                <SquareKanban className="h-4 w-4" aria-hidden="true" />
+                View the pipeline board
+              </Link>
             </FormCard>
           </div>
         </div>
@@ -2077,6 +2140,14 @@ export default function CompanyDetail() {
                       {contracts.find(
                         (contract) => contract.id === contractForm.renewal_of_contract_id,
                       )?.reference ?? 'an earlier agreement'}
+                    </p>
+                  )}
+
+                  {contractForm.opportunity_id && (
+                    <p className="text-xs text-muted-foreground">
+                      From deal{' '}
+                      {opportunities.find((deal) => deal.id === contractForm.opportunity_id)
+                        ?.name ?? 'a won deal'}
                     </p>
                   )}
 
