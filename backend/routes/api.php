@@ -2,11 +2,15 @@
 
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\CompanyActivityController;
+use App\Http\Controllers\Api\V1\CompanyBillingController;
 use App\Http\Controllers\Api\V1\CompanyContactController;
+use App\Http\Controllers\Api\V1\CompanyContractController;
 use App\Http\Controllers\Api\V1\CompanyController;
+use App\Http\Controllers\Api\V1\CompanyLifecycleController;
 use App\Http\Controllers\Api\V1\CompanyOpportunityController;
 use App\Http\Controllers\Api\V1\CompanySiteController;
 use App\Http\Controllers\Api\V1\ContactController;
+use App\Http\Controllers\Api\V1\ContractController;
 use App\Http\Controllers\Api\V1\LeadAssignmentController;
 use App\Http\Controllers\Api\V1\LeadController;
 use App\Http\Controllers\Api\V1\LeadConversionController;
@@ -91,5 +95,19 @@ Route::prefix('v1')->group(function (): void {
         Route::get('leads/{lead}/conversion-preview', [LeadConversionController::class, 'preview']);
         Route::post('leads/{lead}/convert', [LeadConversionController::class, 'convert']);
         Route::get('companies/{company}/opportunities', [CompanyOpportunityController::class, 'index']);
+
+        // Submodule 09 — client account lifecycle & contracts.
+        // Static paths must precede the resource route.
+        Route::patch('companies/{company}/lifecycle', [CompanyLifecycleController::class, 'update']);
+        Route::post('companies/{company}/reactivate', [CompanyLifecycleController::class, 'reactivate']);
+        Route::post('companies/{company}/handoff/retry', [CompanyLifecycleController::class, 'retryHandoff']);
+        Route::get('companies/{company}/billing', [CompanyBillingController::class, 'show']);
+        Route::get('companies/{company}/contracts', [CompanyContractController::class, 'index']);
+        Route::post('companies/{company}/contracts', [CompanyContractController::class, 'store']);
+        Route::get('contracts/{contract}/file', [ContractController::class, 'download']);
+        Route::post('contracts/{contract}/mark-signed', [ContractController::class, 'markSigned']);
+        Route::post('contracts/{id}/restore', [ContractController::class, 'restore']);
+        Route::apiResource('contracts', ContractController::class)
+            ->only(['show', 'update', 'destroy']);
     });
 });

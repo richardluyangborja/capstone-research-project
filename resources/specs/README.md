@@ -26,7 +26,7 @@ communication-history, follow-up, and satisfaction modules.
 - **IDs:** **ULID** primary keys (non-sequential, URL-safe) for every entity exposed in a URL/list —
   Lead, Company, Site, Contact, Opportunity, Activity, Contract, Attachment. **Never use
   auto-incrementing IDs** for records addressed via the API/URL (prevents enumeration). Human
-  references (`LD-2026-0001`, `CO-2026-0001`, `OPP-2026-0001`, `CT-2026-0001`) are **display and
+  references (`LD-2026-0001`, `CO-2026-0001`, `OPP-2026-0001`, `CON-2026-0001`) are **display and
   search only** and are never used as route keys. Internal framework/audit tables may still use bigint.
 - **Common columns** on every table: `id` (ULID), `created_at`, `updated_at`, `created_by`,
   `updated_by`, `owner_id` (where applicable), `deleted_at` (soft delete).
@@ -38,8 +38,10 @@ communication-history, follow-up, and satisfaction modules.
 - **Timestamps:** store UTC, serialise ISO-8601; date-only fields for pure dates.
 - **Enums:** stored as lowercase strings; defined in `00-data-model.md`. Never store free text where
   an enum exists.
-- **Attachments:** polymorphic (`attachable_type/id`); allowed MIME `application/pdf`,
-  `image/png`, `image/jpeg`; max 10 MB; stored on a **private** disk; access via signed URLs.
+- **Documents:** stored on a **private** disk and never exposed by path; downloads go through an
+  authorized endpoint (`GET /contracts/{id}/file` in Phase 1). Allowed MIME `application/pdf`,
+  `image/png`, `image/jpeg`; max 10 MB. A record needing *several* files would use the polymorphic
+  `attachments` table, which is deferred (`00-data-model.md`).
 - **Audit:** every mutation writes a row to `audit_logs` (actor, action, before/after) and, where
   user-visible, an `activities` row.
 
@@ -82,12 +84,16 @@ records are visible to manager+.
 | `LeadCreated` | intake | notify assignee/queue |
 | `LeadQualified` | qualification | eligible for conversion |
 | `LeadConverted` | conversion | create Company/Contact/Opportunity (ADR-0001) |
-| `OpportunityWon` | (pipeline module) | enable contract upload |
-| `ContractSigned` | client lifecycle | company → active client; **handoff to Service** (mock) |
-| `CompanyChurned` | client lifecycle | retention/win-back reporting |
+| `OpportunityWon` | (pipeline module — not built) | deal closed won; contract upload does not wait on it |
+| `ContractSigned` | client lifecycle | contract `signed` → company advances + **handoff to Service** (mock) |
+| `CompanyStatusChanged` | client lifecycle | timeline activity per lifecycle move |
+| `CompanyActivated` / `CompanyChurned` | client lifecycle | win/retention bookkeeping (reporting deferred) |
 
 Shared conventions are locked in **ADR-0007**. Remaining decisions to confirm:
 
-- file storage driver (local private disk vs S3-compatible)
-- automatic aging/dormancy thresholds and whether they run in Phase 1
-- round-robin assignment and whether `onboarding` is a distinct state (see submodule open questions)
+- file storage driver — **local private disk** (ADR-0013 §2); an S3-compatible bucket is a disk swap.
+- automatic aging/dormancy thresholds and whether they run in Phase 1 — **manual only in Phase 1**
+  (ADR-0013 §3); the thresholds return with the deferred follow-up module.
+- round-robin assignment and whether `onboarding` is a distinct state (see submodule open questions) —
+  round-robin stays deferred (spec 03 §3); `onboarding` **stays distinct** as the state a signed
+  client waits in for the Service handoff (spec 09).

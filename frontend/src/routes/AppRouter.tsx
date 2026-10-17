@@ -4,6 +4,7 @@ import PublicLayout from '../components/layout/PublicLayout'
 import ProtectedRoute from '../components/ProtectedRoute'
 import { useAuth } from '../lib/auth-context'
 import Assignment from '../pages/Assignment'
+import Clients from '../pages/Clients'
 import Companies from '../pages/Companies'
 import CompanyDetail from '../pages/CompanyDetail'
 import Contacts from '../pages/Contacts'
@@ -41,6 +42,7 @@ export default function AppRouter() {
           <Route path="/assignment" element={<Assignment />} />
           <Route path="/lifecycle" element={<Lifecycle />} />
           <Route path="/conversion" element={<Conversion />} />
+          <Route path="/clients" element={<Clients />} />
           <Route path="/companies" element={<Companies />} />
           <Route path="/companies/new" element={<NewCompany />} />
           <Route path="/companies/:id" element={<CompanyDetail />} />

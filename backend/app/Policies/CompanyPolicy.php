@@ -63,6 +63,47 @@ class CompanyPolicy
     }
 
     /**
+     * Client lifecycle moves — churn, reactivate, and manual at-risk/dormant — are
+     * manager+ (spec 09 permissions). The direct `status` field on `PATCH /companies/{id}`
+     * stays admin-only as a system override (ADR-0013).
+     */
+    public function manageLifecycle(User $user, Company $company): bool
+    {
+        return $this->mayRestructure($user, $company);
+    }
+
+    /**
+     * Billing/AR is consumed read-only from Finance and hidden from salesreps
+     * (spec 09 §7, ADR-0004).
+     */
+    public function viewBilling(User $user, Company $company): bool
+    {
+        return $this->mayRestructure($user, $company);
+    }
+
+    /**
+     * Contract upload and handoff retry are routine work on an account you maintain
+     * (own/team/all — spec 09 permissions).
+     */
+    public function uploadContract(User $user, Company $company): bool
+    {
+        return $this->ownsOrOversees($user, $company);
+    }
+
+    public function retryHandoff(User $user, Company $company): bool
+    {
+        return $this->ownsOrOversees($user, $company);
+    }
+
+    /**
+     * Retiring a contract is structural — manager+ (spec 06 §2 convention).
+     */
+    public function manageContracts(User $user, Company $company): bool
+    {
+        return $this->mayRestructure($user, $company);
+    }
+
+    /**
      * May this user (re)assign the company to `$target`? A null target asks "may this
      * user assign at all". There is no shared queue for companies, so the target must be
      * someone the user may own records with.

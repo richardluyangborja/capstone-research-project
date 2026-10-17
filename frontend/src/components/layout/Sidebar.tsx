@@ -43,6 +43,7 @@ const groups: NavGroup[] = [
       { to: '/companies', label: 'Company / Account Management', icon: Building2 },
       { to: '/contacts', label: 'Contact Management', icon: Users },
       { to: '/conversion', label: 'Lead-to-Client Conversion', icon: UserPlus },
+      { to: '/clients', label: 'Client Account Lifecycle', icon: Handshake },
     ],
   },
 ]

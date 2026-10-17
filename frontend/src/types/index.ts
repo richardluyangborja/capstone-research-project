@@ -128,6 +128,7 @@ export interface CompanyCounts {
   branches: number
   contacts: number
   opportunities: number
+  contracts: number
   activities: number
 }
 
@@ -150,6 +151,9 @@ export interface Company {
   is_client: boolean
   tier: CompanyTier | null
   client_since: string | null
+  churn_reason: string | null
+  churned_at: string | null
+  handoff: CompanyHandoff
   tags: string[]
   parent_company_id: string | null
   parent: CompanyParentRef | null
@@ -157,11 +161,15 @@ export interface Company {
   owner: { id: number; name: string } | null
   owner_id: number
   counts: CompanyCounts
+  allowed_status_transitions: CompanyStatus[]
   can_update: boolean
   can_manage_sites: boolean
   can_manage_parent: boolean
   can_assign: boolean
   can_delete: boolean
+  can_manage_lifecycle: boolean
+  can_view_billing: boolean
+  can_upload_contract: boolean
   created_at: string
   updated_at: string
 }
@@ -398,4 +406,117 @@ export interface Paginated<T> {
     last_page: number
   }
   links: Record<string, string | null>
+}
+
+// --- Submodule 09: client account lifecycle + contracts ---------------------
+
+export type ContractStatus = 'draft' | 'sent' | 'signed' | 'expired' | 'terminated'
+
+/** Outcome of the mocked Service handoff (spec 09 §2). */
+export type HandoffStatus = 'sent' | 'failed'
+
+export interface CompanyHandoff {
+  status: HandoffStatus | null
+  reference: string | null
+  error: string | null
+  requested_at: string | null
+  can_retry: boolean
+}
+
+export interface ContractFileRef {
+  present: boolean
+  name: string | null
+  size: number | null
+  mime: string | null
+}
+
+export interface ContractRenewalRef {
+  id: string
+  reference: string
+  end_date: string | null
+}
+
+export interface ContractCompanyRef {
+  id: string
+  reference: string
+  name: string
+  status: CompanyStatus
+}
+
+export interface ContractOpportunityRef {
+  id: string
+  reference: string
+  name: string
+}
+
+/** A contract on a client account (spec 09). Signing activates the client. */
+export interface Contract {
+  id: string
+  reference: string
+  company_id: string
+  company?: ContractCompanyRef
+  opportunity_id: string | null
+  opportunity?: ContractOpportunityRef | null
+  renewal_of_contract_id: string | null
+  renewal_of?: ContractRenewalRef | null
+  title: string
+  status: ContractStatus
+  start_date: string | null
+  end_date: string | null
+  signed_at: string | null
+  value: string | null
+  currency: string
+  terms: string | null
+  notes: string | null
+  file: ContractFileRef
+  days_until_expiry: number | null
+  is_expiring_soon: boolean
+  is_signed: boolean
+  is_active: boolean
+  owner: { id: number; name: string } | null
+  owner_id: number
+  /** Legal `PATCH` moves — signing has its own action and is never listed. */
+  allowed_transitions: ContractStatus[]
+  can_update: boolean
+  can_mark_signed: boolean
+  can_delete: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface CompanyContracts {
+  data: Contract[]
+  meta: { total: number; active: number }
+}
+
+export interface ContractInput {
+  file: File
+  title: string
+  opportunity_id?: string | null
+  renewal_of_contract_id?: string | null
+  start_date?: string | null
+  end_date?: string | null
+  value?: number | null
+  currency?: string
+  terms?: string | null
+  notes?: string | null
+  status?: ContractStatus
+}
+
+/** Read-only AR snapshot consumed from the mocked Finance department (spec 09 §7). */
+export interface BillingSummary {
+  account_status: 'current' | 'overdue' | 'closed'
+  outstanding: string
+  overdue: string
+  overdue_invoices: number
+  last_invoice_date: string | null
+  next_due_date: string | null
+  credit_terms: string
+  currency: string
+  aging: Record<'current' | '1_30' | '31_60' | '60_plus', string>
+}
+
+export interface CompanyBilling {
+  data: BillingSummary
+  meta: { source: string; read_only: boolean; as_of: string }
 }
