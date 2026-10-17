@@ -6,6 +6,7 @@ import StatCard from '../components/common/StatCard'
 import EmptyState from '../components/common/EmptyState'
 import AlertItem from '../components/common/AlertItem'
 import LeadOwnerControl from '../components/common/LeadOwnerControl'
+import DataTable, { type DataTableColumn } from '../components/common/DataTable'
 import {
   assignLead,
   bulkTransferLeads,
@@ -108,6 +109,55 @@ export default function Assignment() {
     (a, b) => (b.open_leads_count ?? 0) - (a.open_leads_count ?? 0),
   )
 
+  const queueColumns: DataTableColumn<Lead>[] = [
+    {
+      key: 'reference',
+      header: 'Reference',
+      render: (lead) => (
+        <Link to={`/leads/${lead.id}`} className="font-mono text-xs text-primary">
+          {lead.reference}
+        </Link>
+      ),
+    },
+    {
+      key: 'company',
+      header: 'Company',
+      render: (lead) => (
+        <>
+          <Link to={`/leads/${lead.id}`} className="font-medium text-foreground">
+            {lead.company_name}
+          </Link>
+          <div className="text-xs text-muted-foreground">{lead.contact_name}</div>
+        </>
+      ),
+    },
+    {
+      key: 'source',
+      header: 'Source',
+      className: 'text-muted-foreground',
+      render: (lead) => leadSourceLabels[lead.source],
+    },
+    {
+      key: 'captured',
+      header: 'Captured',
+      className: 'text-muted-foreground',
+      render: (lead) => formatDate(lead.created_at),
+    },
+    {
+      key: 'owner',
+      header: 'Owner',
+      render: (lead) => (
+        <LeadOwnerControl
+          lead={lead}
+          targets={targets}
+          busy={busy}
+          onClaim={() => void onClaim(lead)}
+          onAssign={(ownerId) => void onAssign(lead, ownerId)}
+        />
+      ),
+    },
+  ]
+
   return (
     <div>
       <PageHeader
@@ -138,67 +188,18 @@ export default function Assignment() {
         <div className="lg:col-span-2">
           <h2 className="mb-2 text-sm font-semibold text-foreground">Unassigned queue</h2>
 
-          {!loading && queue.length === 0 ? (
-            <EmptyState
-              title="Queue is clear"
-              description="Every lead has an owner. New captures land here when unowned."
-            />
-          ) : (
-            <div className="overflow-hidden rounded-lg border border-border bg-card">
-              <table className="w-full text-left text-sm">
-                <thead className="border-b border-border text-xs uppercase text-muted-foreground">
-                  <tr>
-                    <th className="px-4 py-3 font-medium">Reference</th>
-                    <th className="px-4 py-3 font-medium">Company</th>
-                    <th className="px-4 py-3 font-medium">Source</th>
-                    <th className="px-4 py-3 font-medium">Captured</th>
-                    <th className="px-4 py-3 font-medium">Owner</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {loading && (
-                    <tr>
-                      <td colSpan={5} className="px-4 py-6 text-center text-muted-foreground">
-                        Loading…
-                      </td>
-                    </tr>
-                  )}
-
-                  {!loading &&
-                    queue.map((lead) => (
-                      <tr key={lead.id} className="border-b border-border last:border-0">
-                        <td className="px-4 py-3">
-                          <Link to={`/leads/${lead.id}`} className="font-mono text-xs text-primary">
-                            {lead.reference}
-                          </Link>
-                        </td>
-                        <td className="px-4 py-3">
-                          <Link to={`/leads/${lead.id}`} className="font-medium text-foreground">
-                            {lead.company_name}
-                          </Link>
-                          <div className="text-xs text-muted-foreground">{lead.contact_name}</div>
-                        </td>
-                        <td className="px-4 py-3 text-muted-foreground">
-                          {leadSourceLabels[lead.source]}
-                        </td>
-                        <td className="px-4 py-3 text-muted-foreground">
-                          {formatDate(lead.created_at)}
-                        </td>
-                        <td className="px-4 py-3">
-                          <LeadOwnerControl
-                            lead={lead}
-                            targets={targets}
-                            busy={busy}
-                            onClaim={() => void onClaim(lead)}
-                            onAssign={(ownerId) => void onAssign(lead, ownerId)}
-                          />
-                        </td>
-                      </tr>
-                    ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <DataTable
+            columns={queueColumns}
+            rows={queue}
+            rowKey={(lead) => lead.id}
+            loading={loading}
+            empty={
+              <EmptyState
+                title="Queue is clear"
+                description="Every lead has an owner. New captures land here when unowned."
+              />
+            }
+          />
         </div>
 
         <div className="flex flex-col gap-6">

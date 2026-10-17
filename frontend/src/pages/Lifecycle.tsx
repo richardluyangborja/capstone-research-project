@@ -5,9 +5,60 @@ import StatusBadge from '../components/common/StatusBadge'
 import LeadAgingBadge from '../components/common/LeadAgingBadge'
 import EmptyState from '../components/common/EmptyState'
 import AlertItem from '../components/common/AlertItem'
+import DataTable, { type DataTableColumn } from '../components/common/DataTable'
 import { listLeads } from '../lib/leads'
 import { leadStatusMeta } from '../lib/leadMeta'
 import type { Lead } from '../types'
+
+const columns: DataTableColumn<Lead>[] = [
+  {
+    key: 'reference',
+    header: 'Reference',
+    className: 'font-mono text-xs text-muted-foreground',
+    render: (lead) => lead.reference,
+  },
+  {
+    key: 'company',
+    header: 'Company',
+    render: (lead) => (
+      <>
+        <span className="font-medium text-foreground">{lead.company_name}</span>
+        <div className="text-xs text-muted-foreground">{lead.contact_name}</div>
+      </>
+    ),
+  },
+  {
+    key: 'status',
+    header: 'Status',
+    render: (lead) => (
+      <StatusBadge tone={leadStatusMeta[lead.status].tone}>
+        {leadStatusMeta[lead.status].label}
+      </StatusBadge>
+    ),
+  },
+  {
+    key: 'aging',
+    header: 'Aging',
+    render: (lead) => <LeadAgingBadge aging={lead.aging} days={lead.days_since_activity} />,
+  },
+  {
+    key: 'owner',
+    header: 'Owner',
+    className: 'text-muted-foreground',
+    render: (lead) => lead.owner?.name ?? 'Unassigned',
+  },
+  {
+    key: 'actions',
+    header: null,
+    headerClassName: 'text-right',
+    className: 'text-right',
+    render: (lead) => (
+      <Link to={`/leads/${lead.id}`} className="text-sm font-medium text-primary">
+        Open
+      </Link>
+    ),
+  },
+]
 
 // Worklist for submodule 04 — non-terminal, non-archived leads with no recent
 // activity (spec 04 §3). Thresholds come from config/crm.php (14/30/60 days).
@@ -46,65 +97,18 @@ export default function Lifecycle() {
         </div>
       )}
 
-      {!loading && leads.length === 0 ? (
-        <EmptyState
-          title="Nothing going cold"
-          description="Every open lead has activity within the configured threshold."
-        />
-      ) : (
-        <div className="overflow-hidden rounded-lg border border-border bg-card">
-          <table className="w-full text-left text-sm">
-            <thead className="border-b border-border text-xs uppercase text-muted-foreground">
-              <tr>
-                <th className="px-4 py-3 font-medium">Reference</th>
-                <th className="px-4 py-3 font-medium">Company</th>
-                <th className="px-4 py-3 font-medium">Status</th>
-                <th className="px-4 py-3 font-medium">Aging</th>
-                <th className="px-4 py-3 font-medium">Owner</th>
-                <th className="px-4 py-3 font-medium" />
-              </tr>
-            </thead>
-            <tbody>
-              {loading && (
-                <tr>
-                  <td colSpan={6} className="px-4 py-6 text-center text-muted-foreground">
-                    Loading…
-                  </td>
-                </tr>
-              )}
-
-              {!loading &&
-                leads.map((lead) => (
-                  <tr key={lead.id} className="border-b border-border last:border-0">
-                    <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
-                      {lead.reference}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="font-medium text-foreground">{lead.company_name}</span>
-                      <div className="text-xs text-muted-foreground">{lead.contact_name}</div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <StatusBadge tone={leadStatusMeta[lead.status].tone}>
-                        {leadStatusMeta[lead.status].label}
-                      </StatusBadge>
-                    </td>
-                    <td className="px-4 py-3">
-                      <LeadAgingBadge aging={lead.aging} days={lead.days_since_activity} />
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground">
-                      {lead.owner?.name ?? 'Unassigned'}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <Link to={`/leads/${lead.id}`} className="text-sm font-medium text-primary">
-                        Open
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <DataTable
+        columns={columns}
+        rows={leads}
+        rowKey={(lead) => lead.id}
+        loading={loading}
+        empty={
+          <EmptyState
+            title="Nothing going cold"
+            description="Every open lead has activity within the configured threshold."
+          />
+        }
+      />
     </div>
   )
 }
