@@ -28,9 +28,9 @@ detail page may roll up before contacts, opportunities and contracts exist (subm
    inherits nothing, keeps its own owner/sites/contacts, and creates no aggregate numbers on the
    parent. Cycles are rejected with a `422`. This keeps "the branch is a separate operating record"
    honest instead of half-implementing head-office aggregation.
-5. **Roll-ups are limited to what exists.** `counts` carries `sites`, `branches` and `activities`;
-   the contacts / opportunities / contracts counts land with submodules 07–09 rather than being
-   emitted as zeroes now.
+5. **Roll-ups are limited to what exists.** `counts` carries `sites`, `branches`, `contacts`
+   (added by submodule 07, ADR-0011) and `activities`; the opportunity / contract counts land with
+   submodules 08–09 rather than being emitted as zeroes now.
 6. **Delete is guarded, not blocked.** `Company::deletionBlockers()` is the single extension point
    for "has active contracts/opportunities"; it is empty until those modules exist, so a delete is a
    soft delete (restorable) that later gains a `422` guard.

@@ -101,6 +101,11 @@ class Company extends Model
         return $this->hasMany(CompanySite::class);
     }
 
+    public function contacts(): HasMany
+    {
+        return $this->hasMany(Contact::class);
+    }
+
     public function activities(): MorphMany
     {
         return $this->morphMany(Activity::class, 'subjectable', 'subject_type', 'subject_id');

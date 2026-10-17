@@ -74,25 +74,41 @@ Laravel's own and is separate from `frontend/`.
   branches — cycles are rejected (422), a branch inherits nothing, and the parent exposes a branch
   *count* only (no roll-up). One site per company is `is_primary`; the first site added becomes
   primary and deleting the primary promotes the next. `counts` reports
-  `{ sites, branches, activities }`; contact/opportunity/contract counts arrive with 07–09.
+  `{ sites, branches, contacts, activities }`; opportunity/contract counts arrive with 08–09.
   **Permissions (ADR-0010):** every role may create manually (a salesrep's company is theirs and
   starts as `prospect`); profile updates are own/team/all; **delete/restore, sites and branch links
   are manager+**; `status` may be set at creation by manager+ and changed later only by an admin.
   Activity payloads are shared with leads via `ActivityResource`.
+- **Submodule 07 — Contact Management:** nested `GET/POST /companies/{id}/contacts` plus the flat
+  book — `GET /contacts` (paginated, `filter[company_id|role_type|status]` + `search`),
+  `GET/PATCH/DELETE /contacts/{id}`, `POST /contacts/{id}/restore` and
+  `POST /contacts/{id}/make-primary`. Contacts carry `role_type` (hiring manager / HR / procurement /
+  finance / executive / other), a single `email`/`phone`/`mobile`, `status` and `is_primary` (ADR-0011
+  §6). **Exactly one primary per company among active contacts**: the first contact added is primary,
+  `make-primary` moves the flag, deleting or deactivating the primary promotes the oldest remaining
+  active contact, and an inactive contact can never lead. A repeated email on the same company is an
+  advisory (`duplicates` on the 201/200, never a block); `company_id` is not updatable, and contacts
+  are never hard deleted (`status=inactive` for pickers, soft delete + restore for retired rows).
+  **Permissions (ADR-0011 §2):** a contact inherits its company's `update` rights, so a salesrep
+  maintains the people on their own accounts — the manager+ gate that covers sites/branches does
+  **not** apply. `ContactPolicy` also gates `makePrimary`/`restore` and reserves force-delete for
+  admins. Events: `ContactCreated`, `ContactPrimaryChanged`.
 
 Frontend routes: `/login`, `/leads` (views: All / My Leads / Unassigned / Team / Archived, inline
 owner control, bulk assign, status/rating/aging columns, "Stale only" filter), `/leads/new`,
 `/leads/:id` (qualification panel + lifecycle control + ownership + activity form + timeline),
 `/qualification` (worklist), `/assignment` (unassigned queue, team workload, bulk transfer),
 `/lifecycle` (aging / stale triage worklist), `/companies` (account book: status/tier filters and
-pagination), `/companies/new` (manual creation) and `/companies/:id` (Overview / Sites / Activities
-tabs; sites and branch links are manager-only). The topbar bell shows assignment notifications. The
-sidebar is **grouped by module** — only implemented submodules are listed under
+pagination), `/companies/new` (manual creation), `/companies/:id` (Overview / Contacts / Sites /
+Activities tabs; sites and branch links are manager-only, contacts are editable by whoever owns the
+account) and `/contacts` (global contact book: search + role/status/company filters, rows link back
+to their account). The topbar bell shows assignment notifications. The sidebar is **grouped by
+module** — only implemented submodules are listed under
 `Lead & Client Tracking`. Account + logout live in the sidebar footer; the brand is "Primepower
 Manpower Services / Customer Relationship Management".
 
-**Not implemented yet:** submodules 07–09 (contacts, lead→client conversion, client lifecycle) and
-the Contacts/Opportunities/Contracts models + routes. Add them per `resources/specs/`. Conversion
+**Not implemented yet:** submodules 08–09 (lead→client conversion, client lifecycle) and the
+Opportunities/Contracts models + routes. Add them per `resources/specs/`. Conversion
 (`qualified → converted`) is reserved for submodule 08 (ADR-0009). `Company::deletionBlockers()` is
 the extension point for the "active contract blocks delete" guard (ADR-0010).
 

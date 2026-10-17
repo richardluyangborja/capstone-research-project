@@ -2,8 +2,10 @@
 
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\CompanyActivityController;
+use App\Http\Controllers\Api\V1\CompanyContactController;
 use App\Http\Controllers\Api\V1\CompanyController;
 use App\Http\Controllers\Api\V1\CompanySiteController;
+use App\Http\Controllers\Api\V1\ContactController;
 use App\Http\Controllers\Api\V1\LeadAssignmentController;
 use App\Http\Controllers\Api\V1\LeadController;
 use App\Http\Controllers\Api\V1\LeadLifecycleController;
@@ -73,5 +75,14 @@ Route::prefix('v1')->group(function (): void {
         Route::delete('companies/{company}/sites/{site}', [CompanySiteController::class, 'destroy']);
         Route::get('companies/{company}/activities', [CompanyActivityController::class, 'timeline']);
         Route::post('companies/{company}/activities', [CompanyActivityController::class, 'logActivity']);
+
+        // Submodule 07 — contacts: the company tab, plus the flat contact book.
+        // Static paths must precede the resource route.
+        Route::get('companies/{company}/contacts', [CompanyContactController::class, 'index']);
+        Route::post('companies/{company}/contacts', [CompanyContactController::class, 'store']);
+        Route::post('contacts/{id}/restore', [ContactController::class, 'restore']);
+        Route::post('contacts/{contact}/make-primary', [ContactController::class, 'makePrimary']);
+        Route::apiResource('contacts', ContactController::class)
+            ->only(['index', 'show', 'update', 'destroy']);
     });
 });

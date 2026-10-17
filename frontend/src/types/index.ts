@@ -122,6 +122,7 @@ export type CompanySize = 'micro' | 'small' | 'medium' | 'large' | 'enterprise'
 export interface CompanyCounts {
   sites: number
   branches: number
+  contacts: number
   activities: number
 }
 
@@ -179,6 +180,50 @@ export interface CompanySite {
 export interface CompanyTimeline {
   data: Activity[]
   meta: { total: number }
+}
+
+// --- Submodule 07: contacts -------------------------------------------------
+
+export type ContactRoleType =
+  'hiring_manager' | 'hr' | 'procurement' | 'finance' | 'executive' | 'other'
+
+export type ContactStatus = 'active' | 'inactive'
+
+export interface ContactCompanyRef {
+  id: string
+  reference: string
+  name: string
+  status: CompanyStatus
+}
+
+export interface Contact {
+  id: string
+  company_id: string
+  company?: ContactCompanyRef
+  name: string
+  position: string | null
+  role_type: ContactRoleType
+  is_decision_maker: boolean
+  email: string | null
+  phone: string | null
+  mobile: string | null
+  is_primary: boolean
+  status: ContactStatus
+  notes: string | null
+  can_update: boolean
+  can_make_primary: boolean
+  can_delete: boolean
+  created_at: string
+  updated_at: string
+}
+
+/** Advisories returned alongside a save — never a hard failure (spec 07 §4). */
+export interface DuplicateContact {
+  id: string
+  name: string
+  email: string | null
+  role_type: ContactRoleType
+  status: ContactStatus
 }
 
 export interface NotificationItem {
