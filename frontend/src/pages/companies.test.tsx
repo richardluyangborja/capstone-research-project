@@ -1,9 +1,9 @@
-import { render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 import Companies from './Companies'
 import CompanyDetail from './CompanyDetail'
-import type { Company, CompanySite } from '../types'
+import type { Company, CompanySite, Contact } from '../types'
 
 vi.mock('../lib/auth-context', () => ({
   useAuth: () => ({ user: { id: 1, name: 'Sam Salesrep', role: 'manager' }, logout: vi.fn() }),
@@ -11,7 +11,7 @@ vi.mock('../lib/auth-context', () => ({
 
 // `vi.mock` factories are hoisted above the imports, so the fixtures they close over
 // must be created with `vi.hoisted`.
-const { company, site, paginated } = vi.hoisted(() => {
+const { company, site, contact, paginated } = vi.hoisted(() => {
   const company: Company = {
     id: 'company-1',
     reference: 'CO-2026-0001',
@@ -31,7 +31,7 @@ const { company, site, paginated } = vi.hoisted(() => {
     source_lead_id: null,
     owner: { id: 1, name: 'Sam Salesrep' },
     owner_id: 1,
-    counts: { sites: 1, branches: 0, activities: 2 },
+    counts: { sites: 1, branches: 0, contacts: 1, activities: 2 },
     can_update: true,
     can_manage_sites: true,
     can_manage_parent: true,
@@ -57,9 +57,30 @@ const { company, site, paginated } = vi.hoisted(() => {
     updated_at: '2026-10-15T03:51:40.000000Z',
   }
 
+  const contact: Contact = {
+    id: 'contact-1',
+    company_id: 'company-1',
+    name: 'Ramon Villanueva',
+    position: 'Plant HR Manager',
+    role_type: 'hiring_manager',
+    is_decision_maker: true,
+    email: 'ramon.villanueva@sunrisefoods.ph',
+    phone: '+63 2 8712 4455',
+    mobile: '0917 555 2210',
+    is_primary: true,
+    status: 'active',
+    notes: null,
+    can_update: true,
+    can_make_primary: false,
+    can_delete: true,
+    created_at: '2026-10-15T03:51:40.000000Z',
+    updated_at: '2026-10-15T03:51:40.000000Z',
+  }
+
   return {
     company,
     site,
+    contact,
     paginated: {
       data: [company],
       meta: { current_page: 1, per_page: 25, total: 1, last_page: 1 },
@@ -79,6 +100,14 @@ vi.mock('../lib/companies', () => ({
   deleteCompanySite: vi.fn(),
   deleteCompany: vi.fn(),
   logCompanyActivity: vi.fn(),
+}))
+
+vi.mock('../lib/contacts', () => ({
+  listCompanyContacts: vi.fn().mockResolvedValue([contact]),
+  createCompanyContact: vi.fn(),
+  updateContact: vi.fn(),
+  makeContactPrimary: vi.fn(),
+  deleteContact: vi.fn(),
 }))
 
 vi.mock('../lib/leads', () => ({
@@ -104,7 +133,7 @@ describe('Companies list', () => {
 })
 
 describe('Company detail', () => {
-  it('shows the profile and the tab counts from the roll-up', async () => {
+  const renderDetail = () =>
     render(
       <MemoryRouter initialEntries={['/companies/company-1']}>
         <Routes>
@@ -113,8 +142,26 @@ describe('Company detail', () => {
       </MemoryRouter>,
     )
 
+  it('shows the profile and the tab counts from the roll-up', async () => {
+    renderDetail()
+
     expect(await screen.findByRole('heading', { name: 'Sunrise Foods Inc' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^Contacts/ })).toHaveTextContent('1')
     expect(screen.getByRole('button', { name: /^Sites/ })).toHaveTextContent('1')
     expect(screen.getByRole('button', { name: /^Activities/ })).toHaveTextContent('2')
+  })
+
+  it('lists the account contacts with their decision-maker role', async () => {
+    renderDetail()
+
+    await screen.findByRole('heading', { name: 'Sunrise Foods Inc' })
+    fireEvent.click(screen.getByRole('button', { name: /^Contacts/ }))
+
+    const name = await screen.findByText('Ramon Villanueva')
+    const row = name.closest('tr')
+    expect(row).not.toBeNull()
+    expect(within(row as HTMLElement).getByText('Hiring manager')).toBeInTheDocument()
+    expect(within(row as HTMLElement).getByText('Primary')).toBeInTheDocument()
+    expect(within(row as HTMLElement).getByText('Plant HR Manager')).toBeInTheDocument()
   })
 })

@@ -5,6 +5,8 @@ import PageHeader from '../components/common/PageHeader'
 import FormCard from '../components/common/FormCard'
 import StatusBadge from '../components/common/StatusBadge'
 import AlertItem from '../components/common/AlertItem'
+import EmptyState from '../components/common/EmptyState'
+import DataTable, { type DataTableColumn } from '../components/common/DataTable'
 import {
   createCompanySite,
   deleteCompany,
@@ -19,9 +21,18 @@ import {
   type CompanySiteInput,
   type DuplicateCompany,
 } from '../lib/companies'
+import {
+  createCompanyContact,
+  deleteContact,
+  listCompanyContacts,
+  makeContactPrimary,
+  updateContact,
+  type ContactInput,
+} from '../lib/contacts'
 import { getAssignableUsers, parseValidationError } from '../lib/leads'
 import { activityTypeMeta } from '../lib/leadMeta'
 import { companySizeLabels, companyStatusMeta, companyTierLabels } from '../lib/companyMeta'
+import { contactRoleMeta, contactStatusMeta } from '../lib/contactMeta'
 import { formatDate, formatDateTime } from '../lib/format'
 import type {
   Activity,
@@ -30,9 +41,12 @@ import type {
   CompanySite,
   CompanySize,
   CompanyTier,
+  Contact,
+  ContactRoleType,
+  ContactStatus,
 } from '../types'
 
-type TabKey = 'overview' | 'sites' | 'activities'
+type TabKey = 'overview' | 'contacts' | 'sites' | 'activities'
 
 interface CompanyForm {
   name: string
@@ -59,6 +73,19 @@ interface SiteForm {
   is_primary: boolean
 }
 
+interface ContactForm {
+  id: string | null
+  name: string
+  position: string
+  role_type: string
+  email: string
+  phone: string
+  mobile: string
+  status: string
+  notes: string
+  is_primary: boolean
+}
+
 const emptySite: SiteForm = {
   id: null,
   label: '',
@@ -70,6 +97,33 @@ const emptySite: SiteForm = {
   postal_code: '',
   is_primary: false,
 }
+
+const emptyContact: ContactForm = {
+  id: null,
+  name: '',
+  position: '',
+  role_type: 'hiring_manager',
+  email: '',
+  phone: '',
+  mobile: '',
+  status: 'active',
+  notes: '',
+  is_primary: false,
+}
+
+const formFromContact = (contact: Contact): ContactForm => ({
+  id: contact.id,
+  name: contact.name,
+  position: contact.position ?? '',
+  role_type: contact.role_type,
+  email: contact.email ?? '',
+  phone: contact.phone ?? '',
+  mobile: contact.mobile ?? '',
+  status: contact.status,
+  notes: contact.notes ?? '',
+  // Primary is moved with the explicit action, not by the edit form (spec 07 §3).
+  is_primary: false,
+})
 
 const formFromCompany = (company: Company): CompanyForm => ({
   name: company.name,
@@ -106,6 +160,7 @@ export default function CompanyDetail() {
 
   const [company, setCompany] = useState<Company | null>(null)
   const [sites, setSites] = useState<CompanySite[]>([])
+  const [contacts, setContacts] = useState<Contact[]>([])
   const [branches, setBranches] = useState<Company[]>([])
   const [options, setOptions] = useState<Company[]>([])
   const [targets, setTargets] = useState<AssignmentTarget[]>([])
@@ -114,6 +169,9 @@ export default function CompanyDetail() {
   const [tab, setTab] = useState<TabKey>('overview')
   const [form, setForm] = useState<CompanyForm | null>(null)
   const [siteForm, setSiteForm] = useState<SiteForm | null>(null)
+  const [contactForm, setContactForm] = useState<ContactForm | null>(null)
+  const [contactRole, setContactRole] = useState('')
+  const [contactStatus, setContactStatus] = useState('')
   const [activityForm, setActivityForm] = useState({ type: 'call', subject: '', body: '' })
 
   const [loading, setLoading] = useState(true)
@@ -127,8 +185,9 @@ export default function CompanyDetail() {
     setLoading(true)
     try {
       const detail = await getCompany(id)
-      const [siteList, branchList, history, assignable] = await Promise.all([
+      const [siteList, contactList, branchList, history, assignable] = await Promise.all([
         listCompanySites(id),
+        listCompanyContacts(id),
         listCompanies({ parent_company_id: id }),
         getCompanyTimeline(id),
         getAssignableUsers(),
@@ -137,6 +196,7 @@ export default function CompanyDetail() {
       setCompany(detail)
       setForm(formFromCompany(detail))
       setSites(siteList)
+      setContacts(contactList)
       setBranches(branchList.data)
       setActivities(history.data)
       setTargets(assignable)
@@ -181,6 +241,100 @@ export default function CompanyDetail() {
     const [history, detail] = await Promise.all([getCompanyTimeline(id), getCompany(id)])
     setActivities(history.data)
     setCompany(detail)
+  }
+
+  const loadContacts = async (role: string, status: string) => {
+    setLoading(true)
+    try {
+      setContacts(
+        await listCompanyContacts(id, {
+          role_type: role || undefined,
+          status: status || undefined,
+        }),
+      )
+    } catch {
+      handleFailure(null, 'Could not load the contacts.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const refreshContacts = async () => {
+    const [list, detail] = await Promise.all([
+      listCompanyContacts(id, {
+        role_type: contactRole || undefined,
+        status: contactStatus || undefined,
+      }),
+      getCompany(id),
+    ])
+    setContacts(list)
+    setCompany(detail)
+  }
+
+  const onFilterContacts = (role: string, status: string) => {
+    setContactRole(role)
+    setContactStatus(status)
+    void loadContacts(role, status)
+  }
+
+  const onSaveContact = async (event: FormEvent) => {
+    event.preventDefault()
+    if (!contactForm) return
+
+    const input: ContactInput = {
+      name: contactForm.name.trim(),
+      position: blankToNull(contactForm.position),
+      role_type: contactForm.role_type,
+      email: blankToNull(contactForm.email),
+      phone: blankToNull(contactForm.phone),
+      mobile: blankToNull(contactForm.mobile),
+      notes: blankToNull(contactForm.notes),
+    }
+
+    setSaving(true)
+    try {
+      // A new contact may be flagged primary; an existing one changes hands only through
+      // the explicit "make primary" action.
+      const { duplicates } = contactForm.id
+        ? await updateContact(contactForm.id, { ...input, status: contactForm.status })
+        : await createCompanyContact(id, { ...input, is_primary: contactForm.is_primary })
+
+      const clash = duplicates.length > 0 ? ' That email is already on another contact here.' : ''
+
+      setContactForm(null)
+      await refreshContacts()
+      succeed(`${contactForm.id ? 'Contact updated.' : 'Contact added.'}${clash}`)
+    } catch (error) {
+      handleFailure(error, 'Could not save the contact.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const onMakeContactPrimary = async (contact: Contact) => {
+    setSaving(true)
+    try {
+      await makeContactPrimary(contact.id)
+      await refreshContacts()
+      succeed(`${contact.name} is now the primary contact.`)
+    } catch (error) {
+      handleFailure(error, 'Could not set the primary contact.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const onDeleteContact = async (contact: Contact) => {
+    setSaving(true)
+    try {
+      await deleteContact(contact.id)
+      await refreshContacts()
+      succeed(`${contact.name} retired from this account.`)
+    } catch (error) {
+      handleFailure(error, 'Could not retire the contact.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   const onSaveCompany = async (event: FormEvent) => {
@@ -339,8 +493,97 @@ export default function CompanyDetail() {
   const statusMeta = companyStatusMeta[company.status]
   const tabs: { key: TabKey; label: string; count: number }[] = [
     { key: 'overview', label: 'Overview', count: company.counts.branches },
+    { key: 'contacts', label: 'Contacts', count: company.counts.contacts },
     { key: 'sites', label: 'Sites', count: company.counts.sites },
     { key: 'activities', label: 'Activities', count: company.counts.activities },
+  ]
+
+  const contactColumns: DataTableColumn<Contact>[] = [
+    {
+      key: 'name',
+      header: 'Contact',
+      render: (contact) => (
+        <div className="flex items-center gap-2">
+          <span className="font-medium text-foreground">{contact.name}</span>
+          {contact.is_primary && <StatusBadge tone="people">Primary</StatusBadge>}
+        </div>
+      ),
+    },
+    {
+      key: 'position',
+      header: 'Position',
+      className: 'text-muted-foreground',
+      render: (contact) => contact.position ?? '—',
+    },
+    {
+      key: 'role',
+      header: 'Role',
+      render: (contact) => (
+        <StatusBadge tone={contactRoleMeta[contact.role_type].tone}>
+          {contactRoleMeta[contact.role_type].label}
+        </StatusBadge>
+      ),
+    },
+    {
+      key: 'email',
+      header: 'Email',
+      className: 'text-muted-foreground',
+      render: (contact) => contact.email ?? '—',
+    },
+    {
+      key: 'phone',
+      header: 'Phone',
+      className: 'text-muted-foreground',
+      render: (contact) => contact.mobile ?? contact.phone ?? '—',
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (contact) => (
+        <StatusBadge tone={contactStatusMeta[contact.status].tone}>
+          {contactStatusMeta[contact.status].label}
+        </StatusBadge>
+      ),
+    },
+    {
+      key: 'actions',
+      header: '',
+      headerClassName: 'text-right',
+      className: 'text-right',
+      render: (contact) => (
+        <div className="flex items-center justify-end gap-2">
+          {contact.can_make_primary && (
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => void onMakeContactPrimary(contact)}
+              className="rounded-md border border-border px-2.5 py-1 text-xs font-medium text-foreground hover:bg-muted disabled:opacity-60"
+            >
+              Make primary
+            </button>
+          )}
+          {contact.can_update && (
+            <button
+              type="button"
+              onClick={() => setContactForm(formFromContact(contact))}
+              className="rounded-md border border-border px-2.5 py-1 text-xs font-medium text-foreground hover:bg-muted"
+            >
+              Edit
+            </button>
+          )}
+          {contact.can_delete && (
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => void onDeleteContact(contact)}
+              className="rounded-md px-2.5 py-1 text-xs font-medium text-destructive"
+            >
+              Retire
+            </button>
+          )}
+        </div>
+      ),
+    },
   ]
 
   return (
@@ -936,6 +1179,232 @@ export default function CompanyDetail() {
         </div>
       )}
 
+      {tab === 'contacts' && (
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <div className="flex flex-col gap-6 lg:col-span-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <select
+                value={contactRole}
+                onChange={(event) => onFilterContacts(event.target.value, contactStatus)}
+                className="rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground outline-none focus:ring-2 focus:ring-ring"
+              >
+                <option value="">All roles</option>
+                {(Object.keys(contactRoleMeta) as ContactRoleType[]).map((value) => (
+                  <option key={value} value={value}>
+                    {contactRoleMeta[value].label}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                value={contactStatus}
+                onChange={(event) => onFilterContacts(contactRole, event.target.value)}
+                className="rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground outline-none focus:ring-2 focus:ring-ring"
+              >
+                <option value="">All statuses</option>
+                {(Object.keys(contactStatusMeta) as ContactStatus[]).map((value) => (
+                  <option key={value} value={value}>
+                    {contactStatusMeta[value].label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <DataTable
+              columns={contactColumns}
+              rows={contacts}
+              rowKey={(contact) => contact.id}
+              loading={loading}
+              loadingLabel="Loading contacts…"
+              empty={
+                <EmptyState
+                  title="No contacts yet"
+                  description="Add the people we work with here — start with the hiring manager or HR."
+                />
+              }
+            />
+          </div>
+
+          <div className="flex flex-col gap-6">
+            {company.can_update ? (
+              <FormCard
+                title={contactForm?.id ? 'Edit contact' : 'Add contact'}
+                description="Decision-makers (hiring, HR, procurement, finance) are who staffing runs through."
+              >
+                {contactForm ? (
+                  <form onSubmit={onSaveContact} className="flex flex-col gap-3">
+                    <Field label="Name" error={errors.name}>
+                      <input
+                        value={contactForm.name}
+                        onChange={(event) =>
+                          setContactForm(
+                            (previous) => previous && { ...previous, name: event.target.value },
+                          )
+                        }
+                        className={inputClass}
+                      />
+                    </Field>
+
+                    <Field label="Position" error={errors.position}>
+                      <input
+                        value={contactForm.position}
+                        onChange={(event) =>
+                          setContactForm(
+                            (previous) => previous && { ...previous, position: event.target.value },
+                          )
+                        }
+                        placeholder="Talent Acquisition Lead"
+                        className={inputClass}
+                      />
+                    </Field>
+
+                    <Field label="Role" error={errors.role_type}>
+                      <select
+                        value={contactForm.role_type}
+                        onChange={(event) =>
+                          setContactForm(
+                            (previous) =>
+                              previous && { ...previous, role_type: event.target.value },
+                          )
+                        }
+                        className={inputClass}
+                      >
+                        {(Object.keys(contactRoleMeta) as ContactRoleType[]).map((value) => (
+                          <option key={value} value={value}>
+                            {contactRoleMeta[value].label}
+                          </option>
+                        ))}
+                      </select>
+                    </Field>
+
+                    <Field label="Email" error={errors.email}>
+                      <input
+                        type="email"
+                        value={contactForm.email}
+                        onChange={(event) =>
+                          setContactForm(
+                            (previous) => previous && { ...previous, email: event.target.value },
+                          )
+                        }
+                        className={inputClass}
+                      />
+                    </Field>
+
+                    <Field label="Phone" error={errors.phone}>
+                      <input
+                        value={contactForm.phone}
+                        onChange={(event) =>
+                          setContactForm(
+                            (previous) => previous && { ...previous, phone: event.target.value },
+                          )
+                        }
+                        placeholder="+63 2 8712 4455"
+                        className={inputClass}
+                      />
+                    </Field>
+
+                    <Field label="Mobile" error={errors.mobile}>
+                      <input
+                        value={contactForm.mobile}
+                        onChange={(event) =>
+                          setContactForm(
+                            (previous) => previous && { ...previous, mobile: event.target.value },
+                          )
+                        }
+                        placeholder="0917 555 2210"
+                        className={inputClass}
+                      />
+                    </Field>
+
+                    {contactForm.id ? (
+                      <Field label="Status" error={errors.status}>
+                        <select
+                          value={contactForm.status}
+                          onChange={(event) =>
+                            setContactForm(
+                              (previous) => previous && { ...previous, status: event.target.value },
+                            )
+                          }
+                          className={inputClass}
+                        >
+                          {(Object.keys(contactStatusMeta) as ContactStatus[]).map((value) => (
+                            <option key={value} value={value}>
+                              {contactStatusMeta[value].label}
+                            </option>
+                          ))}
+                        </select>
+                      </Field>
+                    ) : (
+                      <label className="flex items-center gap-2 text-sm text-foreground">
+                        <input
+                          type="checkbox"
+                          checked={contactForm.is_primary}
+                          onChange={(event) =>
+                            setContactForm(
+                              (previous) =>
+                                previous && {
+                                  ...previous,
+                                  is_primary: event.target.checked,
+                                },
+                            )
+                          }
+                          className="h-4 w-4 rounded border-input"
+                        />
+                        Primary contact
+                      </label>
+                    )}
+
+                    <Field label="Notes" error={errors.notes}>
+                      <textarea
+                        rows={2}
+                        value={contactForm.notes}
+                        onChange={(event) =>
+                          setContactForm(
+                            (previous) => previous && { ...previous, notes: event.target.value },
+                          )
+                        }
+                        className={inputClass}
+                      />
+                    </Field>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="submit"
+                        disabled={saving || contactForm.name.trim() === ''}
+                        className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60"
+                      >
+                        {saving ? 'Saving…' : contactForm.id ? 'Save contact' : 'Add contact'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setContactForm(null)}
+                        className="rounded-md border border-border px-4 py-2 text-sm font-medium text-foreground hover:bg-muted"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </form>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setContactForm({ ...emptyContact })}
+                    className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
+                  >
+                    Add a contact
+                  </button>
+                )}
+              </FormCard>
+            ) : (
+              <FormCard title="Contacts">
+                <p className="text-sm text-muted-foreground">
+                  You need to own this account (or be its manager) to maintain its contacts.
+                </p>
+              </FormCard>
+            )}
+          </div>
+        </div>
+      )}
+
       {tab === 'activities' && (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <div className="flex flex-col gap-6 lg:col-span-2">
@@ -1036,11 +1505,11 @@ export default function CompanyDetail() {
 
             <FormCard
               title="Coming in later submodules"
-              description="Contacts, opportunities and contracts attach here."
+              description="Opportunities and contracts attach here."
             >
               <p className="text-xs text-muted-foreground">
-                Submodule 07 adds contacts, 08 conversion, and 09 the client lifecycle and
-                contracts.
+                Submodule 08 turns a qualified lead into this account and opens its first
+                opportunity; 09 adds the client lifecycle and contracts.
               </p>
             </FormCard>
           </div>

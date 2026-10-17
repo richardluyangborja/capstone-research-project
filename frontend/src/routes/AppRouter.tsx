@@ -6,6 +6,7 @@ import { useAuth } from '../lib/auth-context'
 import Assignment from '../pages/Assignment'
 import Companies from '../pages/Companies'
 import CompanyDetail from '../pages/CompanyDetail'
+import Contacts from '../pages/Contacts'
 import DashboardHome from '../pages/DashboardHome'
 import LeadDetail from '../pages/LeadDetail'
 import LeadsList from '../pages/LeadsList'
@@ -39,6 +40,7 @@ export default function AppRouter() {
           <Route path="/companies" element={<Companies />} />
           <Route path="/companies/new" element={<NewCompany />} />
           <Route path="/companies/:id" element={<CompanyDetail />} />
+          <Route path="/contacts" element={<Contacts />} />
         </Route>
       </Route>
 

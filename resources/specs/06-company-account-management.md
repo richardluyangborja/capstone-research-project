@@ -61,13 +61,14 @@ themselves, a manager may hand it to their team, an admin to anyone (`owner_id` 
 | `GET/POST` | `/api/v1/companies/{id}/sites` | List / add sites |
 | `PATCH/DELETE` | `/api/v1/companies/{id}/sites/{siteId}` | Update / remove site |
 | `GET/POST` | `/api/v1/companies/{id}/activities` | Activity/communication tab + log an activity |
-| `GET` | `/api/v1/companies/{id}/contacts` | Contacts tab — submodule 07 |
+| `GET/POST` | `/api/v1/companies/{id}/contacts` | Contacts tab — submodule 07 (list / add) |
 | `GET` | `/api/v1/companies/{id}/opportunities` | Opportunities tab — submodule 08 |
 | `GET` | `/api/v1/companies/{id}/contracts` | Contracts tab — submodule 09 |
 
 `GET /companies/{id}` returns affordances (`can_update`, `can_manage_sites`, `can_manage_parent`,
-`can_assign`, `can_delete`) plus `counts: { sites, branches, activities }` so the UI never has to
-re-derive permissions from the role.
+`can_assign`, `can_delete`) plus `counts: { sites, branches, contacts, activities }` so the UI never
+has to re-derive permissions from the role. (`contacts` was added by submodule 07; opportunity and
+contract counts follow in 08–09.)
 
 ## UI
 
@@ -75,8 +76,8 @@ re-derive permissions from the role.
   (`StatusBadge`), tier, owner, sites, branches, created; search + status/tier filters, paginated
   (blue = counts).
 - **Company detail** `/companies/:id` — `PageHeader` + tabs: Overview (profile, ownership, branch,
-  record), Sites, Activities. The Contacts / Opportunities / Contracts tabs and the lifecycle
-  stepper arrive with submodules 07–09.
+  record), Contacts (submodule 07), Sites, Activities. The Opportunities / Contracts tabs and the
+  lifecycle stepper arrive with submodules 08–09.
 - One primary site per company; site editor lives in the detail page's Sites tab (`FormCard`).
 - Creation is a dedicated route `/companies/new` (warn on a name collision, never block).
 
@@ -93,8 +94,8 @@ re-derive permissions from the role.
 - [ ] Deleting a company with an active contract returns 422 — the guard exists
   (`Company::deletionBlockers()`), but contracts arrive in submodule 09 so it is not yet triggered.
 - [x] salesrep sees only own-owner companies; manager sees team's.
-- [ ] Detail response includes roll-up counts of contacts, opportunities, contracts — replaced for
-  now by `counts: { sites, branches, activities }` (ADR-0010); the other three land with 07–09.
+- [x] Detail response includes a contact roll-up count — `counts: { sites, branches, contacts,
+  activities }` (ADR-0010); opportunities and contracts join the list in submodules 08–09.
 
 ## Open questions
 

@@ -40,11 +40,12 @@ class CompanyResource extends JsonResource
                 'name' => $this->owner->name,
             ]),
             'owner_id' => $this->owner_id,
-            // Roll-up counts (spec 06 §API). Contacts / opportunities / contracts join
-            // this list as submodules 07–09 land.
+            // Roll-up counts (spec 06 §API). Opportunity / contract counts join this list
+            // as submodules 08–09 land.
             'counts' => [
                 'sites' => (int) ($this->sites_count ?? 0),
                 'branches' => (int) ($this->children_count ?? 0),
+                'contacts' => (int) ($this->contacts_count ?? 0),
                 'activities' => (int) ($this->activities_count ?? 0),
             ],
             // Affordances for the UI

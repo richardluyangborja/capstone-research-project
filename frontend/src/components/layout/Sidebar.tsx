@@ -10,6 +10,7 @@ import {
   LayoutDashboard,
   LogOut,
   UserCheck,
+  Users,
   type LucideIcon,
 } from 'lucide-react'
 import { useAuth } from '../../lib/auth-context'
@@ -39,6 +40,7 @@ const groups: NavGroup[] = [
       { to: '/assignment', label: 'Lead Assignment & Ownership', icon: UserCheck },
       { to: '/lifecycle', label: 'Lead Lifecycle & Status', icon: History },
       { to: '/companies', label: 'Company / Account Management', icon: Building2 },
+      { to: '/contacts', label: 'Contact Management', icon: Users },
     ],
   },
 ]
