@@ -99,17 +99,23 @@ Enforced server-side.
 
 ## Department integration contracts (mocked)
 
-Each integration sits behind an **interface + a fake/mock driver** returning seeded data, toggled
-by a config flag (e.g. `INTEGRATIONS_MODE=mock`) (ADR-0005). Contract shapes are defined with
-OpenAPI (per the API convention).
+Each integration sits behind an **interface + a mock driver** returning deterministic seeded data
+(ADR-0005, ADR-0013 §4). In Phase 1 they live in `backend/app/Integrations/` (interface, `Mock*`
+driver, readonly DTO), bound in `AppServiceProvider`, and the failure path is forced with a config
+flag (`CRM_HANDOFF_SIMULATE_FAILURE=true` for the Service handoff) rather than random failure. Contract
+shapes are defined with OpenAPI (per the API convention).
 
 | Integration | Direction | Trigger | Payload (summary) |
 | --- | --- | --- | --- |
-| Service / operations | CRM → Service | Opportunity won / conversion | client + contract + manpower requirement |
+| Service / operations | CRM → Service | **Contract signed** (`mark-signed`) | client + contract + manpower requirement |
 | Recruitment | Service/CRM → Recruitment | Job order created | positions, skills, headcount, site |
 | Finance | CRM ← Finance | Contract active | billing status, invoices, AR state (read-only in CRM) |
 | Legal / documents | CRM → Legal | Contract uploaded | document + metadata; validation/ack |
 | HR | CRM ← HR | Client view | deployed employees, performance summary (read-only) |
+
+**Shipped in Phase 1:** Service (handoff on signing + retry) and Finance (read-only billing
+snapshot). Recruitment, Legal and HR remain interface-only mocks to be added with their consuming
+features.
 
 ## Decisions
 
@@ -122,5 +128,6 @@ Recorded as ADRs in `decisions/` (read them before changing the design):
 - `decisions/0005-mocked-integrations.md` — integration mock strategy
 - `decisions/0006-phase-1-scope.md` — Phase-1 submodule scope
 
-Still open / to be decided later: contract & billing data model, follow-up/reminder rules,
-satisfaction survey structure, and dedup/merge rules (deferred to Phase 2).
+Still open / to be decided later: follow-up/reminder rules, satisfaction survey structure, and
+dedup/merge rules (deferred to Phase 2). The contract and billing data model is settled — see
+`specs/00-data-model.md` (Contract), `specs/09-client-account-lifecycle.md` and ADR-0013.

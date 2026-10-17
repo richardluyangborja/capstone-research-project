@@ -1,87 +1,173 @@
 # 09 — Client Account Lifecycle
 
-Submodule 9. Entities: `Company`, `Contract`, `Opportunity`, `Contact`, `Activity`. ADRs: 0001, 0005.
+Submodule 9. Entities: `Company`, `Contract`, `Opportunity`, `Contact`, `Activity`. ADRs: 0001, 0005,
+0007, 0010, 0013.
+
+> **Implemented.** The contract below is what shipped: notes record the choices made where the spec
+> was open (see ADR-0013). The deal pipeline, contract versioning/e-signature, renewal reminders and
+> automatic aging are explicitly **not** part of this submodule.
 
 ## Purpose
 
 Manage a company once it becomes a client: advance its lifecycle state, trigger the service-department
-handoff on contract signing, support repeat business, and track dormancy/churn/win-back.
+handoff when a contract is signed, support repeat business, and track dormancy/churn/win-back.
 
 ## Lifecycle states
 
 ```
-prospect ──► onboarding ──► active ──► at_risk ──► dormant ──► churned
-                 ▲                        │            │          │
-                 └──── (reactivate) ──────┴────────────┴──────────┘  (win-back)
+prospect ──► onboarding ──► active ◄──► at_risk ◄──► dormant
+    │              │           ▲            │            │
+    │              └─► churned ◄┴────────────┴────────────┘
+    └──────────────────────► active  (a signed contract activates straight from prospect)
 ```
 
-`Company.status` is the single source of truth; `client_since` is set when the first contract signs.
+`Company.status` is the single source of truth and the allowed moves live in
+`CompanyStatus::allowedTransitions()`:
+
+| From | May move to |
+| --- | --- |
+| `prospect` | `onboarding`, `active` *(via a signed contract)* |
+| `onboarding` | `active`, `churned` |
+| `active` | `at_risk`, `dormant`, `churned` |
+| `at_risk` | `active`, `dormant`, `churned` |
+| `dormant` | `active`, `at_risk`, `churned` |
+| `churned` | `active` *(win-back)* |
+
+`client_since` is stamped on the first move past `prospect` and is never reset — a churned client that
+is won back keeps its original client date.
 
 ## Business rules
 
-1. **Contract signed → active:** when a `Contract` reaches `status = signed`, the company moves
-   `prospect|onboarding → onboarding|active`, `client_since` is set, and the **service handoff** fires.
-2. **Service handoff (mocked, ADR-0005):** call the Service interface with client + contract +
-   manpower requirement; store the handoff reference/status on the company. Failure leaves the
-   company in `onboarding` and surfaces a retry (`AlertItem`) — never blocks the contract record.
-3. **Repeat business:** a client may hold many opportunities/contracts over time; new deals enter the
-   normal pipeline and do not reset lifecycle.
-4. **`at_risk` / `dormant`:** a client with no active contract or no activity for the configured
-   window (propose 60 / 90 days) is flagged `at_risk`, then `dormant`. Phase 1 may set these
-   manually; automatic aging can be deferred.
-5. **Churn / win-back:** `mark-churned` sets `churned` and records reason + date; `reactivate`
-   returns the client to `active`. Both require manager+.
-6. **Renewals:** contracts form a chain via `renewal_of_contract_id`; expiry dates drive the
-   (separate) follow-up/reminder module.
-7. **Billing visibility (mocked):** the client view shows read-only billing/AR status from Finance
-   (ADR-0005); no billing writes from CRM.
+1. **Contract signed → client:** `mark-signed` is the *only* path to `Contract.status = signed`.
+   It writes the contract, marks it signed, and then (after the write commits) runs the activation +
+   handoff orchestration on the company. A company moves `prospect|onboarding → active`; any other
+   status (`active`, `at_risk`, `dormant`, `churned`) is **not** reset by repeat business.
+2. **Service handoff (mocked, ADR-0005, ADR-0013 §4–5):** `ServiceHandoff::handoff()` returns a
+   `HandoffResult` — never an exception, so it can never roll a signed contract back. Success stores
+   `handoff_status = sent` + `handoff_reference = SVC-{contract reference}`. Failure stores
+   `handoff_status = failed` + `handoff_error`, parks a `prospect` in `onboarding`, and leaves the
+   client retryable via `POST /companies/{id}/handoff/retry` (same orchestration). `HandoffResult`,
+   the stored fields and the retry are also the test/demo seam: `CRM_HANDOFF_SIMULATE_FAILURE=true`
+   forces the failure path deterministically.
+3. **Repeat business:** a client may hold many opportunities and contracts; a new signed contract
+   adds a contract and refreshes the handoff, but never resets the lifecycle (rule 1).
+4. **`at_risk` / `dormant` are manual in Phase 1.** A manager sets them through the lifecycle
+   endpoint; nothing is scheduled and no staleness is computed for clients. Automatic aging and
+   renewal reminders are the deferred follow-up/reminder module.
+5. **Churn / win-back:** moving to `churned` requires a `reason` (stored with `churned_at`) and is
+   manager+; `POST /companies/{id}/reactivate` returns a **churned** client to `active` and clears
+   `churn_reason`/`churned_at`. Both write a `system` activity (with the optional `note`) to the
+   company timeline. Reactivating anything that is not churned is a 422.
+6. **Renewals are a chain:** `renewal_of_contract_id` may reference an earlier contract **of the same
+   company** (422 otherwise). The new agreement is uploaded and signed like any other. `is_expiring_soon`
+   (`crm.contracts.expiring_soon_days`, default 30) flags a signed contract whose `end_date` is inside
+   the window, and `days_until_expiry` is computed on read — the UI badges it, nothing is scheduled.
+7. **Billing visibility (mocked):** `GET /companies/{id}/billing` proxies the Finance department
+   (read-only DTO, deterministic from the company reference). It is manager+ only; salesreps get 403
+   and the client payload reports `can_view_billing = false`. The CRM never writes billing data.
+8. **Documents are real:** uploads are multipart (`pdf, png, jpg, jpeg`, ≤ `CRM_CONTRACT_MAX_KB`) on
+   the private disk; downloads go through `GET /contracts/{id}/file` after authorization. The stored
+   path is never serialized.
+9. **A signed contract blocks deleting its company** (`Company::deletionBlockers()` → 422), alongside
+   the open-deal blocker from submodule 08.
 
 ## Permissions
 
+A contract inherits its company's rights (ADR-0011 §2 pattern extended by ADR-0013 §7); its
+`owner_id` is the account owner.
+
 | Action | salesrep | manager | admin / superadmin |
 | --- | --- | --- | --- |
-| View client | Own | Team | All |
-| Upload contract | Own | Team | All |
-| mark-churned / reactivate | — | ✓ | ✓ |
-| Manual status override | — | ✓ | ✓ |
-| View billing (read-only) | hidden | view | view |
+| View client / contract / document | Own | Team | All |
+| Upload + edit a contract, `mark-signed` | Own | Team | All |
+| Terminate, retire or restore a contract | — | ✓ | ✓ |
+| Lifecycle move (`PATCH …/lifecycle`), churn, reactivate | — | Own/team | All |
+| Retry a failed handoff | Own | Team | All |
+| View billing (read-only) | hidden (403) | view | view |
+| Set `Company.status` through `PATCH /companies/{id}` | — | — | ✓ *(system override)* |
 
 ## API endpoints
 
 | Method | Path | Description |
 | --- | --- | --- |
-| `PATCH` | `/api/v1/companies/{id}/lifecycle` | Body `status` (+ `reason` for churn); manager+ |
-| `POST` | `/api/v1/companies/{id}/contracts` | Upload contract (multipart PDF/PNG/JPEG) + terms |
-| `POST` | `/api/v1/contracts/{id}/mark-signed` | Set `signed` → triggers client activation + handoff |
-| `GET` | `/api/v1/companies/{id}/billing` | Read-only proxy to Finance mock |
-| `POST` | `/api/v1/companies/{id}/handoff/retry` | Retry a failed service handoff |
-| `POST` | `/api/v1/companies/{id}/reactivate` | Win-back → `active` |
-| `GET` | `/api/v1/companies?filter[status]=active|at_risk|dormant|churned` | Lifecycle lists |
+| `GET` | `/api/v1/companies/{id}/contracts` | Contracts tab — `filter[status]`, `filter[expiring]`, `meta { total, active }` |
+| `POST` | `/api/v1/companies/{id}/contracts` | Upload (multipart) + terms; 201 |
+| `GET` | `/api/v1/contracts/{id}` | Contract detail (company, opportunity, renewal, owner) |
+| `PATCH` | `/api/v1/contracts/{id}` | Terms/status; `signed` is rejected (use `mark-signed`), termination is manager+ |
+| `DELETE` | `/api/v1/contracts/{id}` | Retire (soft delete) — manager+ |
+| `POST` | `/api/v1/contracts/{id}/restore` | Restore a retired contract — manager+ |
+| `GET` | `/api/v1/contracts/{id}/file` | Stream the stored document (authorized) |
+| `POST` | `/api/v1/contracts/{id}/mark-signed` | Set `signed` → activates the client + Service handoff |
+| `PATCH` | `/api/v1/companies/{id}/lifecycle` | Body `status`, `reason` (churn), `note`; manager+ |
+| `POST` | `/api/v1/companies/{id}/reactivate` | Win-back a churned client → `active` |
+| `POST` | `/api/v1/companies/{id}/handoff/retry` | Retry a failed Service handoff |
+| `GET` | `/api/v1/companies/{id}/billing` | Read-only Finance snapshot (manager+) |
+| `GET` | `/api/v1/companies?filter[status]=…` | Lifecycle lists (client book) |
+
+**Contract payload:** `{ id, reference, company_id, company?, opportunity_id, opportunity?,
+renewal_of_contract_id, renewal_of?, title, status, start_date, end_date, signed_at, value, currency,
+terms, notes, file { present, name, size, mime }, days_until_expiry, is_expiring_soon, is_signed,
+is_active, owner, owner_id, allowed_transitions[], can_update, can_mark_signed, can_delete,
+created_at, updated_at }`.
+
+**Company payload additions:** `counts.contracts`, `churn_reason`, `churned_at`,
+`handoff { status, reference, error, requested_at, can_retry }`, `allowed_status_transitions[]`,
+`can_manage_lifecycle`, `can_view_billing`, `can_upload_contract`.
+
+**Create/update errors:** 422 — not a pdf/png/jpeg, file missing or over 10 MB, `renewal_of_contract_id`
+from another company, `opportunity_id` from another company, `status = signed`, illegal status move,
+termination by a salesrep, illegal lifecycle move, churn without a reason; 403 — outside the account
+(and billing for salesreps).
 
 ## UI
 
-- **Lifecycle stepper** on `/companies/:id` (Overview tab) with allowed transitions only.
-- **Contracts tab** — upload, status (`StatusBadge`), terms, renewals, expiry countdown.
-- **Handoff status** banner (`AlertItem`) with retry when the mock call failed.
-- **Billing panel** — read-only, marked "from Finance"; hidden for salesrep.
-- **Clients list** — filter by lifecycle status/tier; cost-domain styling (orange) for billing.
+- **Lifecycle panel** on `/companies/:id` (Overview) — current badge, `client_since`, churn reason/date,
+  the `Service handoff` reference, and one button per legal move from `allowed_status_transitions`;
+  the `churned` move opens an inline reason form, and `churned → active` reads **Reactivate**.
+- **Handoff banner** (`AlertItem`, danger) whenever `handoff.status = failed`, with the error and a
+  **Retry handoff** button; it states that the signed contract stands.
+- **Contracts tab** — `DataTable` (reference, agreement with renewal link, status + *Renewal due*
+  badge, value, term + expiry countdown, document link, actions) with a status filter, an **Engagements**
+  summary card, and an **Upload a contract** form (`FormCard`, multipart) incl. the **Renew** prefill
+  that chains `renewal_of_contract_id`. Row actions: `Mark signed`, `Renew`, `Retire`.
+- **Billing panel** — read-only snapshot marked as coming from Finance; rendered only when
+  `can_view_billing`.
+- **Client book** (`/clients`) — accounts past `prospect` filtered by lifecycle status and tier, with
+  `client_since`, contract count (blue = counts) and tier (cost = orange); rows open the account. The
+  sidebar lists submodule 09 under *Lead & Client Tracking*.
+- Lifecycle moves, signing and handoffs all land on the account **Activities** timeline as `system`
+  activities.
 
 ## Events
 
-- `ContractSigned` → `CompanyActivated` → **Service handoff** (mock).
-- `CompanyChurned` → retention/win-back reporting.
+- `ContractSigned` (contract, company, actor) — dispatched **after** the contract commits; handled by
+  `HandoffContractToService`, which calls `Company::handoffToService()`.
+- `CompanyStatusChanged` (company, from, to, actor, note) — handled by `RecordCompanyStatusChange`
+  (timeline).
+- `CompanyActivated` (company, contract?, actor) and `CompanyChurned` (company, reason, actor) —
+  bookkeeping for reporting/retention; dispatched from the same orchestration.
 
 ## Acceptance criteria
 
-- [ ] Marking a contract `signed` sets `client_since`, advances the company, and calls the Service
-      mock exactly once.
-- [ ] A failed Service handoff does not roll back the signed contract and exposes a retry.
-- [ ] `mark-churned`/`reactivate` are rejected for salesrep (403) and require a reason for churn.
-- [ ] Billing proxy is read-only and hidden from salesrep responses.
-- [ ] A company with multiple contracts/opportunities shows full history without resetting status.
+- [x] `mark-signed` sets `signed_at`, stamps `client_since`, moves the company to `active` and calls
+      the Service mock exactly once (the retry path calls it again, and only again).
+- [x] A failed handoff does not roll back the signed contract and exposes `handoff.can_retry` + the
+      retry endpoint; the retry activates the client.
+- [x] `mark-churned`/`reactivate` are 403 for a salesrep and require a reason for churn; reactivation
+      is rejected unless the client is churned, and it preserves `client_since`.
+- [x] `signed` is unreachable by `PATCH /contracts/{id}`; a second `mark-signed` is 422; an illegal
+      lifecycle or contract move is 422.
+- [x] Billing is read-only, hidden from salesreps (403), and deterministic per company.
+- [x] A company with a signed contract cannot be deleted (422); a draft/terminated one can.
+- [x] A company with multiple contracts/opportunities keeps its status — signing an agreement on an
+      `at_risk`/`dormant` client leaves the status alone.
+- [x] The uploaded document is stored privately and only downloadable through the authorized endpoint.
 
 ## Open questions
 
-- Do we need `onboarding` as a distinct state, or collapse it into `active`?
-- Automatic aging to `at_risk`/`dormant` in Phase 1, or manual only?
-- Is a region/currency assumption safe (PHP only)?
+- Do we need `onboarding` as a distinct state, or collapse it into `active`? — **Keep it:** it is the
+  state a signed-but-not-yet-handed-off client waits in, which is what makes the failed handoff
+  visible instead of silently "active".
+- Automatic aging to `at_risk`/`dormant` in Phase 1, or manual only? — **Manual only** (ADR-0013 §3);
+  the follow-up/reminder module owns renewal reminders and ageing.
+- Is a region/currency assumption safe (PHP only)? — **Yes** (ADR-0007); the billing mock returns PHP.

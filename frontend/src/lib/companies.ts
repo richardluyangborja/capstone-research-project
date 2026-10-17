@@ -1,5 +1,13 @@
 import { api } from './api'
-import type { Activity, Company, CompanySite, CompanyTimeline, Paginated } from '../types'
+import type {
+  Activity,
+  Company,
+  CompanyBilling,
+  CompanySite,
+  CompanyStatus,
+  CompanyTimeline,
+  Paginated,
+} from '../types'
 
 export interface CompanyFilters {
   search?: string
@@ -128,4 +136,34 @@ export const logCompanyActivity = async (
     input,
   )
   return { company: data.data, activity: data.activity }
+}
+
+/**
+ * Client lifecycle — manager+ and only along the state machine (spec 09 §1, §5). A churn
+ * needs a reason; the answer is the updated company.
+ */
+export const updateCompanyLifecycle = async (
+  id: string,
+  input: { status: CompanyStatus; reason?: string; note?: string },
+): Promise<Company> => {
+  const { data } = await api.patch<{ data: Company }>(`/companies/${id}/lifecycle`, input)
+  return data.data
+}
+
+/** Win-back: a churned client returns to active (spec 09 §5). */
+export const reactivateCompany = async (id: string, note?: string): Promise<Company> => {
+  const { data } = await api.post<{ data: Company }>(`/companies/${id}/reactivate`, { note })
+  return data.data
+}
+
+/** Retry the mocked Service handoff that failed when the contract was signed (§2). */
+export const retryCompanyHandoff = async (id: string): Promise<Company> => {
+  const { data } = await api.post<{ data: Company }>(`/companies/${id}/handoff/retry`)
+  return data.data
+}
+
+/** Read-only AR snapshot from the mocked Finance department — manager+ only (spec 09 §7). */
+export const getCompanyBilling = async (id: string): Promise<CompanyBilling> => {
+  const { data } = await api.get<CompanyBilling>(`/companies/${id}/billing`)
+  return data
 }

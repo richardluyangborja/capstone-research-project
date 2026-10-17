@@ -39,7 +39,7 @@ Opportunity ──► Contract ──(signed)──► Company becomes "Client"
 | `ContactRoleType` | `hiring_manager`, `hr`, `procurement`, `finance`, `executive`, `other` |
 | `ActivityType` | `call`, `email`, `meeting`, `walk_in`, `task`, `note`, `system` |
 | `ActivityStatus` | `open`, `done`, `cancelled` |
-| `ContractStatus` | `draft`, `sent`, `signed`, `active`, `expired`, `terminated`, `renewed` |
+| `ContractStatus` | `draft`, `sent`, `signed`, `expired`, `terminated` |
 
 ## Lead
 
@@ -90,7 +90,13 @@ Opportunity ──► Contract ──(signed)──► Company becomes "Client"
 | `owner_id` | FK users | ✓ | |
 | `status` | `CompanyStatus` | ✓ | default `prospect` |
 | `tier` | `CompanyTier` | | manual in Phase 1 |
-| `client_since` | date | | set when first contract signed |
+| `client_since` | date | | stamped on the first move past `prospect`; never reset |
+| `churn_reason` | string | | required when `churned` (spec 09 §5) |
+| `churned_at` | timestamp | | set with `churned_at`, cleared on win-back |
+| `handoff_status` | enum `sent`/`failed` | | last mocked Service handoff (spec 09 §2) |
+| `handoff_reference` | string | | `SVC-{contract reference}` on success |
+| `handoff_error` | text | | why the handoff failed; nulled on success |
+| `handoff_requested_at` | timestamp | | when the handoff last ran |
 | `source_lead_id` | FK leads | | origin |
 | `tags` | json | | |
 
@@ -147,30 +153,41 @@ Opportunity ──► Contract ──(signed)──► Company becomes "Client"
 Full **communication history** (rich email/phone bodies) is a separate module with its own
 `communications` table — deferred.
 
-## Contract (minimal in Phase 1)
+## Contract (spec 09)
 
 | Field | Type | Req | Notes |
 | --- | --- | --- | --- |
-| `reference` | string | ✓ | `CT-YYYY-NNNN` |
+| `reference` | string | ✓ | `CON-YYYY-NNNN`, generated |
 | `company_id` | FK companies | ✓ | |
-| `opportunity_id` | FK opportunities | | |
-| `status` | `ContractStatus` | ✓ | default `draft` |
-| `signed_date` / `start_date` / `end_date` | date | | `signed_date` flips client to active |
-| `terms_summary` | text | | |
-| `rate_terms` | json | | **sensitive** |
-| `renewal_of_contract_id` | FK contracts | | renewal chain |
+| `opportunity_id` | ULID | | the deal the engagement came from |
+| `renewal_of_contract_id` | ULID contracts | | renewal chain; must be the same company |
+| `title` | string | ✓ | |
+| `status` | `ContractStatus` | ✓ | default `draft`; `signed` only via `mark-signed` |
+| `start_date` / `end_date` | date | | `end_date` drives the expiry/renewal countdown |
+| `signed_at` | timestamp | | set when signed |
+| `value` | decimal(15,2) | | engagement value |
+| `currency` | string | | default PHP |
+| `terms` | text | | terms summary |
+| `notes` | text | | |
+| `file_path` / `file_name` / `file_size` / `file_mime` | string / int | | document on the private disk (ADR-0013 §2) |
+| `owner_id` | FK users | ✓ | the account owner, so contract and company scoping agree |
 
-Attachments (contract PDFs/scans) use the polymorphic `attachments` table. Full contract/document
-management is a separate module; Phase 1 only needs signed/term tracking + upload.
+Soft deletes; a `signed` contract blocks deleting its company. Indexes: `status`, `company_id`,
+`opportunity_id`, `end_date`. Full contract/document management (e-signature, clause versions,
+several files per record) stays a separate module — Phase 1 ships one document plus term/status
+tracking.
 
-## Attachment
+## Attachment (deferred)
 
-`attachable_type` / `attachable_id` (morph), `disk`, `path`, `original_name`, `mime_type`, `size`,
-`uploaded_by`. Private disk; pdf/png/jpeg only; max 10 MB.
+A polymorphic `attachments` table (`attachable_type` / `attachable_id`, `disk`, `path`,
+`original_name`, `mime_type`, `size`, `uploaded_by`) is Phase 2, for records that need *several*
+files. Phase 1 keeps the single contract document on the contract row and serves it through
+`GET /api/v1/contracts/{id}/file`; uploads accept pdf/png/jpeg up to 10 MB on a private disk.
 
 ## Indexes / constraints (highlights)
 
 - Unique: `leads.reference`, `companies.reference`, `opportunities.reference`, `contracts.reference`.
 - Index: `leads.status`, `leads.owner_id`, `companies.status`, `companies.owner_id`,
-  `opportunities.stage`, `activities.subject_type+subject_id`.
+  `opportunities.stage`, `contracts.status`, `contracts.company_id`, `contracts.end_date`,
+  `activities.subject_type+subject_id`.
 - `companies.name` — soft-unique (warn, don't hard-fail).

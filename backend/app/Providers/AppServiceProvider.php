@@ -2,6 +2,10 @@
 
 namespace App\Providers;
 
+use App\Integrations\FinanceBilling;
+use App\Integrations\MockFinanceBilling;
+use App\Integrations\MockServiceHandoff;
+use App\Integrations\ServiceHandoff;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -11,7 +15,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // Department integrations are mocked (ADR-0005). Swapping a mock for a real
+        // driver is a binding change here — no caller changes.
+        $this->app->bind(ServiceHandoff::class, MockServiceHandoff::class);
+        $this->app->bind(FinanceBilling::class, MockFinanceBilling::class);
     }
 
     /**

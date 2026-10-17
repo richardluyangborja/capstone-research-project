@@ -12,11 +12,15 @@ import {
   deleteCompany,
   deleteCompanySite,
   getCompany,
+  getCompanyBilling,
   getCompanyTimeline,
   listCompanies,
   listCompanySites,
   logCompanyActivity,
+  reactivateCompany,
+  retryCompanyHandoff,
   updateCompany,
+  updateCompanyLifecycle,
   updateCompanySite,
   type CompanySiteInput,
   type DuplicateCompany,
@@ -29,27 +33,39 @@ import {
   updateContact,
   type ContactInput,
 } from '../lib/contacts'
+import {
+  createContract,
+  deleteContract,
+  downloadContractFile,
+  listCompanyContracts,
+  markContractSigned,
+} from '../lib/contracts'
 import { getAssignableUsers, parseValidationError } from '../lib/leads'
 import { listCompanyOpportunities } from '../lib/opportunities'
 import { activityTypeMeta } from '../lib/leadMeta'
 import { companySizeLabels, companyStatusMeta, companyTierLabels } from '../lib/companyMeta'
+import { contractStatusMeta, contractStatusOptions, formatExpiry } from '../lib/contractMeta'
 import { contactRoleMeta, contactStatusMeta } from '../lib/contactMeta'
 import { opportunityStageMeta } from '../lib/opportunityMeta'
 import { formatCurrency, formatDate, formatDateTime } from '../lib/format'
 import type {
   Activity,
   AssignmentTarget,
+  BillingSummary,
   Company,
   CompanySite,
   CompanySize,
+  CompanyStatus,
   CompanyTier,
   Contact,
   ContactRoleType,
   ContactStatus,
+  Contract,
+  ContractStatus,
   Opportunity,
 } from '../types'
 
-type TabKey = 'overview' | 'contacts' | 'sites' | 'opportunities' | 'activities'
+type TabKey = 'overview' | 'contacts' | 'sites' | 'opportunities' | 'contracts' | 'activities'
 
 interface CompanyForm {
   name: string
@@ -89,6 +105,23 @@ interface ContactForm {
   is_primary: boolean
 }
 
+/** Upload form for a contract — the signed document is part of the record (spec 09). */
+interface ContractForm {
+  file: File | null
+  title: string
+  status: ContractStatus
+  start_date: string
+  end_date: string
+  value: string
+  terms: string
+  renewal_of_contract_id: string
+}
+
+interface ChurnForm {
+  reason: string
+  note: string
+}
+
 const emptySite: SiteForm = {
   id: null,
   label: '',
@@ -112,6 +145,17 @@ const emptyContact: ContactForm = {
   status: 'active',
   notes: '',
   is_primary: false,
+}
+
+const emptyContract: ContractForm = {
+  file: null,
+  title: '',
+  status: 'draft',
+  start_date: '',
+  end_date: '',
+  value: '',
+  terms: '',
+  renewal_of_contract_id: '',
 }
 
 const formFromContact = (contact: Contact): ContactForm => ({
@@ -166,6 +210,8 @@ export default function CompanyDetail() {
   const [sites, setSites] = useState<CompanySite[]>([])
   const [contacts, setContacts] = useState<Contact[]>([])
   const [opportunities, setOpportunities] = useState<Opportunity[]>([])
+  const [contracts, setContracts] = useState<Contract[]>([])
+  const [billing, setBilling] = useState<BillingSummary | null>(null)
   const [branches, setBranches] = useState<Company[]>([])
   const [options, setOptions] = useState<Company[]>([])
   const [targets, setTargets] = useState<AssignmentTarget[]>([])
@@ -175,6 +221,9 @@ export default function CompanyDetail() {
   const [form, setForm] = useState<CompanyForm | null>(null)
   const [siteForm, setSiteForm] = useState<SiteForm | null>(null)
   const [contactForm, setContactForm] = useState<ContactForm | null>(null)
+  const [contractForm, setContractForm] = useState<ContractForm | null>(null)
+  const [churnForm, setChurnForm] = useState<ChurnForm | null>(null)
+  const [contractStatus, setContractStatus] = useState('')
   const [contactRole, setContactRole] = useState('')
   const [contactStatus, setContactStatus] = useState('')
   const [activityForm, setActivityForm] = useState({ type: 'call', subject: '', body: '' })
@@ -190,24 +239,32 @@ export default function CompanyDetail() {
     setLoading(true)
     try {
       const detail = await getCompany(id)
-      const [siteList, contactList, dealList, branchList, history, assignable] = await Promise.all([
-        listCompanySites(id),
-        listCompanyContacts(id),
-        listCompanyOpportunities(id),
-        listCompanies({ parent_company_id: id }),
-        getCompanyTimeline(id),
-        getAssignableUsers(),
-      ])
+      const [siteList, contactList, dealList, contractList, branchList, history, assignable] =
+        await Promise.all([
+          listCompanySites(id),
+          listCompanyContacts(id),
+          listCompanyOpportunities(id),
+          listCompanyContracts(id),
+          listCompanies({ parent_company_id: id }),
+          getCompanyTimeline(id),
+          getAssignableUsers(),
+        ])
 
       setCompany(detail)
       setForm(formFromCompany(detail))
       setSites(siteList)
       setContacts(contactList)
       setOpportunities(dealList.data)
+      setContracts(contractList.data)
       setBranches(branchList.data)
       setActivities(history.data)
       setTargets(assignable)
       setOptions(detail.can_manage_parent ? (await listCompanies()).data : [])
+
+      // Billing comes from the mocked Finance department and is manager+ only (spec 09 §7).
+      if (detail.can_view_billing) {
+        setBilling((await getCompanyBilling(id)).data)
+      }
     } catch {
       setCompany(null)
       setAlertVariant('danger')
@@ -392,6 +449,167 @@ export default function CompanyDetail() {
     }
   }
 
+  // --- Submodule 09: client lifecycle + contracts ---------------------------
+
+  const refreshContracts = async () => {
+    const [list, detail] = await Promise.all([
+      listCompanyContracts(id, { status: contractStatus || undefined }),
+      getCompany(id),
+    ])
+    setContracts(list.data)
+    setCompany(detail)
+  }
+
+  const refreshLifecycle = async () => {
+    const [detail, history] = await Promise.all([getCompany(id), getCompanyTimeline(id)])
+    setCompany(detail)
+    setActivities(history.data)
+
+    if (detail.can_view_billing) {
+      setBilling((await getCompanyBilling(id)).data)
+    }
+  }
+
+  const onFilterContracts = (status: string) => {
+    setContractStatus(status)
+    void listCompanyContracts(id, { status: status || undefined })
+      .then((list) => setContracts(list.data))
+      .catch(() => handleFailure(null, 'Could not load the contracts.'))
+  }
+
+  const onSaveContract = async (event: FormEvent) => {
+    event.preventDefault()
+    if (!contractForm) return
+
+    if (!contractForm.file) {
+      setAlertVariant('danger')
+      setMessage('Attach the signed document before saving the contract.')
+      return
+    }
+
+    setSaving(true)
+    try {
+      await createContract(id, {
+        file: contractForm.file,
+        title: contractForm.title.trim(),
+        status: contractForm.status,
+        start_date: blankToNull(contractForm.start_date),
+        end_date: blankToNull(contractForm.end_date),
+        value: contractForm.value.trim() === '' ? null : Number(contractForm.value),
+        terms: blankToNull(contractForm.terms),
+        renewal_of_contract_id: blankToNull(contractForm.renewal_of_contract_id),
+      })
+
+      setContractForm(null)
+      await refreshContracts()
+      succeed('Contract uploaded.')
+    } catch (error) {
+      handleFailure(error, 'Could not upload the contract.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const onMarkContractSigned = async (contract: Contract) => {
+    setSaving(true)
+    try {
+      await markContractSigned(contract.id)
+      const detail = await getCompany(id)
+      setCompany(detail)
+      await refreshContracts()
+      await refreshLifecycle()
+
+      // Signing activates the client unless the mocked handoff fails (spec 09 §2).
+      if (detail.handoff.status === 'failed') {
+        setAlertVariant('danger')
+        setMessage(
+          `${contract.reference} is signed, but the Service handoff failed. Retry it from the lifecycle panel.`,
+        )
+      } else {
+        succeed(
+          `${contract.reference} is signed — the client is active and Service has been notified.`,
+        )
+      }
+    } catch (error) {
+      handleFailure(error, 'Could not sign the contract.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const onRetireContract = async (contract: Contract) => {
+    setSaving(true)
+    try {
+      await deleteContract(contract.id)
+      await refreshContracts()
+      succeed(`${contract.reference} retired.`)
+    } catch (error) {
+      handleFailure(error, 'Could not retire the contract.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const onDownloadContract = async (contract: Contract) => {
+    try {
+      await downloadContractFile(contract)
+    } catch {
+      setAlertVariant('danger')
+      setMessage('Could not download the document.')
+    }
+  }
+
+  const onStartRenewal = (contract: Contract) => {
+    setTab('contracts')
+    setContractForm({
+      ...emptyContract,
+      title: `${contract.title} (renewal)`,
+      start_date: contract.end_date ?? '',
+      status: 'draft',
+      renewal_of_contract_id: contract.id,
+    })
+  }
+
+  const onTransition = async (status: CompanyStatus, reason?: string, note?: string) => {
+    if (!company) return
+
+    setSaving(true)
+    try {
+      // Win-back from churned has its own action so the reason is recorded (spec 09 §5).
+      const updated =
+        company.status === 'churned' && status === 'active'
+          ? await reactivateCompany(id, note)
+          : await updateCompanyLifecycle(id, { status, reason, note })
+
+      setCompany(updated)
+      setChurnForm(null)
+      await refreshLifecycle()
+      succeed(`Client moved to ${companyStatusMeta[status].label.toLowerCase()}.`)
+    } catch (error) {
+      handleFailure(error, 'Could not change the client lifecycle.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const onRetryHandoff = async () => {
+    setSaving(true)
+    try {
+      const updated = await retryCompanyHandoff(id)
+      setCompany(updated)
+      await refreshLifecycle()
+      succeed(
+        updated.handoff.status === 'sent'
+          ? 'Service accepted the handoff — the client is active.'
+          : 'The handoff failed again.',
+      )
+    } catch (error) {
+      handleFailure(error, 'Could not retry the Service handoff.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const onSaveSite = async (event: FormEvent) => {
     event.preventDefault()
     if (!siteForm) return
@@ -503,7 +721,119 @@ export default function CompanyDetail() {
     { key: 'contacts', label: 'Contacts', count: company.counts.contacts },
     { key: 'sites', label: 'Sites', count: company.counts.sites },
     { key: 'opportunities', label: 'Opportunities', count: company.counts.opportunities },
+    { key: 'contracts', label: 'Contracts', count: company.counts.contracts },
     { key: 'activities', label: 'Activities', count: company.counts.activities },
+  ]
+
+  const contractColumns: DataTableColumn<Contract>[] = [
+    {
+      key: 'reference',
+      header: 'Reference',
+      className: 'font-mono text-xs text-muted-foreground',
+      render: (contract) => contract.reference,
+    },
+    {
+      key: 'title',
+      header: 'Agreement',
+      render: (contract) => (
+        <div className="flex flex-col">
+          <span className="font-medium text-foreground">{contract.title}</span>
+          {contract.renewal_of && (
+            <span className="font-mono text-xs text-muted-foreground">
+              renews {contract.renewal_of.reference}
+            </span>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (contract) => (
+        <div className="flex items-center gap-2">
+          <StatusBadge tone={contractStatusMeta[contract.status].tone}>
+            {contractStatusMeta[contract.status].label}
+          </StatusBadge>
+          {contract.is_expiring_soon && <StatusBadge tone="warm">Renewal due</StatusBadge>}
+        </div>
+      ),
+    },
+    {
+      key: 'value',
+      header: 'Value',
+      className: 'text-right text-muted-foreground',
+      headerClassName: 'text-right',
+      render: (contract) => (contract.value === null ? '—' : formatCurrency(contract.value)),
+    },
+    {
+      key: 'term',
+      header: 'Term',
+      className: 'text-muted-foreground',
+      render: (contract) => (
+        <div className="flex flex-col">
+          <span>
+            {contract.start_date ? formatDate(contract.start_date) : '—'} →{' '}
+            {contract.end_date ? formatDate(contract.end_date) : '—'}
+          </span>
+          <span className="text-xs">{formatExpiry(contract.days_until_expiry)}</span>
+        </div>
+      ),
+    },
+    {
+      key: 'file',
+      header: 'Document',
+      render: (contract) =>
+        contract.file.present ? (
+          <button
+            type="button"
+            onClick={() => void onDownloadContract(contract)}
+            className="text-xs font-medium text-primary"
+          >
+            {contract.file.name ?? 'Download'}
+          </button>
+        ) : (
+          <span className="text-xs text-muted-foreground">None</span>
+        ),
+    },
+    {
+      key: 'actions',
+      header: 'Actions',
+      headerClassName: 'text-right',
+      className: 'text-right',
+      render: (contract) => (
+        <div className="flex items-center justify-end gap-2">
+          {contract.can_mark_signed && ['draft', 'sent'].includes(contract.status) && (
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => void onMarkContractSigned(contract)}
+              className="rounded-md bg-people px-2.5 py-1 text-xs font-medium text-primary-foreground disabled:opacity-60"
+            >
+              Mark signed
+            </button>
+          )}
+          {company.can_upload_contract && contract.status !== 'terminated' && (
+            <button
+              type="button"
+              onClick={() => onStartRenewal(contract)}
+              className="rounded-md border border-border px-2.5 py-1 text-xs font-medium text-foreground hover:bg-muted"
+            >
+              Renew
+            </button>
+          )}
+          {contract.can_delete && (
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => void onRetireContract(contract)}
+              className="rounded-md px-2.5 py-1 text-xs font-medium text-destructive"
+            >
+              Retire
+            </button>
+          )}
+        </div>
+      ),
+    },
   ]
 
   const opportunityColumns: DataTableColumn<Opportunity>[] = [
@@ -709,6 +1039,28 @@ export default function CompanyDetail() {
                 {messages.join(' ')}
               </p>
             ))}
+          </AlertItem>
+        </div>
+      )}
+
+      {company.handoff.status === 'failed' && (
+        <div className="mb-4">
+          <AlertItem variant="danger" title="Service handoff failed">
+            <p className="text-xs">{company.handoff.error}</p>
+            <p className="mt-1 text-xs">
+              The signed contract stands — the client waits in onboarding until Service acknowledges
+              the handoff.
+            </p>
+            {company.handoff.can_retry && (
+              <button
+                type="button"
+                disabled={saving}
+                onClick={() => void onRetryHandoff()}
+                className="mt-2 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted disabled:opacity-60"
+              >
+                Retry handoff
+              </button>
+            )}
           </AlertItem>
         </div>
       )}
@@ -930,6 +1282,128 @@ export default function CompanyDetail() {
           </div>
 
           <div className="flex flex-col gap-6">
+            <FormCard
+              title="Client lifecycle"
+              description={
+                company.can_manage_lifecycle
+                  ? 'Every move is recorded on the account timeline.'
+                  : 'Only a manager or admin can move an account along the lifecycle.'
+              }
+            >
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Status</span>
+                <StatusBadge tone={statusMeta.tone}>{statusMeta.label}</StatusBadge>
+              </div>
+
+              <div className="mt-3 flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Client since</span>
+                <span className="text-foreground">
+                  {company.client_since ? formatDate(company.client_since) : '—'}
+                </span>
+              </div>
+
+              {company.handoff.status === 'sent' && (
+                <div className="mt-3 flex items-center justify-between gap-3 text-sm">
+                  <span className="text-muted-foreground">Service handoff</span>
+                  <span className="text-right font-mono text-xs text-foreground">
+                    {company.handoff.reference ?? 'accepted'}
+                  </span>
+                </div>
+              )}
+
+              {company.churn_reason && (
+                <div className="mt-3 flex items-center justify-between gap-3 text-sm">
+                  <span className="text-muted-foreground">Churn reason</span>
+                  <span className="text-right text-foreground">{company.churn_reason}</span>
+                </div>
+              )}
+
+              {company.churned_at && (
+                <div className="mt-3 flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Churned</span>
+                  <span className="text-foreground">{formatDate(company.churned_at)}</span>
+                </div>
+              )}
+
+              {company.can_manage_lifecycle && (
+                <div className="mt-4 border-t border-border pt-4">
+                  {churnForm ? (
+                    <form
+                      onSubmit={(event) => {
+                        event.preventDefault()
+                        void onTransition('churned', churnForm.reason, churnForm.note)
+                      }}
+                      className="flex flex-col gap-3"
+                    >
+                      <Field label="Why did the client leave?" error={errors.reason}>
+                        <input
+                          value={churnForm.reason}
+                          onChange={(event) =>
+                            setChurnForm(
+                              (previous) => previous && { ...previous, reason: event.target.value },
+                            )
+                          }
+                          className={inputClass}
+                        />
+                      </Field>
+
+                      <Field label="Note (optional)" error={errors.note}>
+                        <input
+                          value={churnForm.note}
+                          onChange={(event) =>
+                            setChurnForm(
+                              (previous) => previous && { ...previous, note: event.target.value },
+                            )
+                          }
+                          className={inputClass}
+                        />
+                      </Field>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="submit"
+                          disabled={saving || churnForm.reason.trim() === ''}
+                          className="rounded-md bg-destructive px-3 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-60"
+                        >
+                          {saving ? 'Churning…' : 'Churn client'}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setChurnForm(null)}
+                          className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </form>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {company.allowed_status_transitions.map((next) => {
+                        const isWinBack = company.status === 'churned' && next === 'active'
+                        return (
+                          <button
+                            key={next}
+                            type="button"
+                            disabled={saving}
+                            onClick={() => {
+                              if (next === 'churned') {
+                                setChurnForm({ reason: '', note: '' })
+                                return
+                              }
+                              void onTransition(next)
+                            }}
+                            className="rounded-md border border-border px-2.5 py-1 text-xs font-medium text-foreground hover:bg-muted disabled:opacity-60"
+                          >
+                            {isWinBack ? 'Reactivate' : `Move to ${companyStatusMeta[next].label}`}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+            </FormCard>
+
             <FormCard title="Ownership">
               <div className="flex items-center justify-between">
                 <span className="text-sm text-muted-foreground">Account owner</span>
@@ -1046,6 +1520,40 @@ export default function CompanyDetail() {
                 </div>
               )}
             </FormCard>
+
+            {company.can_view_billing && (
+              <FormCard
+                title="Billing"
+                description="Read-only snapshot from the Finance department (mocked)."
+              >
+                {billing === null ? (
+                  <p className="text-sm text-muted-foreground">Loading…</p>
+                ) : (
+                  <dl className="flex flex-col gap-3 text-sm">
+                    <Detail
+                      label="Account"
+                      value={
+                        billing.account_status === 'current'
+                          ? 'Current'
+                          : billing.account_status === 'overdue'
+                            ? 'Overdue'
+                            : 'Closed'
+                      }
+                    />
+                    <Detail label="Outstanding" value={formatCurrency(billing.outstanding)} />
+                    <Detail
+                      label="Overdue"
+                      value={Number(billing.overdue) > 0 ? formatCurrency(billing.overdue) : '—'}
+                    />
+                    <Detail label="Terms" value={billing.credit_terms} />
+                    <Detail
+                      label="Next due"
+                      value={billing.next_due_date ? formatDate(billing.next_due_date) : '—'}
+                    />
+                  </dl>
+                )}
+              </FormCard>
+            )}
           </div>
         </div>
       )}
@@ -1520,6 +2028,221 @@ export default function CompanyDetail() {
         </div>
       )}
 
+      {tab === 'contracts' && (
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <div className="flex flex-col gap-6 lg:col-span-2">
+            <div className="flex items-center justify-end">
+              <label className="text-xs font-medium text-muted-foreground">
+                Status
+                <select
+                  value={contractStatus}
+                  onChange={(event) => onFilterContracts(event.target.value)}
+                  className="ml-2 rounded-md border border-input bg-card px-2 py-1 text-xs text-foreground outline-none focus:ring-2 focus:ring-ring"
+                >
+                  <option value="">All</option>
+                  {(Object.keys(contractStatusMeta) as ContractStatus[]).map((status) => (
+                    <option key={status} value={status}>
+                      {contractStatusMeta[status].label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            <DataTable
+              columns={contractColumns}
+              rows={contracts}
+              rowKey={(contract) => contract.id}
+              loading={loading}
+              loadingLabel="Loading contracts…"
+              empty={
+                <EmptyState
+                  title="No contracts yet"
+                  description="Upload the signed agreement to bind the client — signing activates the account."
+                />
+              }
+            />
+          </div>
+
+          <div className="flex flex-col gap-6">
+            {contractForm ? (
+              <FormCard
+                title={contractForm.renewal_of_contract_id ? 'Renew contract' : 'Upload a contract'}
+                description="PDF, PNG or JPEG. The document is stored privately and served through the API."
+              >
+                <form onSubmit={onSaveContract} className="flex flex-col gap-4">
+                  {contractForm.renewal_of_contract_id && (
+                    <p className="text-xs text-muted-foreground">
+                      Renewal of{' '}
+                      {contracts.find(
+                        (contract) => contract.id === contractForm.renewal_of_contract_id,
+                      )?.reference ?? 'an earlier agreement'}
+                    </p>
+                  )}
+
+                  <Field label="Title" error={errors.title}>
+                    <input
+                      value={contractForm.title}
+                      onChange={(event) =>
+                        setContractForm(
+                          (previous) => previous && { ...previous, title: event.target.value },
+                        )
+                      }
+                      className={inputClass}
+                    />
+                  </Field>
+
+                  <Field label="Document" error={errors.file}>
+                    <input
+                      type="file"
+                      accept="application/pdf,image/png,image/jpeg"
+                      onChange={(event) =>
+                        setContractForm(
+                          (previous) =>
+                            previous && { ...previous, file: event.target.files?.[0] ?? null },
+                        )
+                      }
+                      className="mt-1 w-full text-sm text-foreground"
+                    />
+                  </Field>
+
+                  <Field label="Status" error={errors.status}>
+                    <select
+                      value={contractForm.status}
+                      onChange={(event) =>
+                        setContractForm(
+                          (previous) =>
+                            previous && {
+                              ...previous,
+                              status: event.target.value as ContractStatus,
+                            },
+                        )
+                      }
+                      className={inputClass}
+                    >
+                      {contractStatusOptions
+                        .filter((status) => status === 'draft' || status === 'sent')
+                        .map((status) => (
+                          <option key={status} value={status}>
+                            {contractStatusMeta[status].label}
+                          </option>
+                        ))}
+                    </select>
+                  </Field>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <Field label="Start" error={errors.start_date}>
+                      <input
+                        type="date"
+                        value={contractForm.start_date}
+                        onChange={(event) =>
+                          setContractForm(
+                            (previous) =>
+                              previous && { ...previous, start_date: event.target.value },
+                          )
+                        }
+                        className={inputClass}
+                      />
+                    </Field>
+
+                    <Field label="End" error={errors.end_date}>
+                      <input
+                        type="date"
+                        value={contractForm.end_date}
+                        onChange={(event) =>
+                          setContractForm(
+                            (previous) => previous && { ...previous, end_date: event.target.value },
+                          )
+                        }
+                        className={inputClass}
+                      />
+                    </Field>
+                  </div>
+
+                  <Field label="Contract value (₱)" error={errors.value}>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={contractForm.value}
+                      onChange={(event) =>
+                        setContractForm(
+                          (previous) => previous && { ...previous, value: event.target.value },
+                        )
+                      }
+                      className={inputClass}
+                    />
+                  </Field>
+
+                  <Field label="Terms" error={errors.terms}>
+                    <textarea
+                      rows={3}
+                      value={contractForm.terms}
+                      onChange={(event) =>
+                        setContractForm(
+                          (previous) => previous && { ...previous, terms: event.target.value },
+                        )
+                      }
+                      className={inputClass}
+                    />
+                  </Field>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="submit"
+                      disabled={saving}
+                      className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60"
+                    >
+                      {saving ? 'Saving…' : 'Save contract'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setContractForm(null)}
+                      className="rounded-md border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              </FormCard>
+            ) : company.can_upload_contract ? (
+              <button
+                type="button"
+                onClick={() => setContractForm({ ...emptyContract })}
+                className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
+              >
+                Upload a contract
+              </button>
+            ) : (
+              <FormCard title="Contracts">
+                <p className="text-sm text-muted-foreground">
+                  You need to own this account (or be its manager) to upload a contract.
+                </p>
+              </FormCard>
+            )}
+
+            <FormCard title="Engagements">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Contracts</span>
+                <span className="text-foreground">{company.counts.contracts}</span>
+              </div>
+              <div className="mt-3 flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Active</span>
+                <span className="text-foreground">
+                  {contracts.filter((contract) => contract.is_active).length}
+                </span>
+              </div>
+              <div className="mt-3 flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Renewal due</span>
+                <span className="text-foreground">
+                  {contracts.filter((contract) => contract.is_expiring_soon).length}
+                </span>
+              </div>
+            </FormCard>
+          </div>
+        </div>
+      )}
+
       {tab === 'activities' && (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <div className="flex flex-col gap-6 lg:col-span-2">
@@ -1620,11 +2343,11 @@ export default function CompanyDetail() {
 
             <FormCard
               title="Coming in later submodules"
-              description="Opportunities and contracts attach here."
+              description="The pipeline and cleanup work."
             >
               <p className="text-xs text-muted-foreground">
-                Submodule 08 turns a qualified lead into this account and opens its first
-                opportunity; 09 adds the client lifecycle and contracts.
+                The deal pipeline (stage moves, won/lost, Kanban) and duplicate detection &amp;
+                merge (Phase 2) are not built yet.
               </p>
             </FormCard>
           </div>

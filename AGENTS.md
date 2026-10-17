@@ -105,9 +105,25 @@ Laravel's own and is separate from `frontend/`.
   `amount = null` (the wizard's amount is ignored); a manager+ conversion defaults the amount to the
   lead's sensitive `budget_rate`. `LeadPolicy::convert` delegates to `update`, so a salesrep must own
   the lead. A converted lead leaves the qualified worklist and gains a `system` `Converted into …`
-  activity. `Company::deletionBlockers()` now returns 422 while an **open** deal exists (ADR-0012,
-  ADR-0010 §6). Events: `LeadConverted`, `OpportunityCreated`. **Not built here:** the deal pipeline
+  activity. Events: `LeadConverted`, `OpportunityCreated`. **Not built here:** the deal pipeline
   (stage moves, won/lost, Kanban) and contracts — a deal is only created and viewed.
+- **Submodule 09 — Client Account Lifecycle:** `/companies/{id}/contracts` (list + multipart
+  upload), `/contracts/{id}` (show/update/delete/restore), `POST /contracts/{id}/mark-signed`,
+  `GET /contracts/{id}/file` (authorized download), `PATCH /companies/{id}/lifecycle`,
+  `POST /companies/{id}/reactivate`, `POST /companies/{id}/handoff/retry`,
+  `GET /companies/{id}/billing`. `Contract` is a `CON-YYYY-NNNN` record with a private-disk document,
+  a renewal chain (`renewal_of_contract_id`) and a state machine (`draft → sent → signed →
+  expired|terminated`); **`signed` is only reachable via `mark-signed`** (a `PATCH` cannot set it) and
+  termination is manager+. Signing commits first and then activates the client + runs the mocked
+  Service handoff (`ContractSigned` → `HandoffContractToService` → `Company::handoffToService()`, the
+  same path the retry endpoint uses); a failed handoff leaves the contract signed and the client in
+  `onboarding` with `handoff_status = failed` + a retry, and repeat business never resets an
+  established client. `CompanyStatus::allowedTransitions()` drives the lifecycle (manager+,
+  churn requires a reason, `reactivate` only from `churned`, `client_since` never reset); aging is
+  **manual** in Phase 1. A `signed` contract blocks deleting the company. `ContractPolicy` inherits
+  the account's rights; billing is manager-only. Events: `CompanyStatusChanged`, `ContractSigned`,
+  `CompanyActivated`, `CompanyChurned`. **Not built here:** the deal pipeline, contract
+  versioning/e-signature, renewal reminders and automatic aging (ADR-0013).
 
 Frontend routes: `/login`, `/leads` (views: All / My Leads / Unassigned / Team / Archived, inline
 owner control, bulk assign, status/rating/aging columns, "Stale only" filter), `/leads/new`,
@@ -115,25 +131,32 @@ owner control, bulk assign, status/rating/aging columns, "Stale only" filter), `
 "Convert to client" when convertible, converted banner), `/leads/:id/convert` (3-step conversion
 wizard), `/qualification` (worklist), `/assignment` (unassigned queue, team workload, bulk transfer),
 `/lifecycle` (aging / stale triage worklist), `/conversion` (qualified leads awaiting conversion),
-`/companies` (account book: status/tier filters and
+`/clients` (client book: accounts past prospect, lifecycle/tier filters, contract counts, links to
+the account), `/companies` (account book: status/tier filters and
 pagination), `/companies/new` (manual creation), `/companies/:id` (Overview / Contacts / Sites /
-Opportunities (read-only) / Activities tabs; sites and branch links are manager-only, contacts are
-editable by whoever owns the account) and `/contacts` (global contact book: search + role/status/
+Opportunities (read-only) / Contracts / Activities tabs; sites and branch links are manager-only,
+contacts are editable by whoever owns the account, the Overview carries the client-lifecycle panel,
+the failed-handoff retry banner and the manager-only billing snapshot) and `/contacts` (global contact
+book: search + role/status/
 company filters, rows link back
 to their account). The topbar bell shows assignment notifications. The sidebar is **grouped by
 module** — only implemented submodules are listed under
 `Lead & Client Tracking`. Account + logout live in the sidebar footer; the brand is "Primepower
 Manpower Services / Customer Relationship Management".
 
-**Not implemented yet:** submodule 09 (client account lifecycle) and the Opportunities/Contracts
-*management* pieces — contracts, the deal pipeline (stage moves, won/lost, Kanban visualization) and
-a deal detail page. Add them per `resources/specs/`. `/leads/{id}/status` cannot reach `converted`;
-conversion is the only path (ADR-0009). `Company::deletionBlockers()` is the extension point for the
-"active contract blocks delete" guard (ADR-0010 §6 — the opportunity half is live).
+**Not implemented yet:** the Opportunities/Contracts *management* pieces — the deal pipeline (stage
+moves, won/lost, Kanban visualization), a deal detail page, contract versioning/e-signature, renewal
+reminders/automatic client aging — and duplicate detection & merge (Phase 2, ADR-0006). Add them per
+`resources/specs/`. `/leads/{id}/status` cannot reach `converted`; conversion is the only path
+(ADR-0009). `Company::deletionBlockers()` now carries both guards (open deal, signed contract) —
+ADR-0010 §6.
 
 **Demo accounts** (password `password`, via `php artisan migrate:fresh --seed`):
 `salesrep@primepower.test`, `salesrep2@primepower.test` (same team), `manager@primepower.test`,
-`admin@primepower.test`, `superadmin@primepower.test`.
+`admin@primepower.test`, `superadmin@primepower.test`. Seeded client data covers every lifecycle
+state: Harbor Logistics (signed renewal chain, handoff accepted), BPO Solutions PH (signed, handoff
+failed → retry banner), Sunrise Foods Inc (contract out for signature), Greenfield Hotels
+(terminated/churned) and Greenfield Hotels Cebu (draft).
 
 ## Conventions that differ from framework defaults
 
@@ -142,6 +165,12 @@ conversion is the only path (ADR-0009). `Company::deletionBlockers()` is the ext
 - **Git:** branches are named `feature/<name>` and merge into `main` (`feature -> main`); there is
   no `develop`. Commit messages follow **Conventional Commits** (`feat:`, `fix:`, etc.).
 - **Seeds:** do **not** use faker. Data is seeded for a production/demo proposal, not real business.
+- **Other-department integrations are mocked in `backend/app/Integrations/`** (ADR-0005, ADR-0013 §4):
+  an interface + a `Mock*` driver (bound in `AppServiceProvider`) + `final readonly` DTOs. This is the
+  one deliberate new base folder under `backend/app/` — do not add others without approval. Driver
+  behaviour is deterministic, never faker: `CRM_HANDOFF_SIMULATE_FAILURE=true` makes the Service
+  handoff fail (that is how the retry path is demoed and tested), and the Finance billing snapshot is
+  derived from the company reference.
 - **Icons:** use `lucide` (lucide-react) only.
 - **Locale / currency is PH-based:** `en-PH`, `Asia/Manila` (store UTC), dates `DD MMM YYYY`, PH
   address/phone formats, and **single currency PHP (₱)** — no multi-currency.
