@@ -124,6 +124,25 @@ Laravel's own and is separate from `frontend/`.
   the account's rights; billing is manager-only. Events: `CompanyStatusChanged`, `ContractSigned`,
   `CompanyActivated`, `CompanyChurned`. **Not built here:** the deal pipeline, contract
   versioning/e-signature, renewal reminders and automatic aging (ADR-0013).
+- **Module 02 — Opportunity Pipeline Visualization:** the deal pipeline on the `Opportunity` record
+  (ADR-0014, ADR-0015). Flat `/api/v1/opportunities` (index/store/show/update/destroy +
+  `POST /{id}/restore`) with `filter[stage|owner|company|open|source|close_window]` + `search` and a
+  `summary` block; a deal is created directly on a visible company (owner = the creator) or by
+  conversion, and the book is role-scoped (salesrep own, manager team, admin all). `POST
+  /opportunities/{id}/stage` moves **any-to-any with rules** from `OpportunityStage::allowedTransitions()`
+  — a self-move and terminal→terminal are 422, `lost` requires a reason, entering `won`/`lost` stamps
+  `actual_close_date` (reopening clears it + the lost reason), and every move stamps `stage_changed_at`,
+  refreshes `last_activity_at` and writes a `system` activity (`OpportunityStageChanged`). `amount` and
+  the owner stay manager+ (`can_set_amount`/`can_assign`). `GET /pipeline` returns the open stages as
+  columns (count/value/weighted) plus the closed deals and a forecast `meta` (open & weighted value,
+  win rate, average deal, stalled count from `crm.pipeline.stuck_days`, default 21).
+  `GET /opportunities/{id}/timeline` + `POST /opportunities/{id}/activities` are the deal timeline
+  (logging a touch refreshes `last_activity_at`, so staleness tracks real work). **`won` does not hand
+  off to Service** — it surfaces **Create contract from deal**, which deep-links to the company contract
+  upload prefilled with `opportunity_id`; the mocked Service handoff still fires only on `mark-signed`
+  (ADR-0013 §5). Events: `OpportunityStageChanged`, `OpportunityWon`, `OpportunityLost`
+  (`OpportunityCreated` now also fires on manual creation). **Not built here:** the
+  dashboard/management reports (the AI module).
 
 Frontend routes: `/login`, `/leads` (views: All / My Leads / Unassigned / Team / Archived, inline
 owner control, bulk assign, status/rating/aging columns, "Stale only" filter), `/leads/new`,
@@ -134,29 +153,38 @@ wizard), `/qualification` (worklist), `/assignment` (unassigned queue, team work
 `/clients` (client book: accounts past prospect, lifecycle/tier filters, contract counts, links to
 the account), `/companies` (account book: status/tier filters and
 pagination), `/companies/new` (manual creation), `/companies/:id` (Overview / Contacts / Sites /
-Opportunities (read-only) / Contracts / Activities tabs; sites and branch links are manager-only,
+Opportunities (row links + "Add deal", engagements summary links to the board) / Contracts /
+Activities tabs; sites and branch links are manager-only,
 contacts are editable by whoever owns the account, the Overview carries the client-lifecycle panel,
-the failed-handoff retry banner and the manager-only billing snapshot) and `/contacts` (global contact
+the failed-handoff retry banner and the manager-only billing snapshot), `/contacts` (global contact
 book: search + role/status/
 company filters, rows link back
-to their account). The topbar bell shows assignment notifications. The sidebar is **grouped by
-module** — only implemented submodules are listed under
-`Lead & Client Tracking`. Account + logout live in the sidebar footer; the brand is "Primepower
-Manpower Services / Customer Relationship Management".
+to their account), `/pipeline` (Kanban board: open-stage columns with count/value/weighted totals,
+native drag-and-drop + a keyboard "Move to…" menu per card, a Lost-reason dialog, a Closed column for
+won/lost, owner/close-window/search filters and a forecast header), `/opportunities` (deal book:
+filters, pagination, summary), `/opportunities/new` (deal created directly on an account),
+`/opportunities/:id` (edit form, stage control, deal timeline + log-activity, linked contracts and
+"Create contract from deal" when won). `/companies/:id?tab=contracts&opportunity_id=…` opens the
+contract upload prefilled from a won deal. The topbar bell shows assignment notifications. The sidebar
+is **grouped by module** — module 01's submodules under `Lead & Client Tracking`, module 02's screens
+under `Opportunity Pipeline Visualization`. Account + logout live in the sidebar footer; the brand is
+"Primepower Manpower Services / Customer Relationship Management".
 
-**Not implemented yet:** the Opportunities/Contracts *management* pieces — the deal pipeline (stage
-moves, won/lost, Kanban visualization), a deal detail page, contract versioning/e-signature, renewal
-reminders/automatic client aging — and duplicate detection & merge (Phase 2, ADR-0006). Add them per
-`resources/specs/`. `/leads/{id}/status` cannot reach `converted`; conversion is the only path
-(ADR-0009). `Company::deletionBlockers()` now carries both guards (open deal, signed contract) —
-ADR-0010 §6.
+**Not implemented yet — next up is module 03, communication history** (spec
+`resources/specs/11-...`, ADR-0014). Still deferred: contract versioning/e-signature, renewal
+reminders/automatic client aging, duplicate detection & merge (a module-01 deferral, ADR-0006).
+`/leads/{id}/status` cannot reach `converted`; conversion is the only path (ADR-0009).
+`Company::deletionBlockers()` carries both guards (open deal, signed contract) — ADR-0010 §6.
 
 **Demo accounts** (password `password`, via `php artisan migrate:fresh --seed`):
 `salesrep@primepower.test`, `salesrep2@primepower.test` (same team), `manager@primepower.test`,
 `admin@primepower.test`, `superadmin@primepower.test`. Seeded client data covers every lifecycle
 state: Harbor Logistics (signed renewal chain, handoff accepted), BPO Solutions PH (signed, handoff
 failed → retry banner), Sunrise Foods Inc (contract out for signature), Greenfield Hotels
-(terminated/churned) and Greenfield Hotels Cebu (draft).
+(terminated/churned) and Greenfield Hotels Cebu (draft). The seeded pipeline places deals in **every**
+stage (e.g. Sunrise `discovery`/`proposal_sent`, BPO `negotiation`/`on_hold`, Harbor `negotiation` and
+`won`, Greenfield `lost`, Greenfield Cebu `new_inquiry`/`qualified`) owned across Sam/Liza/Maria, so
+the board, the forecast header and the win rate demo without faking.
 
 ## Conventions that differ from framework defaults
 
@@ -225,7 +253,10 @@ Design docs an agent should read before touching CRM features:
 Before implementing a submodule, read `resources/specs/README.md` (conventions) and
 `resources/specs/00-data-model.md` first; each submodule spec builds on them.
 
-**Phase 1** is the lead & client tracking loop: lead capture, qualification, assignment, lifecycle,
-company/contact, lead→client conversion, and client lifecycle. Dedup/merge and advanced tiers are
-deferred (ADR-0006). Other departments are consumed via **mocked integrations** (ADR-0005), not
-built here.
+**Modules 01 and 02** are built: module 01 (Lead & Client Tracking) covers lead capture,
+qualification, assignment, lifecycle, company/contact, lead→client conversion and client lifecycle;
+module 02 (Opportunity Pipeline Visualization) covers the deal book, the Kanban board, stage
+moves/won-lost and the board forecast. The roadmap for the remaining CRM modules — 03 communication
+history, 04 follow-up reminders, 05 client satisfaction — is in **ADR-0014** (specs `11`–`13`).
+Dedup/merge and advanced tiers are module-01 deferrals (ADR-0006). Other departments are consumed via
+**mocked integrations** (ADR-0005), not built here.

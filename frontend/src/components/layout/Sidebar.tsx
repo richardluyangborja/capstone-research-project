@@ -9,6 +9,8 @@ import {
   Inbox,
   LayoutDashboard,
   LogOut,
+  SquareKanban,
+  Target,
   UserCheck,
   UserPlus,
   Users,
@@ -44,6 +46,15 @@ const groups: NavGroup[] = [
       { to: '/contacts', label: 'Contact Management', icon: Users },
       { to: '/conversion', label: 'Lead-to-Client Conversion', icon: UserPlus },
       { to: '/clients', label: 'Client Account Lifecycle', icon: Handshake },
+    ],
+  },
+  {
+    // Module 02 (ADR-0014 §1). Submodules 3–5 (stage/outcome, activity & timeline, forecast)
+    // live inside these two screens rather than as separate destinations.
+    label: 'Opportunity Pipeline Visualization',
+    items: [
+      { to: '/pipeline', label: 'Pipeline Board', icon: SquareKanban },
+      { to: '/opportunities', label: 'Deal Management', icon: Target },
     ],
   },
 ]

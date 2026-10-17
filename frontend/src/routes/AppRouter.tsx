@@ -17,7 +17,11 @@ import Lifecycle from '../pages/Lifecycle'
 import Login from '../pages/Login'
 import NewCompany from '../pages/NewCompany'
 import NewLead from '../pages/NewLead'
+import NewOpportunity from '../pages/NewOpportunity'
 import NotFound from '../pages/NotFound'
+import Opportunities from '../pages/Opportunities'
+import OpportunityDetail from '../pages/OpportunityDetail'
+import Pipeline from '../pages/Pipeline'
 import PublicHome from '../pages/PublicHome'
 import Qualification from '../pages/Qualification'
 
@@ -47,6 +51,10 @@ export default function AppRouter() {
           <Route path="/companies/new" element={<NewCompany />} />
           <Route path="/companies/:id" element={<CompanyDetail />} />
           <Route path="/contacts" element={<Contacts />} />
+          <Route path="/pipeline" element={<Pipeline />} />
+          <Route path="/opportunities" element={<Opportunities />} />
+          <Route path="/opportunities/new" element={<NewOpportunity />} />
+          <Route path="/opportunities/:id" element={<OpportunityDetail />} />
         </Route>
       </Route>
 

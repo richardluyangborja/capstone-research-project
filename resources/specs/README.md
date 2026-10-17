@@ -1,9 +1,11 @@
-# Phase-1 Specs — Lead & Client Tracking
+# Specs — CRM modules
 
-Implementation specs for the submodules in `../crm-flow.md`. Read `00-data-model.md` first — all
-specs share its entities, enums, and conventions. Decisions referenced as ADR live in `../../decisions/`.
+Implementation specs for the CRM modules (`../system-modules.md`, `../crm-flow.md`). Read
+`00-data-model.md` first — all specs share its entities, enums, and conventions. Decisions referenced
+as ADR live in `../../decisions/`. The roadmap (module order + numbering) is ADR-0014: `00` is the
+shared data model, `01`–`09` are module 01's submodules, and `10+` is **one file per later module**.
 
-## Index (file ↔ submodule number)
+## Module 01 — Lead & Client Tracking (done)
 
 | File | Submodule |
 | --- | --- |
@@ -17,8 +19,20 @@ specs share its entities, enums, and conventions. Decisions referenced as ADR li
 | `08-lead-to-client-conversion.md` | 8. Lead-to-Client Conversion |
 | `09-client-account-lifecycle.md` | 9. Client Account Lifecycle |
 
-Deferred to Phase 2: 5. Duplicate Detection & Merge, advanced tiers/health, and the separate
-communication-history, follow-up, and satisfaction modules.
+Deferred **inside** module 01: 5. Duplicate Detection & Merge and advanced tiers/health scoring
+(ADR-0006). These are not "Phase 2" — they are tracked module-01 deferrals.
+
+## Later modules (ADR-0014)
+
+| File | Module |
+| --- | --- |
+| `10-opportunity-pipeline-visualization.md` | 2. Opportunity Pipeline Visualization *(done)* |
+| `11-communication-history.md` | 3. Communication History Management *(not yet written)* |
+| `12-follow-up-reminders.md` | 4. Follow-up Reminder System *(not yet written)* |
+| `13-client-satisfaction-survey.md` | 5. Client Satisfaction & Survey *(not yet written)* |
+
+The AI service (dashboard + management reports + suggestions) is cross-cutting and is built after
+modules 01–05.
 
 ## Shared conventions (proposed defaults — confirm before scaffolding)
 
@@ -75,7 +89,7 @@ records are visible to manager+.
   `EmptyState`, `AlertItem`. Never hardcode colors — use tokens.
 - Domain color mapping: counts=blue, people=green, activity=purple, cost=orange.
 - Suggested routes (dashboard): `/leads`, `/leads/:id`, `/companies`, `/companies/:id`,
-  `/contacts`, `/opportunities`, `/opportunities/:id`.
+  `/contacts`, `/opportunities`, `/opportunities/:id`, `/pipeline`.
 
 ## Phase-1 event map (for wiring + mocks)
 
@@ -84,7 +98,7 @@ records are visible to manager+.
 | `LeadCreated` | intake | notify assignee/queue |
 | `LeadQualified` | qualification | eligible for conversion |
 | `LeadConverted` | conversion | create Company/Contact/Opportunity (ADR-0001) |
-| `OpportunityWon` | (pipeline module — not built) | deal closed won; contract upload does not wait on it |
+| `OpportunityWon` | deal pipeline (module 02) | deal closed won; prompts contract creation — does **not** hand off to Service (ADR-0015 §4) |
 | `ContractSigned` | client lifecycle | contract `signed` → company advances + **handoff to Service** (mock) |
 | `CompanyStatusChanged` | client lifecycle | timeline activity per lifecycle move |
 | `CompanyActivated` / `CompanyChurned` | client lifecycle | win/retention bookkeeping (reporting deferred) |

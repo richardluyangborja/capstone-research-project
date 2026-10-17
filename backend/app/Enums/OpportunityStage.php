@@ -47,4 +47,35 @@ enum OpportunityStage: string
     {
         return ! $this->isTerminal();
     }
+
+    /**
+     * Legal target stages (module 02, ADR-0015 §1). The pipeline is **any-to-any**: a deal
+     * may move to any other stage, but a terminal stage may only be **reopened to an open
+     * stage** — never terminal→terminal.
+     *
+     * @return array<int, self>
+     */
+    public function allowedTransitions(): array
+    {
+        if ($this->isTerminal()) {
+            return array_values(array_filter(self::cases(), fn (self $stage): bool => $stage->isOpen()));
+        }
+
+        return array_values(array_filter(self::cases(), fn (self $stage): bool => $stage !== $this));
+    }
+
+    public function canTransitionTo(self $stage): bool
+    {
+        return in_array($stage, $this->allowedTransitions(), true);
+    }
+
+    /**
+     * The open stages in pipeline order — the board columns (module 02 §UI).
+     *
+     * @return array<int, self>
+     */
+    public static function openStages(): array
+    {
+        return [self::NewInquiry, self::Qualified, self::Discovery, self::ProposalSent, self::Negotiation, self::OnHold];
+    }
 }

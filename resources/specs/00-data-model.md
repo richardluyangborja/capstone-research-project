@@ -1,6 +1,6 @@
 # 00 — Data Model
 
-Shared entities for Phase 1. Every table also has the **common columns** (`id`, timestamps,
+Shared entities for the CRM modules. Every table also has the **common columns** (`id`, timestamps,
 `created_by`, `updated_by`, `deleted_at`) plus `owner_id` where noted. Enum values are lowercase
 strings. See `README.md` for global conventions.
 
@@ -136,6 +136,13 @@ Opportunity ──► Contract ──(signed)──► Company becomes "Client"
 | `primary_contact_id` | FK contacts | | |
 | `owner_id` | FK users | ✓ | |
 | `lost_reason` | `LostReason` | | required when `lost` |
+| `stage_changed_at` | timestamp | | set on every stage move (module 02) |
+| `last_activity_at` | timestamp | | denormalised; refreshed on a logged activity (module 02) |
+| `next_step` | string | | free-text next action; scheduled tasks are the follow-up module (module 02) |
+
+Module 02 (pipeline) adds the deal list/board, stage moves (any-to-any with rules, ADR-0015) and the
+deal timeline; it adds only these columns — no new tables. Winning a deal is a record only: the
+contract is created from the deal and the mocked Service handoff still fires on signing (ADR-0015 §4).
 
 ## Activity (supporting, used in Phase 1)
 
@@ -150,8 +157,8 @@ Opportunity ──► Contract ──(signed)──► Company becomes "Client"
 | `owner_id` | FK users | ✓ | |
 | `subject_type` / `subject_id` | morph | | lead / company / contact / opportunity / contract |
 
-Full **communication history** (rich email/phone bodies) is a separate module with its own
-`communications` table — deferred.
+Full **communication history** (rich email/phone bodies) is module 03 with its own `communications`
+table — not built yet.
 
 ## Contract (spec 09)
 

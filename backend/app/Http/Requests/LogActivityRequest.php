@@ -10,12 +10,12 @@ use Illuminate\Validation\Rule;
 class LogActivityRequest extends FormRequest
 {
     /**
-     * Activities attach to a lead or a company via the polymorphic `subject` relation;
-     * logging requires update rights on whichever the route bound.
+     * Activities attach to a lead, a company or a deal via the polymorphic `subject`
+     * relation; logging requires update rights on whichever the route bound.
      */
     public function authorize(): bool
     {
-        $subject = $this->route('lead') ?? $this->route('company');
+        $subject = $this->route('lead') ?? $this->route('company') ?? $this->route('opportunity');
 
         return $subject !== null && ($this->user()?->can('update', $subject) ?? false);
     }

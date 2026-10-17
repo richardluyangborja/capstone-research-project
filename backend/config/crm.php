@@ -21,6 +21,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Deal pipeline (module 02)
+    |--------------------------------------------------------------------------
+    |
+    | Days without a touch before an open deal is flagged as stuck on the board. Computed
+    | on read only — nothing is scheduled (automatic effects belong to the follow-up module).
+    |
+    */
+
+    'pipeline' => [
+        'stuck_days' => (int) env('CRM_DEAL_STUCK_DAYS', 21),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Department integrations (spec 09, ADR-0005)
     |--------------------------------------------------------------------------
     |

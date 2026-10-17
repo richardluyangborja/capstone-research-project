@@ -19,5 +19,7 @@ Run two pipelines:
 ## Consequences
 
 - Each stage needs entry/exit criteria and a win probability for forecasting.
-- Won triggers the service-department handoff and the contract/upload step.
-- See `../resources/crm-flow.md`.
+- **Won records the outcome and prompts the contract/upload step; the service-department handoff
+  fires when the contract is signed**, not on `won` (refined by ADR-0013 §5 and ADR-0015 §4 — the
+  original "won triggers the handoff" wording is superseded).
+- See `../resources/crm-flow.md`; the pipeline itself is module 02 (ADR-0014, ADR-0015).

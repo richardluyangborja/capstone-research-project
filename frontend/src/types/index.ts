@@ -264,12 +264,12 @@ export interface OpportunityLeadRef {
   reference: string
 }
 
-/** A deal on a company (spec 08). Opened by conversion; moved by the pipeline module. */
+/** A deal on a company (spec 08). Opened by conversion or directly; moved by module 02. */
 export interface Opportunity {
   id: string
   reference: string
   company_id: string
-  company?: OpportunityCompanyRef
+  company?: OpportunityCompanyRef & { status?: CompanyStatus }
   lead_id: string | null
   lead?: OpportunityLeadRef | null
   name: string
@@ -279,6 +279,7 @@ export interface Opportunity {
   currency: string
   expected_close_date: string | null
   actual_close_date: string | null
+  next_step: string | null
   source: LeadSource | null
   primary_contact_id: string | null
   primary_contact?: { id: string; name: string; role_type: ContactRoleType } | null
@@ -288,6 +289,22 @@ export interface Opportunity {
   is_open: boolean
   is_won: boolean
   is_lost: boolean
+  /** Pipeline affordances (module 02). */
+  stage_changed_at: string | null
+  last_activity_at: string | null
+  days_in_stage: number
+  days_since_activity: number
+  is_stale: boolean
+  weighted_value: number
+  /** Legal target stages — any other; terminal deals reopen only (ADR-0015 §1). */
+  allowed_transitions: OpportunityStage[]
+  contracts?: { id: string; reference: string; title: string; status: ContractStatus }[]
+  can_update: boolean
+  can_change_stage: boolean
+  can_set_amount: boolean
+  can_assign: boolean
+  can_delete: boolean
+  can_restore: boolean
   created_at: string
   updated_at: string
 }
@@ -295,6 +312,73 @@ export interface Opportunity {
 export interface CompanyOpportunities {
   data: Opportunity[]
   meta: { total: number; open: number }
+}
+
+// --- Module 02: opportunity pipeline ---------------------------------------
+
+export interface OpportunitySummary {
+  all: number
+  open: number
+  won: number
+  lost: number
+}
+
+/** The deal list (`GET /opportunities`) carries the pagination meta plus a summary. */
+export type OpportunitiesPage = Paginated<Opportunity> & { summary: OpportunitySummary }
+
+export interface PipelineColumn {
+  stage: OpportunityStage
+  count: number
+  value: number
+  weighted_value: number
+  deals: Opportunity[]
+}
+
+export interface PipelineMeta {
+  open_count: number
+  open_value: number
+  weighted_value: number
+  won_count: number
+  won_value: number
+  lost_count: number
+  lost_value: number
+  win_rate: number | null
+  average_deal: number | null
+  stale_count: number
+  by_stage: { stage: OpportunityStage; count: number; value: number; weighted_value: number }[]
+}
+
+export interface PipelineBoard {
+  data: { columns: PipelineColumn[]; closed: Opportunity[] }
+  meta: PipelineMeta
+}
+
+export interface OpportunityInput {
+  name: string
+  amount?: number | null
+  probability?: number | null
+  expected_close_date?: string | null
+  next_step?: string | null
+  source?: LeadSource | null
+  primary_contact_id?: string | null
+}
+
+export interface OpportunityStageMove {
+  stage: OpportunityStage
+  lost_reason?: LostReason | null
+  probability?: number | null
+  note?: string | null
+}
+
+export interface OpportunityTimeline {
+  data: Activity[]
+  meta: {
+    stage: OpportunityStage
+    stage_changed_at: string | null
+    last_activity_at: string | null
+    days_in_stage: number
+    is_stale: boolean
+  }
 }
 
 /** A company the lead may already belong to (advisory, spec 08 §3). */

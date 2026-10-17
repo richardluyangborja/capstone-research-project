@@ -29,3 +29,18 @@ export const lostReasonLabels: Record<LostReason, string> = {
 
 /** Stages a conversion may open a deal at (spec 08 §1 — always `qualified`). */
 export const conversionOpeningStage: OpportunityStage = 'qualified'
+
+// --- Module 02: opportunity pipeline ---------------------------------------
+
+/** The board columns, in pipeline order (module 02 §1). `won`/`lost` are terminal. */
+export const openStageOrder: OpportunityStage[] = [
+  'new_inquiry',
+  'qualified',
+  'discovery',
+  'proposal_sent',
+  'negotiation',
+  'on_hold',
+]
+
+export const isTerminalStage = (stage: OpportunityStage): boolean =>
+  stage === 'won' || stage === 'lost'
