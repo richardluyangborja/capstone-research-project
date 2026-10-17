@@ -62,6 +62,13 @@ class LeadResource extends JsonResource
             'is_archived' => $this->status === LeadStatus::Archived,
             'aging' => $this->agingLevel()?->value,
             'days_since_activity' => $this->daysSinceActivity(),
+            // Conversion affordances (spec 08) — only a qualified lead the user may edit
+            // can become a client, and only through the conversion flow (ADR-0009).
+            'can_convert' => $this->status === LeadStatus::Qualified
+                && (bool) $request->user()?->can('convert', $this->resource),
+            'is_converted' => $this->status === LeadStatus::Converted,
+            'converted_company_id' => $this->converted_company_id,
+            'converted_opportunity_id' => $this->converted_opportunity_id,
             // Sensitive: hidden from salesrep (ADR-0004)
             'budget_rate' => $this->when(
                 $request->user()?->canSeeSensitiveData() ?? false,

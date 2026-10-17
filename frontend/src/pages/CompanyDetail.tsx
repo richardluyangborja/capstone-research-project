@@ -30,10 +30,12 @@ import {
   type ContactInput,
 } from '../lib/contacts'
 import { getAssignableUsers, parseValidationError } from '../lib/leads'
+import { listCompanyOpportunities } from '../lib/opportunities'
 import { activityTypeMeta } from '../lib/leadMeta'
 import { companySizeLabels, companyStatusMeta, companyTierLabels } from '../lib/companyMeta'
 import { contactRoleMeta, contactStatusMeta } from '../lib/contactMeta'
-import { formatDate, formatDateTime } from '../lib/format'
+import { opportunityStageMeta } from '../lib/opportunityMeta'
+import { formatCurrency, formatDate, formatDateTime } from '../lib/format'
 import type {
   Activity,
   AssignmentTarget,
@@ -44,9 +46,10 @@ import type {
   Contact,
   ContactRoleType,
   ContactStatus,
+  Opportunity,
 } from '../types'
 
-type TabKey = 'overview' | 'contacts' | 'sites' | 'activities'
+type TabKey = 'overview' | 'contacts' | 'sites' | 'opportunities' | 'activities'
 
 interface CompanyForm {
   name: string
@@ -157,10 +160,12 @@ export default function CompanyDetail() {
   const location = useLocation()
   const duplicates =
     (location.state as { duplicates?: DuplicateCompany[] } | null)?.duplicates ?? []
+  const notice = (location.state as { notice?: string } | null)?.notice ?? ''
 
   const [company, setCompany] = useState<Company | null>(null)
   const [sites, setSites] = useState<CompanySite[]>([])
   const [contacts, setContacts] = useState<Contact[]>([])
+  const [opportunities, setOpportunities] = useState<Opportunity[]>([])
   const [branches, setBranches] = useState<Company[]>([])
   const [options, setOptions] = useState<Company[]>([])
   const [targets, setTargets] = useState<AssignmentTarget[]>([])
@@ -177,7 +182,7 @@ export default function CompanyDetail() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
-  const [message, setMessage] = useState('')
+  const [message, setMessage] = useState(notice)
   const [alertVariant, setAlertVariant] = useState<'success' | 'danger'>('success')
   const [errors, setErrors] = useState<Record<string, string[]>>({})
 
@@ -185,9 +190,10 @@ export default function CompanyDetail() {
     setLoading(true)
     try {
       const detail = await getCompany(id)
-      const [siteList, contactList, branchList, history, assignable] = await Promise.all([
+      const [siteList, contactList, dealList, branchList, history, assignable] = await Promise.all([
         listCompanySites(id),
         listCompanyContacts(id),
+        listCompanyOpportunities(id),
         listCompanies({ parent_company_id: id }),
         getCompanyTimeline(id),
         getAssignableUsers(),
@@ -197,6 +203,7 @@ export default function CompanyDetail() {
       setForm(formFromCompany(detail))
       setSites(siteList)
       setContacts(contactList)
+      setOpportunities(dealList.data)
       setBranches(branchList.data)
       setActivities(history.data)
       setTargets(assignable)
@@ -495,7 +502,77 @@ export default function CompanyDetail() {
     { key: 'overview', label: 'Overview', count: company.counts.branches },
     { key: 'contacts', label: 'Contacts', count: company.counts.contacts },
     { key: 'sites', label: 'Sites', count: company.counts.sites },
+    { key: 'opportunities', label: 'Opportunities', count: company.counts.opportunities },
     { key: 'activities', label: 'Activities', count: company.counts.activities },
+  ]
+
+  const opportunityColumns: DataTableColumn<Opportunity>[] = [
+    {
+      key: 'reference',
+      header: 'Reference',
+      className: 'font-mono text-xs text-muted-foreground',
+      render: (deal) => deal.reference,
+    },
+    {
+      key: 'name',
+      header: 'Deal',
+      className: 'font-medium text-foreground',
+      render: (deal) => deal.name,
+    },
+    {
+      key: 'stage',
+      header: 'Stage',
+      render: (deal) => (
+        <StatusBadge tone={opportunityStageMeta[deal.stage].tone}>
+          {opportunityStageMeta[deal.stage].label}
+        </StatusBadge>
+      ),
+    },
+    {
+      key: 'amount',
+      header: 'Amount',
+      className: 'text-right text-muted-foreground',
+      headerClassName: 'text-right',
+      render: (deal) => (deal.amount === null ? '—' : formatCurrency(deal.amount)),
+    },
+    {
+      key: 'probability',
+      header: 'Probability',
+      className: 'text-right text-muted-foreground',
+      headerClassName: 'text-right',
+      render: (deal) => `${deal.probability ?? 0}%`,
+    },
+    {
+      key: 'close_date',
+      header: 'Expected close',
+      className: 'text-muted-foreground',
+      render: (deal) =>
+        deal.actual_close_date
+          ? formatDate(deal.actual_close_date)
+          : deal.expected_close_date
+            ? formatDate(deal.expected_close_date)
+            : '—',
+    },
+    {
+      key: 'owner',
+      header: 'Owner',
+      className: 'text-muted-foreground',
+      render: (deal) => deal.owner?.name ?? '—',
+    },
+    {
+      key: 'source_lead',
+      header: 'Source lead',
+      className: 'text-right',
+      headerClassName: 'text-right',
+      render: (deal) =>
+        deal.lead ? (
+          <Link to={`/leads/${deal.lead.id}`} className="font-mono text-xs text-primary">
+            {deal.lead.reference}
+          </Link>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        ),
+    },
   ]
 
   const contactColumns: DataTableColumn<Contact>[] = [
@@ -1401,6 +1478,44 @@ export default function CompanyDetail() {
                 </p>
               </FormCard>
             )}
+          </div>
+        </div>
+      )}
+
+      {tab === 'opportunities' && (
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <div className="flex flex-col gap-6 lg:col-span-2">
+            <DataTable
+              columns={opportunityColumns}
+              rows={opportunities}
+              rowKey={(deal) => deal.id}
+              loading={loading}
+              loadingLabel="Loading opportunities…"
+              empty={
+                <EmptyState
+                  title="No deals yet"
+                  description="A deal is opened when a qualified lead is converted into this account."
+                />
+              }
+            />
+          </div>
+
+          <div className="flex flex-col gap-6">
+            <FormCard
+              title="Deal pipeline"
+              description="Stage moves, proposals and win/loss are handled by the pipeline module."
+            >
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Deals</span>
+                <span className="text-foreground">{company.counts.opportunities}</span>
+              </div>
+              <div className="mt-3 flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Open</span>
+                <span className="text-foreground">
+                  {opportunities.filter((deal) => deal.is_open).length}
+                </span>
+              </div>
+            </FormCard>
           </div>
         </div>
       )}

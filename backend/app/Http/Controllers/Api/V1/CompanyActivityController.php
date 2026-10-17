@@ -35,7 +35,7 @@ class CompanyActivityController extends Controller
             'owner_id' => $request->user()->id,
         ]);
 
-        $company = $company->load(['owner', 'parent'])->loadCount(['sites', 'children', 'contacts', 'activities']);
+        $company = $company->load(['owner', 'parent'])->loadCount(['sites', 'children', 'contacts', 'opportunities', 'activities']);
 
         return (new CompanyResource($company))
             ->additional([

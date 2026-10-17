@@ -74,7 +74,7 @@ Laravel's own and is separate from `frontend/`.
   branches — cycles are rejected (422), a branch inherits nothing, and the parent exposes a branch
   *count* only (no roll-up). One site per company is `is_primary`; the first site added becomes
   primary and deleting the primary promotes the next. `counts` reports
-  `{ sites, branches, contacts, activities }`; opportunity/contract counts arrive with 08–09.
+  `{ sites, branches, contacts, opportunities, activities }`; the contract count arrives with 09.
   **Permissions (ADR-0010):** every role may create manually (a salesrep's company is theirs and
   starts as `prospect`); profile updates are own/team/all; **delete/restore, sites and branch links
   are manager+**; `status` may be set at creation by manager+ and changed later only by an admin.
@@ -93,24 +93,43 @@ Laravel's own and is separate from `frontend/`.
   maintains the people on their own accounts — the manager+ gate that covers sites/branches does
   **not** apply. `ContactPolicy` also gates `makePrimary`/`restore` and reserves force-delete for
   admins. Events: `ContactCreated`, `ContactPrimaryChanged`.
+- **Submodule 08 — Lead-to-Client Conversion:** `GET /leads/{id}/conversion-preview` (suggested
+  company/contact/opportunity mapping + duplicate candidates), `POST /leads/{id}/convert` (atomic:
+  company + contact(s) + first deal, then `lead.status = converted` with `converted_company_id` /
+  `converted_opportunity_id`) and the read-only `GET /companies/{id}/opportunities`
+  (`filter[stage|open]`, `meta { total, open }`). The `Opportunity` model uses `OPP-YYYY-NNNN`
+  references, `stage`/`probability` defaults from `OpportunityStage` (`qualified` = 20) and a
+  `scopeVisibleTo` (owner/team/all). Only `qualified` leads convert (422 otherwise); a second
+  attempt is 409; `link_company_id` must be a visible company (422) — a company in the caller's
+  scope is reused instead of creating one, and its status is left alone. A salesrep-opened deal has
+  `amount = null` (the wizard's amount is ignored); a manager+ conversion defaults the amount to the
+  lead's sensitive `budget_rate`. `LeadPolicy::convert` delegates to `update`, so a salesrep must own
+  the lead. A converted lead leaves the qualified worklist and gains a `system` `Converted into …`
+  activity. `Company::deletionBlockers()` now returns 422 while an **open** deal exists (ADR-0012,
+  ADR-0010 §6). Events: `LeadConverted`, `OpportunityCreated`. **Not built here:** the deal pipeline
+  (stage moves, won/lost, Kanban) and contracts — a deal is only created and viewed.
 
 Frontend routes: `/login`, `/leads` (views: All / My Leads / Unassigned / Team / Archived, inline
 owner control, bulk assign, status/rating/aging columns, "Stale only" filter), `/leads/new`,
-`/leads/:id` (qualification panel + lifecycle control + ownership + activity form + timeline),
-`/qualification` (worklist), `/assignment` (unassigned queue, team workload, bulk transfer),
-`/lifecycle` (aging / stale triage worklist), `/companies` (account book: status/tier filters and
+`/leads/:id` (qualification panel + lifecycle control + ownership + activity form + timeline +
+"Convert to client" when convertible, converted banner), `/leads/:id/convert` (3-step conversion
+wizard), `/qualification` (worklist), `/assignment` (unassigned queue, team workload, bulk transfer),
+`/lifecycle` (aging / stale triage worklist), `/conversion` (qualified leads awaiting conversion),
+`/companies` (account book: status/tier filters and
 pagination), `/companies/new` (manual creation), `/companies/:id` (Overview / Contacts / Sites /
-Activities tabs; sites and branch links are manager-only, contacts are editable by whoever owns the
-account) and `/contacts` (global contact book: search + role/status/company filters, rows link back
+Opportunities (read-only) / Activities tabs; sites and branch links are manager-only, contacts are
+editable by whoever owns the account) and `/contacts` (global contact book: search + role/status/
+company filters, rows link back
 to their account). The topbar bell shows assignment notifications. The sidebar is **grouped by
 module** — only implemented submodules are listed under
 `Lead & Client Tracking`. Account + logout live in the sidebar footer; the brand is "Primepower
 Manpower Services / Customer Relationship Management".
 
-**Not implemented yet:** submodules 08–09 (lead→client conversion, client lifecycle) and the
-Opportunities/Contracts models + routes. Add them per `resources/specs/`. Conversion
-(`qualified → converted`) is reserved for submodule 08 (ADR-0009). `Company::deletionBlockers()` is
-the extension point for the "active contract blocks delete" guard (ADR-0010).
+**Not implemented yet:** submodule 09 (client account lifecycle) and the Opportunities/Contracts
+*management* pieces — contracts, the deal pipeline (stage moves, won/lost, Kanban visualization) and
+a deal detail page. Add them per `resources/specs/`. `/leads/{id}/status` cannot reach `converted`;
+conversion is the only path (ADR-0009). `Company::deletionBlockers()` is the extension point for the
+"active contract blocks delete" guard (ADR-0010 §6 — the opportunity half is live).
 
 **Demo accounts** (password `password`, via `php artisan migrate:fresh --seed`):
 `salesrep@primepower.test`, `salesrep2@primepower.test` (same team), `manager@primepower.test`,

@@ -26,7 +26,7 @@ const { paginated, companies } = vi.hoisted(() => {
     source_lead_id: null,
     owner: { id: 1, name: 'Sam Salesrep' },
     owner_id: 1,
-    counts: { sites: 1, branches: 0, contacts: 1, activities: 0 },
+    counts: { sites: 1, branches: 0, contacts: 1, opportunities: 0, activities: 0 },
     can_update: true,
     can_manage_sites: true,
     can_manage_parent: true,

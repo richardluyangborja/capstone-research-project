@@ -10,6 +10,7 @@ import {
   LayoutDashboard,
   LogOut,
   UserCheck,
+  UserPlus,
   Users,
   type LucideIcon,
 } from 'lucide-react'
@@ -41,6 +42,7 @@ const groups: NavGroup[] = [
       { to: '/lifecycle', label: 'Lead Lifecycle & Status', icon: History },
       { to: '/companies', label: 'Company / Account Management', icon: Building2 },
       { to: '/contacts', label: 'Contact Management', icon: Users },
+      { to: '/conversion', label: 'Lead-to-Client Conversion', icon: UserPlus },
     ],
   },
 ]

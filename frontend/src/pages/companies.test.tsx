@@ -3,7 +3,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
 import Companies from './Companies'
 import CompanyDetail from './CompanyDetail'
-import type { Company, CompanySite, Contact } from '../types'
+import type { Company, CompanySite, Contact, Opportunity } from '../types'
 
 vi.mock('../lib/auth-context', () => ({
   useAuth: () => ({ user: { id: 1, name: 'Sam Salesrep', role: 'manager' }, logout: vi.fn() }),
@@ -11,7 +11,7 @@ vi.mock('../lib/auth-context', () => ({
 
 // `vi.mock` factories are hoisted above the imports, so the fixtures they close over
 // must be created with `vi.hoisted`.
-const { company, site, contact, paginated } = vi.hoisted(() => {
+const { company, site, contact, deal, paginated } = vi.hoisted(() => {
   const company: Company = {
     id: 'company-1',
     reference: 'CO-2026-0001',
@@ -31,7 +31,7 @@ const { company, site, contact, paginated } = vi.hoisted(() => {
     source_lead_id: null,
     owner: { id: 1, name: 'Sam Salesrep' },
     owner_id: 1,
-    counts: { sites: 1, branches: 0, contacts: 1, activities: 2 },
+    counts: { sites: 1, branches: 0, contacts: 1, opportunities: 1, activities: 2 },
     can_update: true,
     can_manage_sites: true,
     can_manage_parent: true,
@@ -77,10 +77,36 @@ const { company, site, contact, paginated } = vi.hoisted(() => {
     updated_at: '2026-10-15T03:51:40.000000Z',
   }
 
+  const deal: Opportunity = {
+    id: 'opp-1',
+    reference: 'OPP-2026-0001',
+    company_id: 'company-1',
+    lead_id: 'lead-1',
+    lead: { id: 'lead-1', reference: 'LD-2026-0001' },
+    name: 'Sunrise Foods Inc — Warehouse staffing',
+    stage: 'proposal_sent',
+    probability: 60,
+    amount: '450000.00',
+    currency: 'PHP',
+    expected_close_date: '2026-11-30',
+    actual_close_date: null,
+    source: 'walk_in',
+    primary_contact_id: 'contact-1',
+    owner: { id: 1, name: 'Sam Salesrep' },
+    owner_id: 1,
+    lost_reason: null,
+    is_open: true,
+    is_won: false,
+    is_lost: false,
+    created_at: '2026-10-15T03:51:40.000000Z',
+    updated_at: '2026-10-15T03:51:40.000000Z',
+  }
+
   return {
     company,
     site,
     contact,
+    deal,
     paginated: {
       data: [company],
       meta: { current_page: 1, per_page: 25, total: 1, last_page: 1 },
@@ -88,6 +114,13 @@ const { company, site, contact, paginated } = vi.hoisted(() => {
     },
   }
 })
+
+vi.mock('../lib/opportunities', () => ({
+  listCompanyOpportunities: vi.fn().mockResolvedValue({
+    data: [deal],
+    meta: { total: 1, open: 1 },
+  }),
+}))
 
 vi.mock('../lib/companies', () => ({
   listCompanies: vi.fn().mockResolvedValue(paginated),
@@ -163,5 +196,23 @@ describe('Company detail', () => {
     expect(within(row as HTMLElement).getByText('Hiring manager')).toBeInTheDocument()
     expect(within(row as HTMLElement).getByText('Primary')).toBeInTheDocument()
     expect(within(row as HTMLElement).getByText('Plant HR Manager')).toBeInTheDocument()
+  })
+
+  it('shows the account opportunities with their stage and value', async () => {
+    renderDetail()
+
+    await screen.findByRole('heading', { name: 'Sunrise Foods Inc' })
+    expect(screen.getByRole('button', { name: /^Opportunities/ })).toHaveTextContent('1')
+    fireEvent.click(screen.getByRole('button', { name: /^Opportunities/ }))
+
+    const name = await screen.findByText('Sunrise Foods Inc — Warehouse staffing')
+    const row = name.closest('tr')
+    expect(row).not.toBeNull()
+    expect(within(row as HTMLElement).getByText('Proposal sent')).toBeInTheDocument()
+    expect(within(row as HTMLElement).getByText('60%')).toBeInTheDocument()
+    expect(within(row as HTMLElement).getByText('₱450,000.00')).toBeInTheDocument()
+    expect(
+      within(row as HTMLElement).getByRole('link', { name: 'LD-2026-0001' }),
+    ).toBeInTheDocument()
   })
 })

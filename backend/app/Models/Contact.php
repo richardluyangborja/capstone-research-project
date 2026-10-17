@@ -137,6 +137,10 @@ class Contact extends Model
             return null;
         }
 
+        // Re-read after the reset: Eloquent skips the update when nothing is dirty, and the
+        // winner usually already carried the flag in memory (which would drop it).
+        $primary = $primary->fresh() ?? $primary;
+
         $primary->forceFill(['is_primary' => true])->save();
 
         return $primary;

@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\CompanySize;
 use App\Enums\CompanyStatus;
 use App\Enums\CompanyTier;
+use App\Enums\OpportunityStage;
 use App\Enums\Role;
 use Database\Factories\CompanyFactory;
 use Illuminate\Database\Eloquent\Builder;
@@ -106,6 +107,11 @@ class Company extends Model
         return $this->hasMany(Contact::class);
     }
 
+    public function opportunities(): HasMany
+    {
+        return $this->hasMany(Opportunity::class);
+    }
+
     public function activities(): MorphMany
     {
         return $this->morphMany(Activity::class, 'subjectable', 'subject_type', 'subject_id');
@@ -184,14 +190,20 @@ class Company extends Model
     }
 
     /**
-     * Reasons a soft delete is not allowed (spec 06 §6). Empty until opportunities and
-     * contracts exist — submodules 08/09 add their active-dependency checks here.
+     * Reasons a soft delete is not allowed (spec 06 §6). Open deals block a delete; the
+     * active-contract guard joins when contracts exist (submodule 09).
      *
      * @return array<int, string>
      */
     public function deletionBlockers(): array
     {
-        return [];
+        $open = $this->opportunities()
+            ->whereNotIn('stage', [OpportunityStage::Won->value, OpportunityStage::Lost->value])
+            ->count();
+
+        return $open === 0
+            ? []
+            : [sprintf('This company still has %d open %s.', $open, str('opportunity')->plural($open))];
     }
 
     public function isDeletable(): bool

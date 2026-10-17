@@ -4,10 +4,12 @@ use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\CompanyActivityController;
 use App\Http\Controllers\Api\V1\CompanyContactController;
 use App\Http\Controllers\Api\V1\CompanyController;
+use App\Http\Controllers\Api\V1\CompanyOpportunityController;
 use App\Http\Controllers\Api\V1\CompanySiteController;
 use App\Http\Controllers\Api\V1\ContactController;
 use App\Http\Controllers\Api\V1\LeadAssignmentController;
 use App\Http\Controllers\Api\V1\LeadController;
+use App\Http\Controllers\Api\V1\LeadConversionController;
 use App\Http\Controllers\Api\V1\LeadLifecycleController;
 use App\Http\Controllers\Api\V1\LeadQualificationController;
 use App\Http\Controllers\Api\V1\NotificationController;
@@ -84,5 +86,10 @@ Route::prefix('v1')->group(function (): void {
         Route::post('contacts/{contact}/make-primary', [ContactController::class, 'makePrimary']);
         Route::apiResource('contacts', ContactController::class)
             ->only(['index', 'show', 'update', 'destroy']);
+
+        // Submodule 08 — lead→client conversion, plus the company opportunity tab.
+        Route::get('leads/{lead}/conversion-preview', [LeadConversionController::class, 'preview']);
+        Route::post('leads/{lead}/convert', [LeadConversionController::class, 'convert']);
+        Route::get('companies/{company}/opportunities', [CompanyOpportunityController::class, 'index']);
     });
 });
