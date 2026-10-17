@@ -3,10 +3,10 @@
 Module 2 (ADR-0014). Entities: `Opportunity`, `Company`, `Contact`, `Activity`, `Contract`, `User`.
 ADRs: 0002, 0004, 0007, 0012, 0015.
 
-> **Planned — not yet implemented.** This is the contract for module 02. It builds on the deal record
-> submodule 08 created (ADR-0012 §1) and the conventions in ADR-0015. The flat `/opportunities`
-> routes, the `/pipeline` board, deal detail, stage moves, won/lost, the deal timeline and the board
-> forecast are in scope; the full dashboard/management reports are the separate AI module.
+> **Implemented.** The contract below is what shipped (see ADR-0015 for the choices made where the
+> spec was open). It builds on the deal record submodule 08 created (ADR-0012 §1). The full
+> dashboard/management reports stay with the separate AI module; the deal pipeline does **not**
+> trigger the Service handoff on `won` — that stays on `mark-signed` (ADR-0015 §4).
 
 ## Purpose
 
@@ -163,24 +163,24 @@ forecast header and the win-rate all demo without faking.
 
 ## Acceptance criteria
 
-- [ ] A deal moves to any other stage; a self-move and terminal→terminal are 422; `lost` without a
+- [x] A deal moves to any other stage; a self-move and terminal→terminal are 422; `lost` without a
       reason is 422; `won`/`lost` stamp `actual_close_date`; reopening clears it and the lost reason.
-- [ ] Every stage move stamps `stage_changed_at` and appears on the deal timeline as a `system`
+- [x] Every stage move stamps `stage_changed_at` and appears on the deal timeline as a `system`
       activity; `last_activity_at` refreshes on a logged activity.
-- [ ] `GET /pipeline` returns the open stages as columns with per-column count/value/weighted value
+- [x] `GET /pipeline` returns the open stages as columns with per-column count/value/weighted value
       and a forecast `meta`; `won`/`lost` are excluded from the columns.
-- [ ] A salesrep sees only their deals (board, list, detail, timeline); a manager sees the team; an
+- [x] A salesrep sees only their deals (board, list, detail, timeline); a manager sees the team; an
       admin sees all — a deal outside scope is 403.
-- [ ] A salesrep **cannot** set `amount` (422) but can edit the rest of their deal and move its stage;
+- [x] A salesrep **cannot** set `amount` (422) but can edit the rest of their deal and move its stage;
       `can_set_amount` is false on the payload.
-- [ ] A deal can be created directly on a visible company (owner = creator) and the company
+- [x] A deal can be created directly on a visible company (owner = creator) and the company
       Opportunities tab links to it; conversion still opens a `qualified` deal.
-- [ ] Marking a deal `won` does **not** hand off to Service (no handoff runs); the "Create contract
+- [x] Marking a deal `won` does **not** hand off to Service (no handoff runs); the "Create contract
       from deal" action opens the contract upload prefilled with `opportunity_id`.
-- [ ] Soft-deleting a deal removes it from the board and list; restore (manager+) brings it back; a
+- [x] Soft-deleting a deal removes it from the board and list; restore (manager+) brings it back; a
       salesrep cannot restore.
-- [ ] The board drag path and the Move-to menu produce identical results.
-- [ ] A `signed` contract still blocks deleting the company; a `won` deal does not.
+- [x] The board drag path and the Move-to menu produce identical results.
+- [x] A `signed` contract still blocks deleting the company; a `won` deal does not.
 
 ## Open questions
 

@@ -26,7 +26,7 @@ Deferred **inside** module 01: 5. Duplicate Detection & Merge and advanced tiers
 
 | File | Module |
 | --- | --- |
-| `10-opportunity-pipeline-visualization.md` | 2. Opportunity Pipeline Visualization *(planned)* |
+| `10-opportunity-pipeline-visualization.md` | 2. Opportunity Pipeline Visualization *(done)* |
 | `11-communication-history.md` | 3. Communication History Management *(not yet written)* |
 | `12-follow-up-reminders.md` | 4. Follow-up Reminder System *(not yet written)* |
 | `13-client-satisfaction-survey.md` | 5. Client Satisfaction & Survey *(not yet written)* |

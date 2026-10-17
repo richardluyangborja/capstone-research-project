@@ -90,7 +90,7 @@ on the one before:
 | Module | Name | Depends on | Spec |
 | --- | --- | --- | --- |
 | 01 | Lead & Client Tracking | — | `01`–`09` **(built)** |
-| 02 | Opportunity Pipeline Visualization | `Opportunity` record (08) | `10` *(planned)* |
+| 02 | Opportunity Pipeline Visualization | `Opportunity` record (08) | `10` **(built)** |
 | 03 | Communication History Management | objects from 01–02 | `11` |
 | 04 | Follow-up Reminder System | 03 + notifications | `12` |
 | 05 | Client Satisfaction & Survey | clients + contacts | `13` |
@@ -98,7 +98,7 @@ on the one before:
 The AI service (dashboard + management reports + suggestions) is cross-cutting and built after 01–05.
 Duplicate detection/merge and advanced tiers/health are still-open **module-01** deferrals (ADR-0006).
 
-## Module 02 → submodules (planned, ADR-0015)
+## Module 02 → submodules (built, ADR-0015)
 
 1. **Pipeline Board** — Kanban of open deals, drag-and-drop + accessible move menu, column totals.
 2. **Deal Management** — flat `/opportunities` CRUD, deal list and detail page.
