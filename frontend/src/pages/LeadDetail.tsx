@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, UserPlus } from 'lucide-react'
 import PageHeader from '../components/common/PageHeader'
 import FormCard from '../components/common/FormCard'
 import StatusBadge from '../components/common/StatusBadge'
@@ -304,6 +304,23 @@ export default function LeadDetail() {
         </div>
       )}
 
+      {lead.converted_company_id && (
+        <div className="mb-4">
+          <AlertItem variant="success">
+            <p>
+              This lead became a client.{' '}
+              <Link
+                to={`/companies/${lead.converted_company_id}`}
+                className="font-medium underline"
+              >
+                Open the account
+              </Link>
+              {lead.converted_opportunity_id && ' — its first deal was opened with it.'}
+            </p>
+          </AlertItem>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="flex flex-col gap-6 lg:col-span-2">
           <FormCard
@@ -547,6 +564,21 @@ export default function LeadDetail() {
               <span className="text-muted-foreground">Idle</span>
               <span className="text-foreground">{lead.days_since_activity} day(s)</span>
             </div>
+
+            {lead.can_convert && (
+              <div className="mt-4 border-t border-border pt-4">
+                <Link
+                  to={`/leads/${lead.id}/convert`}
+                  className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
+                >
+                  <UserPlus className="h-4 w-4" aria-hidden="true" />
+                  Convert to client
+                </Link>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Opens the account, its first contact and a qualified deal in one step.
+                </p>
+              </div>
+            )}
 
             {allowed.length === 0 ? (
               <p className="mt-4 border-t border-border pt-4 text-xs text-muted-foreground">

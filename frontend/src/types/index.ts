@@ -69,6 +69,10 @@ export interface Lead {
   missing_criteria: string[]
   meets_criteria: boolean
   can_qualify: boolean
+  can_convert: boolean
+  is_converted: boolean
+  converted_company_id: string | null
+  converted_opportunity_id: string | null
   created_at: string
   updated_at: string
 }
@@ -123,6 +127,7 @@ export interface CompanyCounts {
   sites: number
   branches: number
   contacts: number
+  opportunities: number
   activities: number
 }
 
@@ -224,6 +229,141 @@ export interface DuplicateContact {
   email: string | null
   role_type: ContactRoleType
   status: ContactStatus
+}
+
+// --- Submodule 08: opportunities + lead→client conversion -------------------
+
+export type OpportunityStage =
+  | 'new_inquiry'
+  | 'qualified'
+  | 'discovery'
+  | 'proposal_sent'
+  | 'negotiation'
+  | 'won'
+  | 'lost'
+  | 'on_hold'
+
+export type LostReason = 'price' | 'competitor' | 'no_budget' | 'timing' | 'no_decision' | 'other'
+
+export interface OpportunityCompanyRef {
+  id: string
+  reference: string
+  name: string
+}
+
+export interface OpportunityLeadRef {
+  id: string
+  reference: string
+}
+
+/** A deal on a company (spec 08). Opened by conversion; moved by the pipeline module. */
+export interface Opportunity {
+  id: string
+  reference: string
+  company_id: string
+  company?: OpportunityCompanyRef
+  lead_id: string | null
+  lead?: OpportunityLeadRef | null
+  name: string
+  stage: OpportunityStage
+  probability: number | null
+  amount: string | null
+  currency: string
+  expected_close_date: string | null
+  actual_close_date: string | null
+  source: LeadSource | null
+  primary_contact_id: string | null
+  primary_contact?: { id: string; name: string; role_type: ContactRoleType } | null
+  owner: { id: number; name: string } | null
+  owner_id: number
+  lost_reason: LostReason | null
+  is_open: boolean
+  is_won: boolean
+  is_lost: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface CompanyOpportunities {
+  data: Opportunity[]
+  meta: { total: number; open: number }
+}
+
+/** A company the lead may already belong to (advisory, spec 08 §3). */
+export interface ConversionDuplicate {
+  id: string
+  reference: string
+  name: string
+  trade_name: string | null
+  status: CompanyStatus
+  owner: { id: number; name: string } | null
+  matched_on: ('name' | 'email' | 'phone')[]
+}
+
+export interface ConversionContactInput {
+  name: string
+  position: string | null
+  role_type: ContactRoleType
+  email: string | null
+  phone: string | null
+  mobile: string | null
+  is_primary: boolean
+}
+
+export interface ConversionPreview {
+  lead: Lead
+  company: {
+    name: string
+    trade_name: string | null
+    industry: string | null
+    size: CompanySize | null
+    website: string | null
+    description: string | null
+    owner_id: number
+    owner: { id: number; name: string } | null
+  }
+  contacts: ConversionContactInput[]
+  opportunity: {
+    name: string
+    stage: OpportunityStage
+    amount: string | null
+    currency: string
+    probability: number
+    expected_close_date: string | null
+    source: LeadSource | null
+    owner_id: number
+  }
+  duplicates: ConversionDuplicate[]
+  can_convert: boolean
+  can_set_amount: boolean
+  blocked_reason: string | null
+}
+
+export interface ConversionInput {
+  link_company_id?: string | null
+  company?: {
+    name: string
+    trade_name?: string | null
+    industry?: string | null
+    size?: string | null
+    website?: string | null
+    description?: string | null
+  }
+  contacts: ConversionContactInput[]
+  opportunity: {
+    name: string
+    amount?: number | null
+    probability?: number | null
+    expected_close_date?: string | null
+  }
+}
+
+export interface ConversionResult {
+  company: Company
+  contacts: Contact[]
+  opportunity: Opportunity
+  lead: Lead
+  duplicates: ConversionDuplicate[]
 }
 
 export interface NotificationItem {

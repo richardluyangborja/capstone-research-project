@@ -2,6 +2,10 @@ import { api } from './api'
 import type {
   Activity,
   AssignmentTarget,
+  ConversionDuplicate,
+  ConversionInput,
+  ConversionPreview,
+  ConversionResult,
   Lead,
   LeadSummary,
   LeadTimeline,
@@ -206,4 +210,25 @@ export const parseValidationError = (error: unknown): ValidationErrors | null =>
     message: data.message ?? 'Please correct the highlighted fields.',
     errors: data.errors ?? {},
   }
+}
+
+// --- Submodule 08: lead→client conversion -----------------------------------
+
+/** Suggested company / contact / deal mapping for the wizard (spec 08 §UI). */
+export const getConversionPreview = async (leadId: string): Promise<ConversionPreview> => {
+  const { data } = await api.get<{ data: ConversionPreview }>(`/leads/${leadId}/conversion-preview`)
+  return data.data
+}
+
+/** One atomic conversion: company + contacts + opportunity, and the lead goes terminal. */
+export const convertLead = async (
+  leadId: string,
+  input: ConversionInput,
+): Promise<ConversionResult> => {
+  const { data } = await api.post<{
+    data: Omit<ConversionResult, 'duplicates'>
+    duplicates: ConversionDuplicate[]
+  }>(`/leads/${leadId}/convert`, input)
+
+  return { ...data.data, duplicates: data.duplicates ?? [] }
 }

@@ -7,7 +7,9 @@ import Assignment from '../pages/Assignment'
 import Companies from '../pages/Companies'
 import CompanyDetail from '../pages/CompanyDetail'
 import Contacts from '../pages/Contacts'
+import Conversion from '../pages/Conversion'
 import DashboardHome from '../pages/DashboardHome'
+import LeadConvert from '../pages/LeadConvert'
 import LeadDetail from '../pages/LeadDetail'
 import LeadsList from '../pages/LeadsList'
 import Lifecycle from '../pages/Lifecycle'
@@ -34,9 +36,11 @@ export default function AppRouter() {
           <Route path="/leads" element={<LeadsList />} />
           <Route path="/leads/new" element={<NewLead />} />
           <Route path="/leads/:id" element={<LeadDetail />} />
+          <Route path="/leads/:id/convert" element={<LeadConvert />} />
           <Route path="/qualification" element={<Qualification />} />
           <Route path="/assignment" element={<Assignment />} />
           <Route path="/lifecycle" element={<Lifecycle />} />
+          <Route path="/conversion" element={<Conversion />} />
           <Route path="/companies" element={<Companies />} />
           <Route path="/companies/new" element={<NewCompany />} />
           <Route path="/companies/:id" element={<CompanyDetail />} />

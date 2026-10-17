@@ -11,7 +11,8 @@ branches, sites, and the roll-up of its contacts, opportunities, and contracts.
 ## Scope
 
 - **In:** company CRUD, sites, parent/child (branches), status/tier, owner, activity timeline.
-- **Out:** contacts / opportunities / contracts tabs (submodules 07–09); advanced health/engagement
+- **Out:** the contracts tab (submodule 09) and **editing** deals — submodule 08 ships a read-only
+  Opportunities tab, the deal pipeline is a later module; advanced health/engagement
   scoring (Phase 2); company merge (Phase 2 dedup).
 
 ## Business rules
@@ -28,8 +29,9 @@ branches, sites, and the roll-up of its contacts, opportunities, and contracts.
    creation by manager+, and changed afterwards only by an admin override.
 5. `tier` is **manual** in Phase 1 (advanced scoring deferred).
 6. Deleting a company with active contracts or non-archived opportunities is blocked (422); use
-   soft delete only when no active dependencies remain. The guard is in place but has no blockers to
-   report until submodules 08/09 create opportunities and contracts (ADR-0010).
+   soft delete only when no active dependencies remain. Submodule 08 activated the opportunity half
+   (any deal with `stage ∉ {won, lost}` blocks the delete with a message naming the count); contracts
+   join the same `Company::deletionBlockers()` check in submodule 09 (ADR-0010 §6).
 7. `owner_id` is required; defaults from the source lead's owner on conversion, or the creator when
    created manually.
 8. Sensitive roll-ups (opportunity amounts, contract rate terms) are hidden from salesrep. Applies
@@ -66,9 +68,9 @@ themselves, a manager may hand it to their team, an admin to anyone (`owner_id` 
 | `GET` | `/api/v1/companies/{id}/contracts` | Contracts tab — submodule 09 |
 
 `GET /companies/{id}` returns affordances (`can_update`, `can_manage_sites`, `can_manage_parent`,
-`can_assign`, `can_delete`) plus `counts: { sites, branches, contacts, activities }` so the UI never
-has to re-derive permissions from the role. (`contacts` was added by submodule 07; opportunity and
-contract counts follow in 08–09.)
+`can_assign`, `can_delete`) plus `counts: { sites, branches, contacts, opportunities, activities }`
+so the UI never has to re-derive permissions from the role. (`contacts` was added by submodule 07,
+`opportunities` by submodule 08; the contract count follows in 09.)
 
 ## UI
 
@@ -76,8 +78,8 @@ contract counts follow in 08–09.)
   (`StatusBadge`), tier, owner, sites, branches, created; search + status/tier filters, paginated
   (blue = counts).
 - **Company detail** `/companies/:id` — `PageHeader` + tabs: Overview (profile, ownership, branch,
-  record), Contacts (submodule 07), Sites, Activities. The Opportunities / Contracts tabs and the
-  lifecycle stepper arrive with submodules 08–09.
+  record), Contacts (submodule 07), Sites, Opportunities (submodule 08, read-only), Activities. The
+  Contracts tab and the lifecycle stepper arrive with submodule 09.
 - One primary site per company; site editor lives in the detail page's Sites tab (`FormCard`).
 - Creation is a dedicated route `/companies/new` (warn on a name collision, never block).
 
@@ -91,11 +93,11 @@ contract counts follow in 08–09.)
 - [x] Creating a company with `parent_company_id` pointing to its own descendant returns 422.
   (Also covers a company naming itself as its own parent.)
 - [x] A site can be marked primary; marking a new primary unsets the old one.
-- [ ] Deleting a company with an active contract returns 422 — the guard exists
-  (`Company::deletionBlockers()`), but contracts arrive in submodule 09 so it is not yet triggered.
+- [x] Deleting a company with an open opportunity returns 422 (submodule 08); the same guard
+  covers active contracts once they exist in submodule 09.
 - [x] salesrep sees only own-owner companies; manager sees team's.
-- [x] Detail response includes a contact roll-up count — `counts: { sites, branches, contacts,
-  activities }` (ADR-0010); opportunities and contracts join the list in submodules 08–09.
+- [x] Detail response includes contact and opportunity roll-up counts — `counts: { sites, branches,
+  contacts, opportunities, activities }` (ADR-0010, ADR-0012); the contract count joins in 09.
 
 ## Open questions
 

@@ -61,5 +61,6 @@ class DatabaseSeeder extends Seeder
         $this->call(DemoLeadSeeder::class);
         $this->call(DemoCompanySeeder::class);
         $this->call(DemoContactSeeder::class);
+        $this->call(DemoOpportunitySeeder::class);
     }
 }

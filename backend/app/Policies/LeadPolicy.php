@@ -91,6 +91,16 @@ class LeadPolicy
     }
 
     /**
+     * Only users who can edit the lead may convert it (spec 08 §Permissions). Whether the
+     * conversion itself is legal (qualified, not already converted) is a business rule the
+     * controller enforces with a 422/409.
+     */
+    public function convert(User $user, Lead $lead): bool
+    {
+        return $this->update($user, $lead);
+    }
+
+    /**
      * Role + ownership scoping (ADR-0004): salesrep own, manager team, admin all.
      */
     private function ownsOrOversees(User $user, Lead $lead): bool

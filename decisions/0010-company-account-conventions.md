@@ -29,11 +29,13 @@ detail page may roll up before contacts, opportunities and contracts exist (subm
    parent. Cycles are rejected with a `422`. This keeps "the branch is a separate operating record"
    honest instead of half-implementing head-office aggregation.
 5. **Roll-ups are limited to what exists.** `counts` carries `sites`, `branches`, `contacts`
-   (added by submodule 07, ADR-0011) and `activities`; the opportunity / contract counts land with
-   submodules 08–09 rather than being emitted as zeroes now.
+   (submodule 07, ADR-0011), `opportunities` (submodule 08, ADR-0012) and `activities`; the contract
+   count lands with submodule 09.
 6. **Delete is guarded, not blocked.** `Company::deletionBlockers()` is the single extension point
-   for "has active contracts/opportunities"; it is empty until those modules exist, so a delete is a
-   soft delete (restorable) that later gains a `422` guard.
+   for "has active contracts/opportunities". Submodule 08 activated the opportunity half — any deal
+   with `stage ∉ {won, lost}` returns `422` with a message naming the count — so a delete is a soft
+   delete (restorable) that already refuses to orphan live work. Contracts plug into the same method
+   in submodule 09.
 7. **The activity timeline is shared.** `ActivityResource` is extracted from the lead lifecycle
    controller and reused for companies, so one polymorphic `activities` table and one payload shape
    serve every record type.
@@ -44,7 +46,8 @@ detail page may roll up before contacts, opportunities and contracts exist (subm
   `can_manage_parent`, `can_assign`, `can_delete`) rather than from role checks in the UI.
 - Conversion (submodule 08) can create companies for any role because creation is unrestricted; it
   must still set the owner from the source lead.
-- Spec 06's acceptance criterion "deleting a company with an active contract returns 422" is
-  satisfied structurally but only testable once contracts exist (submodule 09).
-- Roll-up widgets for contacts/opportunities/contracts are explicitly out of scope until their
-  submodules land; spec 06 and `AGENTS.md` note this.
+- `deletionBlockers()` was activated by submodule 08: a company with an open (non-won/lost) deal
+  cannot be deleted. Spec 06's acceptance criterion "deleting a company with an active contract
+  returns 422" is satisfied by the same method once contracts exist (submodule 09).
+- Roll-up widgets for contracts are explicitly out of scope until their submodule lands; spec 06 and
+  `AGENTS.md` note this.
