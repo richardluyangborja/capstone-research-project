@@ -4,11 +4,14 @@ import PublicLayout from '../components/layout/PublicLayout'
 import ProtectedRoute from '../components/ProtectedRoute'
 import { useAuth } from '../lib/auth-context'
 import Assignment from '../pages/Assignment'
+import Companies from '../pages/Companies'
+import CompanyDetail from '../pages/CompanyDetail'
 import DashboardHome from '../pages/DashboardHome'
 import LeadDetail from '../pages/LeadDetail'
 import LeadsList from '../pages/LeadsList'
 import Lifecycle from '../pages/Lifecycle'
 import Login from '../pages/Login'
+import NewCompany from '../pages/NewCompany'
 import NewLead from '../pages/NewLead'
 import NotFound from '../pages/NotFound'
 import PublicHome from '../pages/PublicHome'
@@ -33,6 +36,9 @@ export default function AppRouter() {
           <Route path="/qualification" element={<Qualification />} />
           <Route path="/assignment" element={<Assignment />} />
           <Route path="/lifecycle" element={<Lifecycle />} />
+          <Route path="/companies" element={<Companies />} />
+          <Route path="/companies/new" element={<NewCompany />} />
+          <Route path="/companies/:id" element={<CompanyDetail />} />
         </Route>
       </Route>
 

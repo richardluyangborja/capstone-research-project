@@ -9,11 +9,13 @@ use App\Enums\LeadStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\LogActivityRequest;
 use App\Http\Requests\UpdateLeadStatusRequest;
+use App\Http\Resources\ActivityResource;
 use App\Http\Resources\LeadResource;
 use App\Models\Activity;
 use App\Models\Lead;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -83,14 +85,16 @@ class LeadLifecycleController extends Controller
         });
 
         return (new LeadResource($lead->load('owner')))
-            ->additional(['activity' => $this->activityPayload($activity->load('owner:id,name'))])
+            ->additional([
+                'activity' => (new ActivityResource($activity->load('owner:id,name')))->resolve(),
+            ])
             ->response();
     }
 
     /**
      * Chronological status history + activities for the lead timeline (spec 04 §5).
      */
-    public function timeline(Request $request, Lead $lead): JsonResponse
+    public function timeline(Request $request, Lead $lead): AnonymousResourceCollection
     {
         $this->authorize('view', $lead);
 
@@ -104,8 +108,7 @@ class LeadLifecycleController extends Controller
             ->limit(100)
             ->get();
 
-        return response()->json([
-            'data' => $activities->map(fn (Activity $activity): array => $this->activityPayload($activity)),
+        return ActivityResource::collection($activities)->additional([
             'meta' => [
                 'status' => $lead->status,
                 'status_changed_at' => $lead->status_changed_at,
@@ -114,25 +117,5 @@ class LeadLifecycleController extends Controller
                 'days_since_activity' => $lead->daysSinceActivity(),
             ],
         ]);
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function activityPayload(Activity $activity): array
-    {
-        return [
-            'id' => $activity->id,
-            'category' => $activity->type === ActivityType::System ? 'system' : 'activity',
-            'type' => $activity->type,
-            'subject' => $activity->subject,
-            'body' => $activity->body,
-            'status' => $activity->status,
-            'occurred_at' => $activity->occurred_at,
-            'owner' => $activity->owner
-                ? ['id' => $activity->owner->id, 'name' => $activity->owner->name]
-                : null,
-            'created_at' => $activity->created_at,
-        ];
     }
 }
