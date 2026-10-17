@@ -17,6 +17,10 @@ use App\Http\Controllers\Api\V1\LeadConversionController;
 use App\Http\Controllers\Api\V1\LeadLifecycleController;
 use App\Http\Controllers\Api\V1\LeadQualificationController;
 use App\Http\Controllers\Api\V1\NotificationController;
+use App\Http\Controllers\Api\V1\OpportunityActivityController;
+use App\Http\Controllers\Api\V1\OpportunityController;
+use App\Http\Controllers\Api\V1\OpportunityStageController;
+use App\Http\Controllers\Api\V1\PipelineController;
 use App\Http\Controllers\Api\V1\UserController;
 use Illuminate\Support\Facades\Route;
 
@@ -109,5 +113,14 @@ Route::prefix('v1')->group(function (): void {
         Route::post('contracts/{id}/restore', [ContractController::class, 'restore']);
         Route::apiResource('contracts', ContractController::class)
             ->only(['show', 'update', 'destroy']);
+
+        // Module 02 — opportunity pipeline. Static paths must precede the resource route.
+        Route::get('pipeline', [PipelineController::class, 'index']);
+        Route::post('opportunities/{id}/restore', [OpportunityController::class, 'restore']);
+        Route::post('opportunities/{opportunity}/stage', [OpportunityStageController::class, 'update']);
+        Route::get('opportunities/{opportunity}/timeline', [OpportunityActivityController::class, 'timeline']);
+        Route::post('opportunities/{opportunity}/activities', [OpportunityActivityController::class, 'logActivity']);
+        Route::apiResource('opportunities', OpportunityController::class)
+            ->only(['index', 'store', 'show', 'update', 'destroy']);
     });
 });
