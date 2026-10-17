@@ -58,9 +58,9 @@ Tiers (A/B/C) and health/status are used for prioritization and reporting *(assu
 
 ## "Lead & Client Tracking" module → submodules
 
-The module splits into the following submodules. **Phase 1** covers the full tracking loop —
-submodules 1–4 and 6–8; duplicate detection/merge (5) and advanced tiers are deferred (ADR-0006).
-Detailed implementation specs live in `specs/` (numbered to match).
+Module 01 splits into the following submodules. All of them except duplicate detection/merge (5) and
+advanced tiers/health are **built** (ADR-0006). Detailed implementation specs live in `specs/`
+(numbered to match).
 
 1. **Lead Capture & Intake** — intake from channels (walk-in, email, phone, referral, website,
    outbound); manual entry, bulk import; capture source & campaign; duplicate check on create.
@@ -82,8 +82,32 @@ Detailed implementation specs live in `specs/` (numbered to match).
 9. **Client Account Lifecycle** — client status/tier/health, owner, renewal linkage, dormancy/
    churn, win-back.
 
-Related but **separate** modules (per `system-modules.md`): opportunity pipeline visualization,
-communication history, follow-up reminders, client satisfaction & survey.
+## CRM module roadmap (ADR-0014)
+
+The CRM is five modules (`system-modules.md`). Module 01 is done; the rest are ordered so each builds
+on the one before:
+
+| Module | Name | Depends on | Spec |
+| --- | --- | --- | --- |
+| 01 | Lead & Client Tracking | — | `01`–`09` **(built)** |
+| 02 | Opportunity Pipeline Visualization | `Opportunity` record (08) | `10` *(planned)* |
+| 03 | Communication History Management | objects from 01–02 | `11` |
+| 04 | Follow-up Reminder System | 03 + notifications | `12` |
+| 05 | Client Satisfaction & Survey | clients + contacts | `13` |
+
+The AI service (dashboard + management reports + suggestions) is cross-cutting and built after 01–05.
+Duplicate detection/merge and advanced tiers/health are still-open **module-01** deferrals (ADR-0006).
+
+## Module 02 → submodules (planned, ADR-0015)
+
+1. **Pipeline Board** — Kanban of open deals, drag-and-drop + accessible move menu, column totals.
+2. **Deal Management** — flat `/opportunities` CRUD, deal list and detail page.
+3. **Deal Stage & Outcome** — any-to-any stage moves with rules, won/lost, reopen, stage history.
+4. **Deal Activity & Timeline** — log touches/next actions; the deal timeline.
+5. **Pipeline Forecast** — board-header/list `meta` (weighted value, per-stage, win rate).
+
+A won deal **prompts contract creation** (reusing the contract upload with `opportunity_id`); the
+mocked Service handoff still fires only on `mark-signed` (ADR-0015 §4).
 
 ## Role data visibility (ADR-0004)
 
@@ -127,7 +151,10 @@ Recorded as ADRs in `decisions/` (read them before changing the design):
 - `decisions/0004-role-data-visibility.md` — role visibility/ownership
 - `decisions/0005-mocked-integrations.md` — integration mock strategy
 - `decisions/0006-phase-1-scope.md` — Phase-1 submodule scope
+- `decisions/0014-crm-module-roadmap.md` — module order & spec numbering
+- `decisions/0015-opportunity-pipeline-conventions.md` — pipeline stage moves, board, won→contract
 
 Still open / to be decided later: follow-up/reminder rules, satisfaction survey structure, and
-dedup/merge rules (deferred to Phase 2). The contract and billing data model is settled — see
-`specs/00-data-model.md` (Contract), `specs/09-client-account-lifecycle.md` and ADR-0013.
+dedup/merge rules (module-01 deferrals). The contract and billing data model is settled — see
+`specs/00-data-model.md` (Contract), `specs/09-client-account-lifecycle.md` and ADR-0013; the deal
+pipeline is specified in `specs/10-opportunity-pipeline-visualization.md` (ADR-0015).

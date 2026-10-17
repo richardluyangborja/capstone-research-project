@@ -144,11 +144,12 @@ module** — only implemented submodules are listed under
 `Lead & Client Tracking`. Account + logout live in the sidebar footer; the brand is "Primepower
 Manpower Services / Customer Relationship Management".
 
-**Not implemented yet:** the Opportunities/Contracts *management* pieces — the deal pipeline (stage
-moves, won/lost, Kanban visualization), a deal detail page, contract versioning/e-signature, renewal
-reminders/automatic client aging — and duplicate detection & merge (Phase 2, ADR-0006). Add them per
-`resources/specs/`. `/leads/{id}/status` cannot reach `converted`; conversion is the only path
-(ADR-0009). `Company::deletionBlockers()` now carries both guards (open deal, signed contract) —
+**Not implemented yet — next up is module 02, the opportunity pipeline** (spec
+`resources/specs/10-opportunity-pipeline-visualization.md`, ADR-0015): the deal pipeline (stage moves,
+won/lost, Kanban), a deal detail page and the board forecast. Still deferred: contract
+versioning/e-signature, renewal reminders/automatic client aging, duplicate detection & merge (a
+module-01 deferral, ADR-0006). `/leads/{id}/status` cannot reach `converted`; conversion is the only
+path (ADR-0009). `Company::deletionBlockers()` carries both guards (open deal, signed contract) —
 ADR-0010 §6.
 
 **Demo accounts** (password `password`, via `php artisan migrate:fresh --seed`):
@@ -225,7 +226,9 @@ Design docs an agent should read before touching CRM features:
 Before implementing a submodule, read `resources/specs/README.md` (conventions) and
 `resources/specs/00-data-model.md` first; each submodule spec builds on them.
 
-**Phase 1** is the lead & client tracking loop: lead capture, qualification, assignment, lifecycle,
-company/contact, lead→client conversion, and client lifecycle. Dedup/merge and advanced tiers are
-deferred (ADR-0006). Other departments are consumed via **mocked integrations** (ADR-0005), not
+**Module 01** (Lead & Client Tracking) is built: lead capture, qualification, assignment, lifecycle,
+company/contact, lead→client conversion, and client lifecycle. The roadmap for the remaining CRM
+modules — 02 opportunity pipeline, 03 communication history, 04 follow-up reminders, 05 client
+satisfaction — is in **ADR-0014** (specs `10`–`13`). Dedup/merge and advanced tiers are module-01
+deferrals (ADR-0006). Other departments are consumed via **mocked integrations** (ADR-0005), not
 built here.
