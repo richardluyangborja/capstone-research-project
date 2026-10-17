@@ -121,6 +121,25 @@ class ContactTest extends TestCase
             ->assertJsonPath('duplicates', []);
     }
 
+    public function test_adding_a_non_primary_contact_keeps_the_existing_primary(): void
+    {
+        $rep = User::factory()->salesrep()->create();
+        $company = Company::factory()->ownedBy($rep)->create();
+        $primary = Contact::factory()->forCompany($company)->primary()->create(['name' => 'Ana Reyes']);
+
+        $this->actingAs($rep, 'api')
+            ->postJson("/api/v1/companies/{$company->id}/contacts", [
+                'name' => 'Ramon Villanueva',
+                'role_type' => ContactRoleType::HiringManager->value,
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.is_primary', false);
+
+        // Re-syncing must not drop the flag from a primary that was already correct.
+        $this->assertTrue($primary->fresh()->is_primary);
+        $this->assertSame(1, $company->contacts()->where('is_primary', true)->count());
+    }
+
     public function test_making_a_contact_primary_unsets_the_previous_primary(): void
     {
         $rep = User::factory()->salesrep()->create();
