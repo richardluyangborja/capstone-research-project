@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import {
+  Building2,
   ChevronDown,
   ClipboardCheck,
   Handshake,
@@ -37,6 +38,7 @@ const groups: NavGroup[] = [
       { to: '/qualification', label: 'Lead Qualification & Scoring', icon: ClipboardCheck },
       { to: '/assignment', label: 'Lead Assignment & Ownership', icon: UserCheck },
       { to: '/lifecycle', label: 'Lead Lifecycle & Status', icon: History },
+      { to: '/companies', label: 'Company / Account Management', icon: Building2 },
     ],
   },
 ]

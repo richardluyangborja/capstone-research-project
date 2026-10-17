@@ -111,6 +111,76 @@ export interface LeadSummary {
   archived: number
 }
 
+// --- Submodule 06: companies / accounts ------------------------------------
+
+export type CompanyStatus = 'prospect' | 'onboarding' | 'active' | 'at_risk' | 'dormant' | 'churned'
+
+export type CompanyTier = 'a' | 'b' | 'c'
+
+export type CompanySize = 'micro' | 'small' | 'medium' | 'large' | 'enterprise'
+
+export interface CompanyCounts {
+  sites: number
+  branches: number
+  activities: number
+}
+
+export interface CompanyParentRef {
+  id: string
+  reference: string
+  name: string
+}
+
+export interface Company {
+  id: string
+  reference: string
+  name: string
+  trade_name: string | null
+  industry: string | null
+  size: CompanySize | null
+  website: string | null
+  description: string | null
+  status: CompanyStatus
+  is_client: boolean
+  tier: CompanyTier | null
+  client_since: string | null
+  tags: string[]
+  parent_company_id: string | null
+  parent: CompanyParentRef | null
+  source_lead_id: string | null
+  owner: { id: number; name: string } | null
+  owner_id: number
+  counts: CompanyCounts
+  can_update: boolean
+  can_manage_sites: boolean
+  can_manage_parent: boolean
+  can_assign: boolean
+  can_delete: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface CompanySite {
+  id: string
+  company_id: string
+  label: string
+  street_address: string | null
+  barangay: string | null
+  city_municipality: string | null
+  province: string | null
+  region: string | null
+  postal_code: string | null
+  is_primary: boolean
+  full_address: string
+  created_at: string
+  updated_at: string
+}
+
+export interface CompanyTimeline {
+  data: Activity[]
+  meta: { total: number }
+}
+
 export interface NotificationItem {
   id: string
   type: string | null

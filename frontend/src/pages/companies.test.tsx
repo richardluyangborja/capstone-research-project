@@ -1,0 +1,120 @@
+import { render, screen, within } from '@testing-library/react'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { describe, expect, it, vi } from 'vitest'
+import Companies from './Companies'
+import CompanyDetail from './CompanyDetail'
+import type { Company, CompanySite } from '../types'
+
+vi.mock('../lib/auth-context', () => ({
+  useAuth: () => ({ user: { id: 1, name: 'Sam Salesrep', role: 'manager' }, logout: vi.fn() }),
+}))
+
+// `vi.mock` factories are hoisted above the imports, so the fixtures they close over
+// must be created with `vi.hoisted`.
+const { company, site, paginated } = vi.hoisted(() => {
+  const company: Company = {
+    id: 'company-1',
+    reference: 'CO-2026-0001',
+    name: 'Sunrise Foods Inc',
+    trade_name: 'Sunrise Foods',
+    industry: 'Food Manufacturing',
+    size: 'medium',
+    website: null,
+    description: null,
+    status: 'prospect',
+    is_client: false,
+    tier: 'b',
+    client_since: null,
+    tags: ['walk-in'],
+    parent_company_id: null,
+    parent: null,
+    source_lead_id: null,
+    owner: { id: 1, name: 'Sam Salesrep' },
+    owner_id: 1,
+    counts: { sites: 1, branches: 0, activities: 2 },
+    can_update: true,
+    can_manage_sites: true,
+    can_manage_parent: true,
+    can_assign: true,
+    can_delete: true,
+    created_at: '2026-10-15T03:51:40.000000Z',
+    updated_at: '2026-10-17T03:51:40.000000Z',
+  }
+
+  const site: CompanySite = {
+    id: 'site-1',
+    company_id: 'company-1',
+    label: 'Head office',
+    street_address: null,
+    barangay: 'Barangay Sienna',
+    city_municipality: 'Quezon City',
+    province: 'Metro Manila',
+    region: 'NCR',
+    postal_code: '1103',
+    is_primary: true,
+    full_address: 'Barangay Sienna, Quezon City, Metro Manila, NCR, 1103',
+    created_at: '2026-10-15T03:51:40.000000Z',
+    updated_at: '2026-10-15T03:51:40.000000Z',
+  }
+
+  return {
+    company,
+    site,
+    paginated: {
+      data: [company],
+      meta: { current_page: 1, per_page: 25, total: 1, last_page: 1 },
+      links: {},
+    },
+  }
+})
+
+vi.mock('../lib/companies', () => ({
+  listCompanies: vi.fn().mockResolvedValue(paginated),
+  listCompanySites: vi.fn().mockResolvedValue([site]),
+  getCompanyTimeline: vi.fn().mockResolvedValue({ data: [], meta: { total: 0 } }),
+  getCompany: vi.fn().mockResolvedValue(company),
+  updateCompany: vi.fn(),
+  createCompanySite: vi.fn(),
+  updateCompanySite: vi.fn(),
+  deleteCompanySite: vi.fn(),
+  deleteCompany: vi.fn(),
+  logCompanyActivity: vi.fn(),
+}))
+
+vi.mock('../lib/leads', () => ({
+  getAssignableUsers: vi.fn().mockResolvedValue([{ id: 1, name: 'Sam Salesrep', team_id: null }]),
+  parseValidationError: vi.fn().mockReturnValue(null),
+}))
+
+describe('Companies list', () => {
+  it('lists the companies the API returns', async () => {
+    render(
+      <MemoryRouter>
+        <Companies />
+      </MemoryRouter>,
+    )
+
+    const link = await screen.findByRole('link', { name: 'Sunrise Foods Inc' })
+    const row = link.closest('tr')
+    expect(row).not.toBeNull()
+    expect(within(row as HTMLElement).getByText('CO-2026-0001')).toBeInTheDocument()
+    expect(within(row as HTMLElement).getByText('Prospect')).toBeInTheDocument()
+    expect(within(row as HTMLElement).getByText('Tier B')).toBeInTheDocument()
+  })
+})
+
+describe('Company detail', () => {
+  it('shows the profile and the tab counts from the roll-up', async () => {
+    render(
+      <MemoryRouter initialEntries={['/companies/company-1']}>
+        <Routes>
+          <Route path="/companies/:id" element={<CompanyDetail />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    expect(await screen.findByRole('heading', { name: 'Sunrise Foods Inc' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^Sites/ })).toHaveTextContent('1')
+    expect(screen.getByRole('button', { name: /^Activities/ })).toHaveTextContent('2')
+  })
+})

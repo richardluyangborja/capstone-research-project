@@ -1,6 +1,9 @@
 <?php
 
 use App\Http\Controllers\Api\V1\AuthController;
+use App\Http\Controllers\Api\V1\CompanyActivityController;
+use App\Http\Controllers\Api\V1\CompanyController;
+use App\Http\Controllers\Api\V1\CompanySiteController;
 use App\Http\Controllers\Api\V1\LeadAssignmentController;
 use App\Http\Controllers\Api\V1\LeadController;
 use App\Http\Controllers\Api\V1\LeadLifecycleController;
@@ -57,5 +60,18 @@ Route::prefix('v1')->group(function (): void {
         Route::post('leads/{lead}/archive', [LeadLifecycleController::class, 'archive']);
         Route::post('leads/{lead}/activities', [LeadLifecycleController::class, 'logActivity']);
         Route::get('leads/{lead}/timeline', [LeadLifecycleController::class, 'timeline']);
+
+        // Companies — submodule 06. Static paths must precede the resource route.
+        Route::post('companies/{id}/restore', [CompanyController::class, 'restore']);
+        Route::apiResource('companies', CompanyController::class)
+            ->only(['index', 'store', 'show', 'update', 'destroy']);
+
+        // Submodule 06 — company sites & activity history
+        Route::get('companies/{company}/sites', [CompanySiteController::class, 'index']);
+        Route::post('companies/{company}/sites', [CompanySiteController::class, 'store']);
+        Route::patch('companies/{company}/sites/{site}', [CompanySiteController::class, 'update']);
+        Route::delete('companies/{company}/sites/{site}', [CompanySiteController::class, 'destroy']);
+        Route::get('companies/{company}/activities', [CompanyActivityController::class, 'timeline']);
+        Route::post('companies/{company}/activities', [CompanyActivityController::class, 'logActivity']);
     });
 });

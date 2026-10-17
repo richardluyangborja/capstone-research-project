@@ -67,19 +67,34 @@ Laravel's own and is separate from `frontend/`.
   delete: archived leads are hidden from default lists and counts unless
   `filter[status]=archived` (or `filter[archived]=true`). The old
   `GET /leads/{id}/activities` was replaced by `/timeline`.
+- **Submodule 06 — Company / Account Management:** `/api/v1/companies` (index/store/show/update/
+  destroy + `POST /companies/{id}/restore`), nested `companies/{id}/sites` (list/store/update/delete)
+  and `companies/{id}/activities` (list + log). `reference` is `CO-YYYY-NNNN`; `name` is soft-unique
+  (a name collision returns 201 with a `duplicates` advisory array). Parent/child links form
+  branches — cycles are rejected (422), a branch inherits nothing, and the parent exposes a branch
+  *count* only (no roll-up). One site per company is `is_primary`; the first site added becomes
+  primary and deleting the primary promotes the next. `counts` reports
+  `{ sites, branches, activities }`; contact/opportunity/contract counts arrive with 07–09.
+  **Permissions (ADR-0010):** every role may create manually (a salesrep's company is theirs and
+  starts as `prospect`); profile updates are own/team/all; **delete/restore, sites and branch links
+  are manager+**; `status` may be set at creation by manager+ and changed later only by an admin.
+  Activity payloads are shared with leads via `ActivityResource`.
 
 Frontend routes: `/login`, `/leads` (views: All / My Leads / Unassigned / Team / Archived, inline
 owner control, bulk assign, status/rating/aging columns, "Stale only" filter), `/leads/new`,
 `/leads/:id` (qualification panel + lifecycle control + ownership + activity form + timeline),
-`/qualification` (worklist), `/assignment` (unassigned queue, team workload, bulk transfer), and
-`/lifecycle` (aging / stale triage worklist). The topbar bell shows assignment notifications. The
+`/qualification` (worklist), `/assignment` (unassigned queue, team workload, bulk transfer),
+`/lifecycle` (aging / stale triage worklist), `/companies` (account book: status/tier filters and
+pagination), `/companies/new` (manual creation) and `/companies/:id` (Overview / Sites / Activities
+tabs; sites and branch links are manager-only). The topbar bell shows assignment notifications. The
 sidebar is **grouped by module** — only implemented submodules are listed under
 `Lead & Client Tracking`. Account + logout live in the sidebar footer; the brand is "Primepower
 Manpower Services / Customer Relationship Management".
 
-**Not implemented yet:** the remaining submodules (06–09) and the Companies/Contacts/Opportunities
-models + routes. Add them per `resources/specs/`. Conversion (`qualified → converted`) is reserved
-for submodule 08 (ADR-0009).
+**Not implemented yet:** submodules 07–09 (contacts, lead→client conversion, client lifecycle) and
+the Contacts/Opportunities/Contracts models + routes. Add them per `resources/specs/`. Conversion
+(`qualified → converted`) is reserved for submodule 08 (ADR-0009). `Company::deletionBlockers()` is
+the extension point for the "active contract blocks delete" guard (ADR-0010).
 
 **Demo accounts** (password `password`, via `php artisan migrate:fresh --seed`):
 `salesrep@primepower.test`, `salesrep2@primepower.test` (same team), `manager@primepower.test`,

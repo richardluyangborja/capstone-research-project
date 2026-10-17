@@ -59,5 +59,6 @@ class DatabaseSeeder extends Seeder
         ]);
 
         $this->call(DemoLeadSeeder::class);
+        $this->call(DemoCompanySeeder::class);
     }
 }
