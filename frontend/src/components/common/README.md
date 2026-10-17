@@ -17,7 +17,7 @@ check this list first:
 - `LeadOwnerControl` — claim / reassign a lead's owner — **done**
 - `LeadAgingBadge` — stale / at-risk / archive-due flag from the API's computed aging — **done**
 - `ChartCard` — line + donut chart wrapper — pending
-- `DataTable` — list/tables with filters, pagination, bulk actions — pending
+- `DataTable` — list/tables with filters slot, pagination, bulk actions — **done**
 
 Rules: tokens/utilities only (no hardcoded hex or arbitrary px); icons from `lucide-react`; render
 dashboards inside `DashboardShell`.

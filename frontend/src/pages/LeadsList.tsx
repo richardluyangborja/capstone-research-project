@@ -7,6 +7,7 @@ import EmptyState from '../components/common/EmptyState'
 import AlertItem from '../components/common/AlertItem'
 import LeadOwnerControl from '../components/common/LeadOwnerControl'
 import LeadAgingBadge from '../components/common/LeadAgingBadge'
+import DataTable, { type DataTableColumn } from '../components/common/DataTable'
 import {
   assignLead,
   bulkAssignLeads,
@@ -150,8 +151,6 @@ export default function LeadsList() {
       previous.includes(id) ? previous.filter((value) => value !== id) : [...previous, id],
     )
 
-  const allSelected = leads.length > 0 && selected.length === leads.length
-
   const tabs: { key: ViewKey; label: string }[] = [
     { key: 'all', label: 'All' },
     { key: 'mine', label: 'My Leads' },
@@ -164,6 +163,89 @@ export default function LeadsList() {
     setView(next)
     void load(search, status, next, staleOnly)
   }
+
+  const columns: DataTableColumn<Lead>[] = [
+    {
+      key: 'reference',
+      header: 'Reference',
+      render: (lead) => (
+        <Link to={`/leads/${lead.id}`} className="font-mono text-xs text-primary">
+          {lead.reference}
+        </Link>
+      ),
+    },
+    {
+      key: 'company',
+      header: 'Company',
+      render: (lead) => (
+        <>
+          <Link to={`/leads/${lead.id}`} className="font-medium text-foreground">
+            {lead.company_name}
+          </Link>
+          <div className="text-xs text-muted-foreground">
+            {lead.contact_name}
+            {lead.contact_email ? ` · ${lead.contact_email}` : ''}
+          </div>
+        </>
+      ),
+    },
+    {
+      key: 'source',
+      header: 'Source',
+      className: 'text-muted-foreground',
+      render: (lead) => leadSourceLabels[lead.source],
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (lead) => (
+        <StatusBadge tone={leadStatusMeta[lead.status].tone}>
+          {leadStatusMeta[lead.status].label}
+        </StatusBadge>
+      ),
+    },
+    {
+      key: 'rating',
+      header: 'Rating',
+      render: (lead) =>
+        lead.rating ? (
+          <StatusBadge tone={leadRatingMeta[lead.rating].tone}>
+            {leadRatingMeta[lead.rating].label}
+          </StatusBadge>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        ),
+    },
+    {
+      key: 'aging',
+      header: 'Aging',
+      render: (lead) =>
+        lead.aging ? (
+          <LeadAgingBadge aging={lead.aging} days={lead.days_since_activity} />
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        ),
+    },
+    {
+      key: 'owner',
+      header: 'Owner',
+      render: (lead) => (
+        <LeadOwnerControl
+          lead={lead}
+          targets={targets}
+          busy={busy}
+          onClaim={() => void onClaim(lead)}
+          onAssign={(ownerId) => void onAssign(lead, ownerId)}
+        />
+      ),
+    },
+    {
+      key: 'created',
+      header: 'Created',
+      className: 'text-muted-foreground',
+      render: (lead) => formatDate(lead.created_at),
+    },
+  ]
 
   return (
     <div>
@@ -268,161 +350,61 @@ export default function LeadsList() {
         </div>
       )}
 
-      {canReassign && selected.length > 0 && (
-        <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-secondary px-3 py-2 text-sm">
-          <span className="font-medium text-secondary-foreground">{selected.length} selected</span>
-          <select
-            value={bulkOwner}
-            onChange={(event) => setBulkOwner(event.target.value)}
-            className="rounded-md border border-input bg-card px-2 py-1.5 text-sm text-foreground outline-none focus:ring-2 focus:ring-ring"
-          >
-            <option value="">Assign to…</option>
-            {targets.map((target) => (
-              <option key={target.id} value={target.id}>
-                {target.name}
-              </option>
-            ))}
-          </select>
-          <button
-            type="button"
-            disabled={busy || !bulkOwner}
-            onClick={() => void onBulkAssign()}
-            className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground disabled:opacity-60"
-          >
-            Assign selected
-          </button>
-          <button
-            type="button"
-            onClick={() => setSelected([])}
-            className="rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:text-foreground"
-          >
-            Clear
-          </button>
-        </div>
-      )}
-
-      {!loading && leads.length === 0 ? (
-        <EmptyState
-          title="No leads found"
-          description="Capture the first inquiry to start the pipeline."
-          action={
-            <Link
-              to="/leads/new"
-              className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground"
+      <DataTable
+        columns={columns}
+        rows={leads}
+        rowKey={(lead) => lead.id}
+        loading={loading}
+        selection={
+          canReassign
+            ? {
+                selected,
+                onToggle: toggleSelected,
+                onToggleAll: (keys, checked) => setSelected(checked ? keys : []),
+                onClear: () => setSelected([]),
+              }
+            : undefined
+        }
+        bulkActions={
+          <>
+            <select
+              value={bulkOwner}
+              onChange={(event) => setBulkOwner(event.target.value)}
+              className="rounded-md border border-input bg-card px-2 py-1.5 text-sm text-foreground outline-none focus:ring-2 focus:ring-ring"
             >
-              <Plus className="h-4 w-4" aria-hidden="true" />
-              New lead
-            </Link>
-          }
-        />
-      ) : (
-        <div className="overflow-hidden rounded-lg border border-border bg-card">
-          <table className="w-full text-left text-sm">
-            <thead className="border-b border-border text-xs uppercase text-muted-foreground">
-              <tr>
-                {canReassign && (
-                  <th className="px-4 py-3 font-medium">
-                    <input
-                      type="checkbox"
-                      aria-label="Select all"
-                      checked={allSelected}
-                      onChange={() => setSelected(allSelected ? [] : leads.map((lead) => lead.id))}
-                      className="h-4 w-4 rounded border-input"
-                    />
-                  </th>
-                )}
-                <th className="px-4 py-3 font-medium">Reference</th>
-                <th className="px-4 py-3 font-medium">Company</th>
-                <th className="px-4 py-3 font-medium">Source</th>
-                <th className="px-4 py-3 font-medium">Status</th>
-                <th className="px-4 py-3 font-medium">Rating</th>
-                <th className="px-4 py-3 font-medium">Aging</th>
-                <th className="px-4 py-3 font-medium">Owner</th>
-                <th className="px-4 py-3 font-medium">Created</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading && (
-                <tr>
-                  <td
-                    colSpan={canReassign ? 9 : 8}
-                    className="px-4 py-6 text-center text-muted-foreground"
-                  >
-                    Loading…
-                  </td>
-                </tr>
-              )}
-
-              {!loading &&
-                leads.map((lead) => (
-                  <tr key={lead.id} className="border-b border-border last:border-0">
-                    {canReassign && (
-                      <td className="px-4 py-3">
-                        <input
-                          type="checkbox"
-                          aria-label={`Select ${lead.reference}`}
-                          checked={selected.includes(lead.id)}
-                          onChange={() => toggleSelected(lead.id)}
-                          className="h-4 w-4 rounded border-input"
-                        />
-                      </td>
-                    )}
-                    <td className="px-4 py-3">
-                      <Link to={`/leads/${lead.id}`} className="font-mono text-xs text-primary">
-                        {lead.reference}
-                      </Link>
-                    </td>
-                    <td className="px-4 py-3">
-                      <Link to={`/leads/${lead.id}`} className="font-medium text-foreground">
-                        {lead.company_name}
-                      </Link>
-                      <div className="text-xs text-muted-foreground">
-                        {lead.contact_name}
-                        {lead.contact_email ? ` · ${lead.contact_email}` : ''}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground">
-                      {leadSourceLabels[lead.source]}
-                    </td>
-                    <td className="px-4 py-3">
-                      <StatusBadge tone={leadStatusMeta[lead.status].tone}>
-                        {leadStatusMeta[lead.status].label}
-                      </StatusBadge>
-                    </td>
-                    <td className="px-4 py-3">
-                      {lead.rating ? (
-                        <StatusBadge tone={leadRatingMeta[lead.rating].tone}>
-                          {leadRatingMeta[lead.rating].label}
-                        </StatusBadge>
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      {lead.aging ? (
-                        <LeadAgingBadge aging={lead.aging} days={lead.days_since_activity} />
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      <LeadOwnerControl
-                        lead={lead}
-                        targets={targets}
-                        busy={busy}
-                        onClaim={() => void onClaim(lead)}
-                        onAssign={(ownerId) => void onAssign(lead, ownerId)}
-                      />
-                    </td>
-                    <td className="px-4 py-3 text-muted-foreground">
-                      {formatDate(lead.created_at)}
-                    </td>
-                  </tr>
-                ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+              <option value="">Assign to…</option>
+              {targets.map((target) => (
+                <option key={target.id} value={target.id}>
+                  {target.name}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              disabled={busy || !bulkOwner}
+              onClick={() => void onBulkAssign()}
+              className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground disabled:opacity-60"
+            >
+              Assign selected
+            </button>
+          </>
+        }
+        empty={
+          <EmptyState
+            title="No leads found"
+            description="Capture the first inquiry to start the pipeline."
+            action={
+              <Link
+                to="/leads/new"
+                className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground"
+              >
+                <Plus className="h-4 w-4" aria-hidden="true" />
+                New lead
+              </Link>
+            }
+          />
+        }
+      />
     </div>
   )
 }
