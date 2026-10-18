@@ -161,6 +161,16 @@ class Communication extends Model
     }
 
     /**
+     * The message this one answers (module 03 slice S4) — null for a message nobody replied
+     * to. The direct parent only: the conversation itself is selected by `thread_id`. A
+     * retired parent is still named, because a retired message is still readable.
+     */
+    public function inReplyTo(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'in_reply_to_id')->withTrashed();
+    }
+
+    /**
      * Write — or refresh — the timeline mirror for this message (ADR-0017 §2). The mirror is
      * a pointer: it carries the title, the channel's activity type and the subject's morph
      * columns, never a copy of the body, so this record stays the single source of truth.
@@ -266,6 +276,60 @@ class Communication extends Model
         return $this->allowsAttachmentChanges()
             ? null
             : sprintf('A %s message keeps the files it carried.', $this->status->value);
+    }
+
+    /**
+     * Whether this message is part of a conversation yet (module 03 slice S4). A message
+     * nobody has answered carries no `thread_id`.
+     */
+    public function belongsToThread(): bool
+    {
+        return $this->thread_id !== null;
+    }
+
+    /**
+     * Open the conversation this message belongs to (slice S4): a standalone message becomes
+     * the root of its own thread, one that is already threaded is left untouched, and either
+     * way the thread's id comes back.
+     *
+     * The root carries its own id as `thread_id`, so a single `where thread_id = ?` selects
+     * the whole conversation — the original included — and nothing but an index column on an
+     * already-recorded message is ever rewritten.
+     */
+    public function openThread(): string
+    {
+        if ($this->thread_id === null) {
+            $this->thread_id = $this->id;
+            $this->save();
+        }
+
+        return $this->thread_id;
+    }
+
+    /**
+     * Whether this message has actually happened: someone wrote to us, we sent it, or it was
+     * logged after the fact. A `draft` has not left, a `scheduled` follow-up has not happened
+     * yet (module 04), and a rejected send never went anywhere — so nothing can answer them
+     * (slice S4).
+     */
+    public function hasHappened(): bool
+    {
+        return ! in_array(
+            $this->status,
+            [CommunicationStatus::Draft, CommunicationStatus::Scheduled, CommunicationStatus::Failed],
+            true,
+        );
+    }
+
+    /**
+     * Why this message cannot be answered, or `null` while it can. The reply endpoint raises
+     * this as a 422 (spec 11 §S4) — the same shape as the file lock above.
+     */
+    public function replyLockReason(): ?string
+    {
+        return $this->hasHappened()
+            ? null
+            : sprintf('A %s message cannot be answered — it never went out.', $this->status->value);
     }
 
     /**
@@ -386,6 +450,10 @@ class Communication extends Model
                 'to_address' => $reply->toAddress,
                 'occurred_at' => $reply->receivedAt,
                 'external_id' => $reply->externalId,
+                // A pulled reply answers a message we hold, so it joins that conversation
+                // (slice S4) rather than landing beside it as an unrelated message.
+                'thread_id' => $origin->openThread(),
+                'in_reply_to_id' => $origin->id,
                 'owner_id' => $origin->owner_id,
             ]);
 

@@ -76,6 +76,39 @@ class DemoCommunicationSeeder extends Seeder
             // Sent mail keeps what it carried, so this message shows the locked side of S3.
             $this->attach($rateSheet, $sam, 'rate-card-scan.png');
 
+            // The exchange the rate sheet started (slice S4): Rosa answers and Sam answers
+            // back, so the three messages read as one conversation rather than three rows.
+            $answer = $this->log($this->deal('Sunrise Foods Inc — warehouse staffing'), $sam, [
+                'channel' => CommunicationChannel::Email,
+                'direction' => CommunicationDirection::Inbound,
+                'contact_id' => $contact?->id,
+                // The id the mocked mailbox gives the reply to the rate sheet, so a demo sync
+                // recognises it as already pulled (slice S2).
+                'external_id' => $rateSheet === null ? null : MockEmailGateway::replyExternalIdFor($rateSheet->reference),
+                'subject' => 'Re: Revised rate sheet and crew schedule',
+                'body' => "Sam,\n\nThe revised rates work for us. Two questions before we sign: can you hold the crew until the 18th, and are the forklift operators certified?\n\nThanks,\nRosa",
+                'from_name' => $contact?->name,
+                'from_address' => $contact?->email,
+                'to_name' => $sam->name,
+                'occurred_at' => Carbon::now()->subDay()->subHours(4),
+            ]);
+
+            $rateSheetReply = $this->log($this->deal('Sunrise Foods Inc — warehouse staffing'), $sam, [
+                'channel' => CommunicationChannel::Email,
+                'direction' => CommunicationDirection::Outbound,
+                'contact_id' => $contact?->id,
+                'subject' => 'Re: Revised rate sheet and crew schedule',
+                'body' => "Hi Rosa,\n\nYes — the crew is held until the 18th and every forklift operator we field holds a valid NC II certificate. I will keep the schedule provisional until you confirm.\n\nBest,\nSam",
+                'from_name' => $sam->name,
+                'from_address' => 'sales@primepower.test',
+                'to_name' => $contact?->name,
+                'to_address' => $contact?->email,
+                'occurred_at' => Carbon::now()->subHours(6),
+            ]);
+
+            $this->thread($rateSheet, $answer);
+            $this->thread($answer, $rateSheetReply);
+
             $call = $this->log($this->deal('Sunrise Foods Inc — commissary crew'), $sam, [
                 'channel' => CommunicationChannel::Call,
                 'direction' => CommunicationDirection::Outbound,
@@ -148,7 +181,7 @@ class DemoCommunicationSeeder extends Seeder
                 'occurred_at' => Carbon::now()->subDays(2),
             ]);
 
-            $this->log($ramp, $sam, [
+            $procurementReply = $this->log($ramp, $sam, [
                 'channel' => CommunicationChannel::Email,
                 'direction' => CommunicationDirection::Inbound,
                 'contact_id' => $contact?->id,
@@ -162,6 +195,10 @@ class DemoCommunicationSeeder extends Seeder
                 'to_name' => $sam->name,
                 'occurred_at' => Carbon::now()->subDay(),
             ]);
+
+            // The answer belongs to the message it answers (slice S4), exactly as a pulled
+            // reply does — one conversation, not two rows that happen to share a subject.
+            $this->thread($commercial, $procurementReply);
         }
 
         // --- Harbor Logistics: the signed renewal trail plus the second-shift upsell.
@@ -254,6 +291,24 @@ class DemoCommunicationSeeder extends Seeder
     private function primaryContact(Company $company): ?Contact
     {
         return $company->contacts()->where('is_primary', true)->first();
+    }
+
+    /**
+     * Hang a reply in its original's conversation, exactly as the API does (slice S4): the
+     * message being answered opens the thread when nothing has yet — so one `thread_id`
+     * selects the whole exchange, the original included — and the reply points back at the
+     * message it answers.
+     */
+    private function thread(?Communication $parent, ?Communication $reply): void
+    {
+        if ($parent === null || $reply === null) {
+            return;
+        }
+
+        $reply->update([
+            'thread_id' => $parent->openThread(),
+            'in_reply_to_id' => $parent->id,
+        ]);
     }
 
     /**

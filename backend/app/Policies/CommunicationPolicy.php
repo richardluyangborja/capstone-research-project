@@ -63,6 +63,21 @@ class CommunicationPolicy
     }
 
     /**
+     * Answering a message (slice S4): the caller must be able to read the message and to work
+     * the record it belongs to — a reply is another thing said about that record. Whether the
+     * message itself can be answered at all is a state question the controller raises as a
+     * 422, the same split as sending.
+     */
+    public function reply(User $user, Communication $communication): bool
+    {
+        $subject = $communication->subjectable;
+
+        return $subject !== null
+            && $user->can('view', $subject)
+            && $user->can('update', $subject);
+    }
+
+    /**
      * Restoring a retired history entry is structural — manager+ (module 03 permissions).
      */
     public function restore(User $user, Communication $communication): bool
