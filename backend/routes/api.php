@@ -124,13 +124,17 @@ Route::prefix('v1')->group(function (): void {
         Route::apiResource('opportunities', OpportunityController::class)
             ->only(['index', 'store', 'show', 'update', 'destroy']);
 
-        // Module 03 — communication history (slice S1). The per-record history endpoint sits
-        // beside each record's timeline; the flat book is the resource route below.
+        // Module 03 — communication history. The per-record history endpoint sits beside each
+        // record's timeline; the flat book is the resource route below. Slice S2 adds the
+        // outbound email path: send a draft, retry a rejected one, pull the mocked replies.
         Route::get('leads/{lead}/communications', [CommunicationController::class, 'forLead']);
         Route::get('companies/{company}/communications', [CommunicationController::class, 'forCompany']);
         Route::get('contacts/{contact}/communications', [CommunicationController::class, 'forContact']);
         Route::get('opportunities/{opportunity}/communications', [CommunicationController::class, 'forOpportunity']);
         Route::get('contracts/{contract}/communications', [CommunicationController::class, 'forContract']);
+        Route::post('communications/sync-inbound', [CommunicationController::class, 'syncInbound']);
+        Route::post('communications/{communication}/send', [CommunicationController::class, 'send']);
+        Route::post('communications/{communication}/retry', [CommunicationController::class, 'retry']);
         Route::post('communications/{id}/restore', [CommunicationController::class, 'restore']);
         Route::apiResource('communications', CommunicationController::class)
             ->only(['index', 'store', 'show', 'update', 'destroy']);

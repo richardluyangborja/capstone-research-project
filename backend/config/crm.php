@@ -47,6 +47,9 @@ return [
         'service_handoff' => [
             'simulate_failure' => (bool) env('CRM_HANDOFF_SIMULATE_FAILURE', false),
         ],
+        'email' => [
+            'simulate_failure' => (bool) env('CRM_EMAIL_SIMULATE_FAILURE', false),
+        ],
     ],
 
     /*

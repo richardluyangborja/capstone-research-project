@@ -33,10 +33,12 @@ class StoreCommunicationRequest extends FormRequest
             'contact_id' => ['nullable', 'string', 'exists:contacts,id'],
             'channel' => ['required', Rule::enum(CommunicationChannel::class)],
             'direction' => ['required', Rule::enum(CommunicationDirection::class)],
-            // `draft` arrives with the composer (slice S2); `scheduled` belongs to module 04.
+            // `draft` is only offered for an outbound email (slice S2); `scheduled` belongs to
+            // module 04. An unreadable channel/direction is caught by its own rule above, so
+            // the fallback here only decides the message the caller sees first.
             'status' => ['nullable', Rule::in(array_map(
                 static fn (CommunicationStatus $status): string => $status->value,
-                CommunicationStatus::loggable(),
+                $this->settableStatuses(),
             ))],
             'subject' => ['required', 'string', 'max:255'],
             'body' => ['nullable', 'string'],
@@ -49,5 +51,20 @@ class StoreCommunicationRequest extends FormRequest
             'duration_minutes' => ['nullable', 'integer', 'min:0', 'max:1440'],
             'outcome' => ['nullable', Rule::enum(CommunicationOutcome::class)],
         ];
+    }
+
+    /**
+     * @return array<int, CommunicationStatus>
+     */
+    private function settableStatuses(): array
+    {
+        $channel = CommunicationChannel::tryFrom((string) $this->input('channel'));
+        $direction = CommunicationDirection::tryFrom((string) $this->input('direction'));
+
+        if ($channel === null || $direction === null) {
+            return CommunicationStatus::loggable();
+        }
+
+        return CommunicationStatus::settableFor($channel, $direction);
     }
 }

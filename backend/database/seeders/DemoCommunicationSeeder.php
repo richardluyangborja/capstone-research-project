@@ -7,6 +7,7 @@ use App\Enums\CommunicationDirection;
 use App\Enums\CommunicationOutcome;
 use App\Enums\CommunicationStatus;
 use App\Events\CommunicationLogged;
+use App\Integrations\MockEmailGateway;
 use App\Models\Communication;
 use App\Models\Company;
 use App\Models\Contact;
@@ -105,7 +106,7 @@ class DemoCommunicationSeeder extends Seeder
                 'occurred_at' => Carbon::now()->subDays(5),
             ]);
 
-            $this->log($ramp, $sam, [
+            $commercial = $this->log($ramp, $sam, [
                 'channel' => CommunicationChannel::Email,
                 'direction' => CommunicationDirection::Outbound,
                 'contact_id' => $contact?->id,
@@ -118,10 +119,29 @@ class DemoCommunicationSeeder extends Seeder
                 'occurred_at' => Carbon::now()->subDays(2),
             ]);
 
+            // A send the gateway rejected, so the retry path demos without touching config.
+            $this->log($ramp, $sam, [
+                'channel' => CommunicationChannel::Email,
+                'direction' => CommunicationDirection::Outbound,
+                'status' => CommunicationStatus::Failed,
+                'failed_reason' => 'The mail provider rejected the message (mocked failure).',
+                'contact_id' => $contact?->id,
+                'subject' => 'Site visit schedule for the Ortigas floor',
+                'body' => "Hello,\n\nProposed schedule for the walkthrough, in case the ramp starts on the earlier date.\n\nRegards,\nSam",
+                'from_name' => $sam->name,
+                'from_address' => 'sales@primepower.test',
+                'to_name' => $contact?->name,
+                'to_address' => $contact?->email,
+                'occurred_at' => Carbon::now()->subDays(2),
+            ]);
+
             $this->log($ramp, $sam, [
                 'channel' => CommunicationChannel::Email,
                 'direction' => CommunicationDirection::Inbound,
                 'contact_id' => $contact?->id,
+                // The id the mocked mailbox gives the reply to the message above, so a demo sync
+                // recognises it as already pulled instead of inventing a second reply (S2).
+                'external_id' => $commercial === null ? null : MockEmailGateway::replyExternalIdFor($commercial->reference),
                 'subject' => 'Re: Commercial terms for the 40-seat ramp',
                 'body' => "Sam,\n\nLegal is comfortable with the ramp-down clause as drafted. We would like the start date moved one week later to align with the Ortigas handover.\n\nThanks,\nProcurement",
                 'from_name' => $contact?->name,
@@ -200,12 +220,15 @@ class DemoCommunicationSeeder extends Seeder
     /**
      * Log one message and mirror it onto the subject's timeline, exactly as the API does.
      *
+     * A seeded message that "went out" carries the id the mocked gateway would have given it
+     * (slice S2) — that is what ties a reply to its original and keeps a demo sync honest.
+     *
      * @param  array<string, mixed>  $attributes
      */
-    private function log(Lead|Company|Contact|Opportunity|Contract|null $subject, User $owner, array $attributes): void
+    private function log(Lead|Company|Contact|Opportunity|Contract|null $subject, User $owner, array $attributes): ?Communication
     {
         if ($subject === null) {
-            return;
+            return null;
         }
 
         /** @var Communication $communication */
@@ -223,9 +246,22 @@ class DemoCommunicationSeeder extends Seeder
             'occurred_at' => $attributes['occurred_at'],
             'duration_minutes' => $attributes['duration_minutes'] ?? null,
             'outcome' => $attributes['outcome'] ?? null,
+            'external_id' => $attributes['external_id'] ?? null,
+            'failed_reason' => $attributes['failed_reason'] ?? null,
             'owner_id' => $owner->id,
         ]);
 
+        // A sent email went through the mocked mailbox, so it carries the id that gateway
+        // assigns (derived from the reference). That is what lets a demo sync recognise a reply
+        // it already has, and which record a new one belongs to (slice S2).
+        if ($communication->channel === CommunicationChannel::Email
+            && $communication->direction === CommunicationDirection::Outbound
+            && $communication->status === CommunicationStatus::Sent) {
+            $communication->update(['external_id' => MockEmailGateway::externalIdFor($communication->reference)]);
+        }
+
         CommunicationLogged::dispatch($communication, $owner);
+
+        return $communication;
     }
 }
