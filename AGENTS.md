@@ -170,11 +170,16 @@ is **grouped by module** — module 01's submodules under `Lead & Client Trackin
 under `Opportunity Pipeline Visualization`. Account + logout live in the sidebar footer; the brand is
 "Primepower Manpower Services / Customer Relationship Management".
 
-**Not implemented yet — next up is module 03, communication history** (spec
-`resources/specs/11-...`, ADR-0014). Still deferred: contract versioning/e-signature, renewal
-reminders/automatic client aging, duplicate detection & merge (a module-01 deferral, ADR-0006).
-`/leads/{id}/status` cannot reach `converted`; conversion is the only path (ADR-0009).
-`Company::deletionBlockers()` carries both guards (open deal, signed contract) — ADR-0010 §6.
+**Not implemented yet — next up is module 03, slice S1 (communication log & history)** (spec
+`resources/specs/11-communication-history.md`, ADR-0017). Module 03 declares five slices: S1 log &
+history, S2 email compose/send/retry through a **mocked** gateway, S3 attachments (implements the
+deferred polymorphic `attachments` table), S4 threading, S5 templates (candidate). `Activity` stays the
+lightweight quick log; `Communication` is the detailed record and every logged communication also writes
+an activity, so the existing timelines stay the merged feed. Still deferred: contract
+versioning/e-signature, renewal reminders/automatic client aging, duplicate detection & merge (a
+module-01 deferral, ADR-0006). `/leads/{id}/status` cannot reach `converted`; conversion is the only
+path (ADR-0009). `Company::deletionBlockers()` carries both guards (open deal, signed contract) —
+ADR-0010 §6.
 
 **Demo accounts** (password `password`, via `php artisan migrate:fresh --seed`):
 `salesrep@primepower.test`, `salesrep2@primepower.test` (same team), `manager@primepower.test`,
@@ -192,6 +197,11 @@ the board, the forecast header and the win rate demo without faking.
   do not fall back to Laravel Sanctum's cookie/session auth.
 - **Git:** branches are named `feature/<name>` and merge into `main` (`feature -> main`); there is
   no `develop`. Commit messages follow **Conventional Commits** (`feat:`, `fix:`, etc.).
+- **Delivery unit is the slice, not the spec file** (ADR-0016). From module 02 on, one spec file covers a
+  module and declares its **delivery slices** (each demoable end to end, with its own acceptance
+  criteria). Planning docs (spec + ADRs) land first; then **one PR per slice**, merged and the branch
+  deleted. Module 01 predates this: one file and one PR per submodule. A module whose work is genuinely
+  one increment says so in the spec instead of splitting (module 02 = one slice; module 03 = five).
 - **Seeds:** do **not** use faker. Data is seeded for a production/demo proposal, not real business.
 - **Other-department integrations are mocked in `backend/app/Integrations/`** (ADR-0005, ADR-0013 §4):
   an interface + a `Mock*` driver (bound in `AppServiceProvider`) + `final readonly` DTOs. This is the
@@ -256,7 +266,7 @@ Before implementing a submodule, read `resources/specs/README.md` (conventions) 
 **Modules 01 and 02** are built: module 01 (Lead & Client Tracking) covers lead capture,
 qualification, assignment, lifecycle, company/contact, lead→client conversion and client lifecycle;
 module 02 (Opportunity Pipeline Visualization) covers the deal book, the Kanban board, stage
-moves/won-lost and the board forecast. The roadmap for the remaining CRM modules — 03 communication
-history, 04 follow-up reminders, 05 client satisfaction — is in **ADR-0014** (specs `11`–`13`).
-Dedup/merge and advanced tiers are module-01 deferrals (ADR-0006). Other departments are consumed via
-**mocked integrations** (ADR-0005), not built here.
+moves/won-lost and the board forecast. **Module 03** (Communication History) is specified with five
+declared slices — S1 is next. The remaining CRM modules — 04 follow-up reminders, 05 client satisfaction
+— are in **ADR-0014** (specs `12`–`13`). Dedup/merge and advanced tiers are module-01 deferrals
+(ADR-0006). Other departments are consumed via **mocked integrations** (ADR-0005), not built here.

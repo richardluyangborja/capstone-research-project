@@ -3,7 +3,8 @@
 Implementation specs for the CRM modules (`../system-modules.md`, `../crm-flow.md`). Read
 `00-data-model.md` first — all specs share its entities, enums, and conventions. Decisions referenced
 as ADR live in `../../decisions/`. The roadmap (module order + numbering) is ADR-0014: `00` is the
-shared data model, `01`–`09` are module 01's submodules, and `10+` is **one file per later module**.
+shared data model, `01`–`09` are module 01's submodules, and `10+` is **one file per later module**,
+with that module's **delivery slices** declared in the file (ADR-0016).
 
 ## Module 01 — Lead & Client Tracking (done)
 
@@ -26,13 +27,17 @@ Deferred **inside** module 01: 5. Duplicate Detection & Merge and advanced tiers
 
 | File | Module |
 | --- | --- |
-| `10-opportunity-pipeline-visualization.md` | 2. Opportunity Pipeline Visualization *(done)* |
-| `11-communication-history.md` | 3. Communication History Management *(not yet written)* |
+| `10-opportunity-pipeline-visualization.md` | 2. Opportunity Pipeline Visualization *(done — 1 slice)* |
+| `11-communication-history.md` | 3. Communication History Management *(written — 5 slices, S1 next)* |
 | `12-follow-up-reminders.md` | 4. Follow-up Reminder System *(not yet written)* |
 | `13-client-satisfaction-survey.md` | 5. Client Satisfaction & Survey *(not yet written)* |
 
 The AI service (dashboard + management reports + suggestions) is cross-cutting and is built after
 modules 01–05.
+
+From module 02 on, the delivery unit is the **slice**, not the spec file: each spec declares its slices
+with their own acceptance criteria and each ships as its own PR (ADR-0016). Module 01 predates this and
+used one file (and one PR) per submodule.
 
 ## Shared conventions (proposed defaults — confirm before scaffolding)
 

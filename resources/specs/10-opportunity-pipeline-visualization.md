@@ -41,13 +41,23 @@ Rules applied by `Opportunity::transitionTo(stage, ...)`:
 5. A move to `won` is a **record only** — it does **not** trigger the Service handoff (ADR-0015 §4);
    the UI offers **Create contract from deal**.
 
-## Submodules
+## Submodules & delivery slices
+
+The five submodules are **facets of one increment**, not five shippable slices: the `Opportunity`
+entity, its stages and its reference already existed (submodule 08, ADR-0012 §1), and three of the five
+are behaviours of the same two screens.
 
 1. **Pipeline Board** — the Kanban (`/pipeline`), drag-and-drop + accessible move menu, column totals.
 2. **Deal Management** — flat `/opportunities` CRUD, the deal list and the deal detail page.
 3. **Deal Stage & Outcome** — the stage endpoint, won/lost, reopen, the `stage_changed_at` trail.
 4. **Deal Activity & Timeline** — log touches/next actions on a deal; the deal timeline.
 5. **Pipeline Forecast** — board-header and list `meta` totals (weighted value, per-stage, win rate).
+
+**Delivery slices (ADR-0016): one.** Module 02 shipped as a single end-to-end slice — board, deal book,
+deal page, stage moves, timeline and forecast together. It *could* have been split into (S1) a read-only
+board and deal book, then (S2) stage moves, won/lost and the timeline; that was rejected because the
+stage rules were the point of ADR-0015 and a board nobody can act on does not demo. Recorded here rather
+than left implicit, per ADR-0016 §4.
 
 ## API endpoints
 

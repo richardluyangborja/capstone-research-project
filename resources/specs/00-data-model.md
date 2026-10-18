@@ -40,6 +40,10 @@ Opportunity ──► Contract ──(signed)──► Company becomes "Client"
 | `ActivityType` | `call`, `email`, `meeting`, `walk_in`, `task`, `note`, `system` |
 | `ActivityStatus` | `open`, `done`, `cancelled` |
 | `ContractStatus` | `draft`, `sent`, `signed`, `expired`, `terminated` |
+| `CommunicationChannel` | `email`, `call`, `sms`, `whatsapp`, `meeting`, `letter`, `other` *(module 03)* |
+| `CommunicationDirection` | `inbound`, `outbound` *(module 03)* |
+| `CommunicationStatus` | `draft`, `scheduled`*, `sent`, `received`, `failed`, `logged` *(module 03; *reserved for module 04)* |
+| `CommunicationOutcome` | `connected`, `no_answer`, `voicemail`, `busy`, `other` *(module 03, calls)* |
 
 ## Lead
 
@@ -156,9 +160,37 @@ contract is created from the deal and the mocked Service handoff still fires on 
 | `occurred_at` | timestamp | | for logged touches |
 | `owner_id` | FK users | ✓ | |
 | `subject_type` / `subject_id` | morph | | lead / company / contact / opportunity / contract |
+| `communication_id` | ULID communications | | set when the activity mirrors a logged communication (module 03) |
 
-Full **communication history** (rich email/phone bodies) is module 03 with its own `communications`
-table — not built yet.
+`Activity` is the **lightweight quick log** (a touch or a task). Detailed, channel-aware history is the
+`Communication` record below — a logged communication also writes an activity (ADR-0017 §2).
+
+## Communication (module 03, spec 11 — planned)
+
+| Field | Type | Req | Notes |
+| --- | --- | --- | --- |
+| `reference` | string | ✓ | `COM-YYYY-NNNN`, generated |
+| `subject_type` / `subject_id` | morph | ✓ | lead / company / contact / opportunity / contract; no orphans |
+| `contact_id` | FK contacts | | the person on the other end, when known |
+| `channel` | `CommunicationChannel` | ✓ | |
+| `direction` | `CommunicationDirection` | ✓ | |
+| `status` | `CommunicationStatus` | ✓ | default from channel/direction; `scheduled` is module 04's |
+| `subject` | string | ✓ | email subject line, or a one-line summary for a call |
+| `body` | text | | the content/notes (stored once — the activity mirror carries no copy) |
+| `from_name` / `from_address` | string | | participant display |
+| `to_name` / `to_address` | string | | primary recipient |
+| `occurred_at` | timestamp | ✓ | when it happened |
+| `duration_minutes` | int | | calls/meetings |
+| `outcome` | `CommunicationOutcome` | | calls |
+| `external_id` | string | | message id from the mocked email gateway |
+| `thread_id` / `in_reply_to_id` | string / ULID | | threading (slice S4) |
+| `failed_reason` | string | | set when a send fails |
+| `owner_id` | FK users | ✓ | who logged or sent it |
+
+Soft deletes. Indexes: `subject_type+subject_id`, `channel`, `direction`, `status`, `occurred_at`,
+`contact_id`, `owner_id`, `thread_id`. Attachments use the polymorphic `attachments` table (below) —
+slice S3. Email is a **mocked** integration: no SMTP, no IMAP, inbound is pulled by a command
+(ADR-0017 §4).
 
 ## Contract (spec 09)
 
@@ -184,12 +216,16 @@ Soft deletes; a `signed` contract blocks deleting its company. Indexes: `status`
 several files per record) stays a separate module — Phase 1 ships one document plus term/status
 tracking.
 
-## Attachment (deferred)
+## Attachment (deferred — module 03 slice S3 implements it)
 
 A polymorphic `attachments` table (`attachable_type` / `attachable_id`, `disk`, `path`,
-`original_name`, `mime_type`, `size`, `uploaded_by`) is Phase 2, for records that need *several*
-files. Phase 1 keeps the single contract document on the contract row and serves it through
+`original_name`, `mime_type`, `size`, `uploaded_by`) is for records that need *several* files. Phase 1
+kept the single contract document on the contract row and serves it through
 `GET /api/v1/contracts/{id}/file`; uploads accept pdf/png/jpeg up to 10 MB on a private disk.
+
+**Module 03 slice S3 implements this table** (spec 11) for email attachments — up to 5 files per
+communication, 10 MB each, same MIME allow-list, downloads through an authorized endpoint. Once it
+exists, contracts and contacts can move to it; nothing is scheduled to.
 
 ## Indexes / constraints (highlights)
 
