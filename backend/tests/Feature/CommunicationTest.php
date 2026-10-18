@@ -359,4 +359,20 @@ class CommunicationTest extends TestCase
             ->assertOk()
             ->assertJsonCount(0, 'data');
     }
+
+    public function test_the_account_detail_counts_its_communication_history(): void
+    {
+        $rep = User::factory()->salesrep()->create();
+        $company = Company::factory()->ownedBy($rep)->create();
+        $deal = Opportunity::factory()->forCompany($company)->ownedBy($rep)->create();
+
+        Communication::factory()->about($company, $rep)->count(2)->create();
+        Communication::factory()->about($deal, $rep)->create();
+
+        // Only the account's own history counts, not the messages on its deals.
+        $this->actingAs($rep, 'api')
+            ->getJson("/api/v1/companies/{$company->id}")
+            ->assertOk()
+            ->assertJsonPath('data.counts.communications', 2);
+    }
 }

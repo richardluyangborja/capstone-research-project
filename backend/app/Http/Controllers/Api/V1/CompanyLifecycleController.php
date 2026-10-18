@@ -82,6 +82,6 @@ class CompanyLifecycleController extends Controller
     {
         return $company
             ->load(['owner', 'parent'])
-            ->loadCount(['sites', 'children', 'contacts', 'opportunities', 'contracts', 'activities']);
+            ->loadCount(['sites', 'children', 'contacts', 'opportunities', 'contracts', 'activities', 'communications']);
     }
 }
