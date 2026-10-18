@@ -31,6 +31,19 @@ export const formatDateTime = (value: string | Date | null | undefined): string 
 }
 
 /**
+ * A file's size as a person reads it. The API sends raw bytes; the display never shows them
+ * (module 03 slice S3).
+ */
+export const formatFileSize = (bytes: number | null | undefined): string => {
+  const size = Number(bytes ?? 0)
+
+  if (size < 1024) return `${size} B`
+  if (size < 1024 * 1024) return `${Math.round(size / 1024)} KB`
+
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`
+}
+
+/**
  * An ISO instant (as the API returns it) → the local wall-clock string a `datetime-local`
  * input expects. Kept local on purpose: the input has no zone, so converting back through
  * `new Date(...)` round-trips the same instant.

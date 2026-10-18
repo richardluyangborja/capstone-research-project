@@ -68,4 +68,20 @@ return [
         'expiring_soon_days' => (int) env('CRM_CONTRACT_EXPIRING_DAYS', 30),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Attachments (module 03 slice S3, spec 11)
+    |--------------------------------------------------------------------------
+    |
+    | Files on a record, capped per record and served from a private disk through an
+    | authorized endpoint — the same allow-list and size ceiling as a contract document.
+    |
+    */
+
+    'attachments' => [
+        'disk' => env('CRM_ATTACHMENT_DISK', 'local'),
+        'max_kb' => (int) env('CRM_ATTACHMENT_MAX_KB', 10240),
+        'max_files' => (int) env('CRM_ATTACHMENT_MAX_FILES', 5),
+    ],
+
 ];

@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Models\Attachment;
 use App\Models\Communication;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -51,6 +52,10 @@ class CommunicationResource extends JsonResource
             'external_id' => $this->external_id,
             'failed_reason' => $this->failed_reason,
             'thread_id' => $this->thread_id,
+            // Files ride with the message when the caller asked for them (the detail screen
+            // does; the book only needs the count) — slice S3.
+            'attachments' => AttachmentResource::collection($this->whenLoaded('attachments')),
+            'attachments_count' => $this->whenCounted('attachments'),
             'owner_id' => $this->owner_id,
             'owner' => $this->whenLoaded('owner', fn (): array => [
                 'id' => $this->owner->id,
@@ -58,6 +63,8 @@ class CommunicationResource extends JsonResource
             ]),
             'is_editable' => $this->isEditable(),
             'can_send' => $this->isSendable() && (bool) $request->user()?->can('send', $this->resource),
+            'can_attach' => $this->allowsAttachmentChanges()
+                && (bool) $request->user()?->can('create', [Attachment::class, $this->resource]),
             'can_update' => (bool) $request->user()?->can('update', $this->resource),
             'can_delete' => (bool) $request->user()?->can('delete', $this->resource),
             'can_restore' => (bool) $request->user()?->can('restore', $this->resource),

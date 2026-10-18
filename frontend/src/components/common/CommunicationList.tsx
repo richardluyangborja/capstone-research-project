@@ -123,6 +123,11 @@ function CommunicationRow({ communication }: { communication: Communication }) {
           {formatDateTime(communication.occurred_at)}
           {counterpart ? ` · ${counterpart}` : ''}
           {communication.owner ? ` · ${communication.owner.name}` : ''}
+          {communication.attachments_count
+            ? ` · ${communication.attachments_count} ${
+                communication.attachments_count === 1 ? 'file' : 'files'
+              }`
+            : ''}
         </p>
         {communication.body && (
           <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{communication.body}</p>

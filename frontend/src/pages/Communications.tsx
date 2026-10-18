@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { MailPlus, RefreshCw, Search } from 'lucide-react'
+import { MailPlus, Paperclip, RefreshCw, Search } from 'lucide-react'
 import PageHeader from '../components/common/PageHeader'
 import StatusBadge from '../components/common/StatusBadge'
 import EmptyState from '../components/common/EmptyState'
@@ -60,6 +60,13 @@ const columns: DataTableColumn<Communication>[] = [
           {communication.subject}
         </Link>
         <div className="font-mono text-xs text-muted-foreground">{communication.reference}</div>
+        {communication.attachments_count ? (
+          <div className="mt-1 inline-flex items-center gap-1 text-xs text-muted-foreground">
+            <Paperclip className="h-3 w-3" aria-hidden />
+            {communication.attachments_count}{' '}
+            {communication.attachments_count === 1 ? 'file' : 'files'}
+          </div>
+        ) : null}
       </>
     ),
   },

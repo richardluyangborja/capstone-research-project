@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatCurrency, formatDate, toDateTimeLocal } from './format'
+import { formatCurrency, formatDate, formatFileSize, toDateTimeLocal } from './format'
 
 describe('formatCurrency', () => {
   it('formats PHP amounts with the peso currency', () => {
@@ -12,6 +12,15 @@ describe('formatDate', () => {
     const formatted = formatDate('2026-01-15')
     expect(formatted).toContain('2026')
     expect(formatted).toMatch(/Jan/)
+  })
+})
+
+describe('formatFileSize', () => {
+  it('reads a byte count the way a person would', () => {
+    expect(formatFileSize(0)).toBe('0 B')
+    expect(formatFileSize(512)).toBe('512 B')
+    expect(formatFileSize(120 * 1024)).toBe('120 KB')
+    expect(formatFileSize(3.5 * 1024 * 1024)).toBe('3.5 MB')
   })
 })
 

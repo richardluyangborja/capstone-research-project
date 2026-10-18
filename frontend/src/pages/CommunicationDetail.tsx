@@ -1,9 +1,12 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   ArrowDownLeft,
   ArrowLeft,
   ArrowUpRight,
+  Download,
+  FileUp,
+  Paperclip,
   Pencil,
   RotateCcw,
   Send,
@@ -21,6 +24,7 @@ import {
   sendCommunication,
   updateCommunication,
 } from '../lib/communications'
+import { deleteAttachment, downloadAttachment, uploadAttachment } from '../lib/attachments'
 import {
   communicationChannelMeta,
   communicationDirectionMeta,
@@ -30,9 +34,9 @@ import {
   communicationStatusMeta,
   communicationSubjectLabels,
 } from '../lib/communicationMeta'
-import { formatDateTime, toDateTimeLocal } from '../lib/format'
+import { formatDateTime, formatFileSize, toDateTimeLocal } from '../lib/format'
 import { parseValidationError } from '../lib/leads'
-import type { Communication, CommunicationOutcome } from '../types'
+import type { Attachment, Communication, CommunicationOutcome } from '../types'
 
 const inputClass =
   'mt-1 w-full rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground outline-none focus:ring-2 focus:ring-ring disabled:opacity-60'
@@ -56,6 +60,11 @@ export default function CommunicationDetail() {
   const [occurredAt, setOccurredAt] = useState('')
   const [duration, setDuration] = useState('')
   const [outcome, setOutcome] = useState<CommunicationOutcome | ''>('')
+
+  const [attachmentFile, setAttachmentFile] = useState<File | null>(null)
+  const [attachmentError, setAttachmentError] = useState('')
+  const [attachmentBusy, setAttachmentBusy] = useState(false)
+  const fileInput = useRef<HTMLInputElement>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -139,6 +148,63 @@ export default function CommunicationDetail() {
     }
   }
 
+  /** Attaching and removing files are work on the message, so they follow its rights (S3). */
+  const attachmentFailure = (error: unknown) => {
+    const validation = parseValidationError(error)
+    setAttachmentError(
+      validation?.errors.file?.[0] ??
+        validation?.errors.status?.[0] ??
+        validation?.message ??
+        'Could not change the files on this message.',
+    )
+  }
+
+  const onAttach = async () => {
+    if (!communication || !attachmentFile) return
+    setAttachmentBusy(true)
+    setAttachmentError('')
+    try {
+      const created = await uploadAttachment(communication.id, attachmentFile)
+      setCommunication({
+        ...communication,
+        attachments: [...(communication.attachments ?? []), created],
+      })
+      setAttachmentFile(null)
+      // The input is uncontrolled: clear it so the same file can be picked again.
+      if (fileInput.current) fileInput.current.value = ''
+    } catch (error) {
+      attachmentFailure(error)
+    } finally {
+      setAttachmentBusy(false)
+    }
+  }
+
+  const onRemoveAttachment = async (attachment: Attachment) => {
+    if (!communication) return
+    setAttachmentBusy(true)
+    setAttachmentError('')
+    try {
+      await deleteAttachment(attachment.id)
+      setCommunication({
+        ...communication,
+        attachments: (communication.attachments ?? []).filter((one) => one.id !== attachment.id),
+      })
+    } catch (error) {
+      attachmentFailure(error)
+    } finally {
+      setAttachmentBusy(false)
+    }
+  }
+
+  const onDownloadAttachment = async (attachment: Attachment) => {
+    setAttachmentError('')
+    try {
+      await downloadAttachment(attachment)
+    } catch {
+      setAttachmentError('Could not download that file.')
+    }
+  }
+
   const onDelete = async () => {
     setSaving(true)
     setMessage('')
@@ -190,6 +256,10 @@ export default function CommunicationDetail() {
   // Only a gateway-backed email carries the mocked mailbox's id; a hand-logged "sent" email
   // never went near it, so it must not claim to have.
   const gatewayEmail = communication.channel === 'email' && communication.external_id !== null
+  // Files are part of the record of what was said, so a message that has left or arrived keeps
+  // the ones it carried — the API is the authority, not the screen (slice S3).
+  const attachments = communication.attachments ?? []
+  const canAttach = communication.can_attach && !retired
 
   return (
     <div>
@@ -405,6 +475,91 @@ export default function CommunicationDetail() {
               )}
             </FormCard>
           )}
+
+          <FormCard
+            title="Attachments"
+            description="PDF, PNG or JPEG. Files are stored privately and served through the API."
+          >
+            {attachments.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                {canAttach ? 'Nothing attached yet.' : 'This message carries no files.'}
+              </p>
+            ) : (
+              <ul className="flex flex-col gap-3">
+                {attachments.map((attachment) => (
+                  <li key={attachment.id} className="flex items-center justify-between gap-3">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <Paperclip className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+                      <div className="min-w-0">
+                        <button
+                          type="button"
+                          onClick={() => void onDownloadAttachment(attachment)}
+                          className="block max-w-full truncate text-sm font-medium text-counts"
+                        >
+                          {attachment.name}
+                        </button>
+                        <p className="text-xs text-muted-foreground">
+                          {formatFileSize(attachment.size)}
+                          {attachment.uploader ? ` · ${attachment.uploader.name}` : ''}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => void onDownloadAttachment(attachment)}
+                        aria-label={`Download ${attachment.name}`}
+                        className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-2 py-1 text-xs font-medium text-foreground hover:bg-muted"
+                      >
+                        <Download className="h-3.5 w-3.5" aria-hidden />
+                        Download
+                      </button>
+                      {canAttach && attachment.can_delete && (
+                        <button
+                          type="button"
+                          onClick={() => void onRemoveAttachment(attachment)}
+                          disabled={attachmentBusy}
+                          aria-label={`Remove ${attachment.name}`}
+                          className="inline-flex items-center rounded-md border border-destructive/40 bg-card px-2 py-1 text-xs font-medium text-destructive hover:bg-destructive/10 disabled:opacity-60"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" aria-hidden />
+                        </button>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {attachmentError && <p className="mt-3 text-xs text-destructive">{attachmentError}</p>}
+
+            {canAttach ? (
+              <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-border pt-4">
+                <input
+                  ref={fileInput}
+                  type="file"
+                  accept="application/pdf,image/png,image/jpeg"
+                  onChange={(event) => setAttachmentFile(event.target.files?.[0] ?? null)}
+                  className="text-sm text-foreground"
+                />
+                <button
+                  type="button"
+                  onClick={() => void onAttach()}
+                  disabled={!attachmentFile || attachmentBusy}
+                  className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-60"
+                >
+                  <FileUp className="h-4 w-4" aria-hidden />
+                  {attachmentBusy ? 'Attaching…' : 'Attach file'}
+                </button>
+              </div>
+            ) : (
+              !retired && (
+                <p className="mt-4 border-t border-border pt-4 text-xs text-muted-foreground">
+                  A {communication.status} message keeps the files it carried.
+                </p>
+              )
+            )}
+          </FormCard>
 
           <FormCard title="Participants">
             <dl className="grid grid-cols-1 gap-4 text-sm md:grid-cols-2">
