@@ -1,6 +1,6 @@
 # 0017 — Communication history model (module 03)
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-10-18
 
 ## Context
@@ -78,3 +78,8 @@ communication, so the model has to leave room for that without building it.
   unblocks that deferral for contracts and contacts too.
 - Module 03 ships as several slices rather than one PR (ADR-0016), which is the point: the log/history
   slice is demoable before email sending exists, and the delivery order is declared in spec 11.
+- S1 and S2 are built. S2 settled three seams the decision left open: `draft` is settable **only** for an
+  outbound email (it is the one record that is written and sent later) and it carries no timeline mirror
+  until it goes out; sending stamps `occurred_at` so the timeline records the send, not the writing; and
+  the mocked driver derives every id from the message reference, which is what makes a repeated inbound
+  sync idempotent instead of duplicating the same reply.

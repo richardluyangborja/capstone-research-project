@@ -91,7 +91,7 @@ on the one before:
 | --- | --- | --- | --- |
 | 01 | Lead & Client Tracking | — | `01`–`09` **(built)** |
 | 02 | Opportunity Pipeline Visualization | `Opportunity` record (08) | `10` **(built)** |
-| 03 | Communication History Management | objects from 01–02 | `11` *(S1 built — 5 slices)* |
+| 03 | Communication History Management | objects from 01–02 | `11` *(S1–S2 built — 5 slices)* |
 | 04 | Follow-up Reminder System | 03 + notifications | `12` |
 | 05 | Client Satisfaction & Survey | clients + contacts | `13` |
 
@@ -114,9 +114,9 @@ mocked Service handoff still fires only on `mark-signed` (ADR-0015 §4).
 1. **S1 Communication log & history** *(built)* — the `communications` table, log a channel-aware entry
    against any subject, the history book and detail screen, permission/scoping inheritance. A logged
    entry also writes an `Activity` mirror, so the existing timelines stay the merged feed.
-2. **S2 Email compose, send & retry** *(next)* — email is a **mocked** gateway (`EmailGateway` + `MockEmailGateway`,
+2. **S2 Email compose, send & retry** *(built)* — email is a **mocked** gateway (`EmailGateway` + `MockEmailGateway`,
    `CRM_EMAIL_SIMULATE_FAILURE` forces failure); inbound is pulled by a sync command, never live.
-3. **S3 Attachments** — implements the polymorphic `attachments` table deferred in `00-data-model.md`.
+3. **S3 Attachments** *(next)* — implements the polymorphic `attachments` table deferred in `00-data-model.md`.
 4. **S4 Threading** — `thread_id`/`in_reply_to`; conversations and replies.
 5. **S5 Templates** *(candidate)* — reusable templates with merge fields.
 

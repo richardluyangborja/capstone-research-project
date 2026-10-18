@@ -3,11 +3,11 @@
 Module 3 (ADR-0014). Entities: `Communication` (new), `Activity`, `Lead`, `Company`, `Contact`,
 `Opportunity`, `Contract`, `User`. ADRs: 0004, 0005, 0007, 0011, 0013, 0016, 0017.
 
-> **S1 built, S2–S5 planned.** This is the contract for module 03; the slices land one PR at a time
+> **S1–S2 built, S3–S5 planned.** This is the contract for module 03; the slices land one PR at a time
 > (ADR-0016 §2), so the parts a slice has not reached yet are marked where the text says so. It adds
-> the `communications` table that `00-data-model.md` reserved, keeps `Activity` as the lightweight
+> the `communications` table that `00-data-model.md` reserved and keeps `Activity` as the lightweight
 > quick-log (ADR-0017 §1). Email is a **mocked** integration (ADR-0017 §4) — nothing leaves the
-> machine, and the mocked gateway arrives in S2.
+> machine.
 
 ## Purpose
 
@@ -40,8 +40,8 @@ spec declares five slices (ADR-0016 §2); each is demoable end to end and leaves
 | Slice | Branch | Submodule facet | Demo |
 | --- | --- | --- | --- |
 | **S1** *(built)* | `feature/communication-log` | Communication log & history | log a call on a deal → read it in the book and on the deal timeline |
-| **S2** *(next)* | `feature/communication-email` | Email compose, send & retry (mocked gateway) | compose → send → status `sent` with the mocked source, force a failure → retry |
-| **S3** | `feature/communication-attachments` | Attachments on a communication | attach a PDF to an email, download it through the authorized endpoint |
+| **S2** *(built)* | `feature/communication-email` | Email compose, send & retry (mocked gateway) | compose → send → status `sent` with the mocked source, force a failure → retry |
+| **S3** *(next)* | `feature/communication-attachments` | Attachments on a communication | attach a PDF to an email, download it through the authorized endpoint |
 | **S4** | `feature/communication-threads` | Threading (conversations) | reply into a thread, see the conversation grouped |
 | **S5** *(candidate)* | `feature/communication-templates` | Reusable templates + merge fields | quick-log from a template rendered with the contact's details |
 
@@ -78,10 +78,15 @@ Static paths precede resource routes (project convention, `routes/api.php`). Eac
 | --- | --- | --- |
 | `POST` | `/api/v1/communications/{id}/send` | Send a `draft`; 200 `sent`, 422 if not a draft, `failed` + `failed_reason` when the gateway is forced to fail |
 | `POST` | `/api/v1/communications/{id}/retry` | Re-send a `failed` message |
+| `POST` | `/api/v1/communications/sync-inbound` | Pull the mocked mailbox — admin+; the same job the command below runs |
+
+Both send endpoints answer 200 either way: a rejection is a delivery outcome the record carries, not an
+HTTP error. `POST`/`PATCH` accept `draft` for an outbound email only (S2), on top of S1's four.
 
 Inbound is pulled, not pushed: `php artisan communication:sync-inbound` asks the mocked gateway for
 "received" messages and records them. No mailbox connection and no scheduler — nothing runs on a timer
-in this phase (scheduled work is module 04).
+in this phase (scheduled work is module 04). Sending/retrying requires a recipient: the address is taken
+from the linked contact when none was typed, and a message with no destination is 422.
 
 **S3 — attachments** *(implements the deferred polymorphic table)*
 
@@ -99,9 +104,10 @@ in this phase (scheduled work is module 04).
 | `GET` | `/api/v1/communications/threads/{threadId}` | The conversation |
 | `POST` | `/api/v1/communications/{id}/reply` | Reply into the same thread |
 
-**Errors:** 422 — missing/invalid subject, unknown channel or direction, editing a sent message,
-sending a message that is not a draft; 403 — subject outside scope, editing someone else's record,
-restore without the right role; 404 — missing communication.
+**Errors:** 422 — missing/invalid subject, unknown channel or direction, editing a sent message, sending
+a message that is not a draft (or retrying one that is not `failed`), sending with no recipient; 403 —
+subject outside scope, editing someone else's record, restore or a mailbox pull without the right role;
+404 — missing communication.
 
 ## Payloads
 
@@ -137,7 +143,9 @@ busy, other`).
    `CommunicationLogged` listener, and `last_activity_at` is refreshed where the subject has one (leads,
    deals) so aging and deal staleness keep tracking real touches (ADR-0009, ADR-0015 §6). Deleting a
    communication removes its mirror; restoring rewrites it. The mirror is a pointer — the body lives only
-   on the communication.
+   on the communication. A `draft` is the exception: it has not happened yet, so it carries no mirror and
+   moves no clock (S2). Sending it writes the mirror and stamps `occurred_at` with the moment it left, so
+   the timeline reads as the record of the send rather than of the writing.
 3. **Contact history is a view, not a copy.** A message on a company or a deal belongs to that record;
    `filter[contact]` surfaces the ones addressed to a person. Nothing is duplicated per contact.
 4. **Sent and received are immutable.** Only `draft` and `logged` records are editable, and only by
@@ -146,9 +154,13 @@ busy, other`).
    communications with a due time rather than a second scheduling table (ADR-0017 §3).
 6. **Email is mocked.** Sending goes through the `EmailGateway` interface + `MockEmailGateway`
    (ADR-0005); `CRM_EMAIL_SIMULATE_FAILURE=true` forces the failure path exactly as
-   `CRM_HANDOFF_SIMULATE_FAILURE` does for the Service handoff, and `meta.source` says so.
+   `CRM_HANDOFF_SIMULATE_FAILURE` does for the Service handoff, and `meta.source` says so. The driver
+   derives every id from the message reference, so a message always lands on the same id and a repeated
+   sync cannot invent a second reply.
 7. **Inbound is synced, never live.** There is no IMAP connection and no scheduler; the sync command is
-   run to pull the mock's "received" messages.
+   run to pull the mock's "received" messages. A reply is filed against the record its original message
+   belongs to — a reply that answers nothing we hold is dropped, because there are no orphan messages
+   (rule 1).
 8. **A communication is not a task.** No `due_at`, no assignee, no reminder — that is module 04.
 9. **Attachments are optional** and never required to log a communication; a failed upload never
    discards the saved record.
@@ -165,6 +177,7 @@ busy, other`).
 | Soft delete | Own | Team | All |
 | Restore | — | ✓ | ✓ |
 | Send / retry an email (S2) | Subject updatable | ✓ | ✓ |
+| Pull the mocked mailbox (S2) | — | — | ✓ |
 | Upload / remove an attachment (S3) | Own record | Team | All |
 
 "Subject visible / updatable" reuses the subject's own policy: a salesrep's lead, account, contact
@@ -194,9 +207,20 @@ busy, other`).
 - Sidebar: module 03 group `Communication History Management` → `Communication Log & History`
   (`/communications`).
 
-**S2** adds the composer (draft → send → retry), a `Sent via mocked email` note, and a "Sync inbound"
-action for the demo. **S3** adds the attachment list + upload + download on the detail. **S4** adds the
-thread view and reply. **S5** adds the template picker.
+**S2 — the outbound email path**
+
+- The log form offers **Draft** in its status list for an outbound email (and nothing else), submits with
+  a **Save draft** button, and lands on the detail page; picking another channel drops the option again.
+- `/communications/:id` carries the gateway in place of the composer: **Send now** on a draft, **Retry
+  send** on a rejected one (both behind `can_send`), the rejection reason in a danger alert, and a
+  **Simulated mailbox** note naming the mailbox id whenever the message really went through the mock — a
+  hand-logged "sent" email has no id, so it makes no such claim. "Draft — not sent yet" explains why a
+  draft is absent from the record's timeline.
+- `/communications` gains a **Pull replies** action for admins (the in-app twin of
+  `communication:sync-inbound`) and reports what arrived.
+
+**S3** adds the attachment list + upload + download on the detail. **S4** adds the thread view and reply.
+**S5** adds the template picker.
 
 Channel/direction/status colors reuse `StatusBadge` tones (email = activity/purple, call = people/green,
 inbound = counts/blue, failed = danger) — tokens only, no hardcoded hex.
@@ -214,8 +238,13 @@ inbound = counts/blue, failed = danger) — tokens only, no hardcoded hex.
 A `DemoCommunicationSeeder` (deterministic, no faker) seeds a few weeks of history across the seeded
 accounts and deals — an inbound website enquiry on a Sunrise Foods lead, an outbound proposal email on
 the Sunrise `proposal_sent` deal, a connected call and a no-answer call on BPO Solutions PH, a
-negotiation email on the Harbor Logistics deal, and silence on Greenfield Hotels (so "last contacted"
-and the stale filters have something to show) — owned across Sam/Liza/Maria.
+negotiation email on the Harbor Logistics deal, a send the gateway rejected on the BPO ramp deal (so the
+retry path demos without touching config), and silence on Greenfield Hotels (so "last contacted" and the
+stale filters have something to show) — owned across Sam/Liza/Maria.
+
+Every seeded message that "went out" carries the id the mocked gateway assigns it, and the seeded BPO
+reply carries the id the mock would give that reply, so a demo **Pull replies** recognises what is
+already there and adds only what is new.
 
 ## Acceptance criteria
 
@@ -236,9 +265,24 @@ and the stale filters have something to show) — owned across Sam/Liza/Maria.
 - [x] `status=scheduled` is rejected in module 03 (reserved for module 04).
 - [x] The demo seed shows a populated book with both directions and several channels.
 
-**S2** — a draft sends through the mocked gateway to `sent` with `meta.source`; `CRM_EMAIL_SIMULATE_FAILURE`
-lands it in `failed` with a reason; retry succeeds and is not offered on an already-sent message; the
-sync command records an inbound reply.
+**S2**
+
+- [x] An outbound email can be saved as a `draft`; a `draft` on any other channel or direction is 422,
+      and a draft writes no mirror activity and moves no `last_activity_at`.
+- [x] `POST /send` hands the draft to the gateway, answering 200 `sent` with the gateway's `external_id`
+      and `meta.source: "Email (mocked)"`; sending anything that is not a draft is 422.
+- [x] `CRM_EMAIL_SIMULATE_FAILURE=true` lands the message in `failed` with `failed_reason`, still 200, and
+      `POST /retry` sends it once the gateway is healthy again — retry on a message that is not `failed`
+      is 422.
+- [x] Sending and retrying need the subject's `update` right (403), and a message with no recipient — one
+      not typed and not derivable from the linked contact — is 422.
+- [x] A sent message joins the record's timeline and restarts its clock, exactly like a logged entry, and
+      the timeline endpoints are untouched.
+- [x] The sync command records the mock's reply as a `received` inbound message on the record its original
+      belongs to, mirror included; it is idempotent across runs and drops a reply it cannot place.
+- [x] `POST /communications/sync-inbound` is admin+ and reports how many replies it recorded.
+- [x] The detail screen sends a draft, retries a rejected one, shows the gateway's id and a case where
+      there is none (a hand-logged "sent" email never claims the mock carried it).
 
 **S3** — a PDF/PNG/JPEG up to 10 MB attaches to a communication, is stored on the private disk, downloads
 only through the authorized endpoint, and an oversized or wrong-typed file is 422.
@@ -255,8 +299,8 @@ are manager+ to manage.
   **No for now** (ADR-0017 §7): that would rewrite the module 01/02 timelines and their tests. Revisit
   if reps find two entry points confusing in the demo.
 - Reference prefix `COM-YYYY-NNNN` sits close to the company `CO-` prefix — acceptable, or use
-  `MSG-`? — **`COM-`** proposed; it is the conventional abbreviation and the formats differ (four-digit
-  tail, `COM-` vs `CO-`).
+  `MSG-`? — **`COM-`**, and S1 shipped it: the formats differ (four-digit tail, `COM-` vs `CO-`).
 - Attachment limits — **up to 5 files, 10 MB each**, same MIME allow-list as contracts (S3).
 - Should the inbound sync be scheduled in production? — **No**: nothing runs on a timer in this phase
-  (scheduled work is module 04); the command is run manually for the demo.
+  (scheduled work is module 04); the command is run manually for the demo, and an admin can trigger the
+  same job from the book.

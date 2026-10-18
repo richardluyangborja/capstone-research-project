@@ -143,7 +143,7 @@ Laravel's own and is separate from `frontend/`.
   (ADR-0013 §5). Events: `OpportunityStageChanged`, `OpportunityWon`, `OpportunityLost`
   (`OpportunityCreated` now also fires on manual creation). **Not built here:** the
   dashboard/management reports (the AI module).
-- **Module 03 — Communication History Management (slice S1 — log & history):** the detailed,
+- **Module 03 — Communication History Management (slices S1–S2 — log & history, email):** the detailed,
   channel-aware history record beside `Activity` (ADR-0017). Flat `/api/v1/communications`
   (index/store/show/update/destroy + `POST /{id}/restore`) with `filter[channel|direction|status|
   subject_type|subject_id|company|contact|owner|date_from|date_to]` + `search` and a `summary` block
@@ -152,14 +152,27 @@ Laravel's own and is separate from `frontend/`.
   block `{ type, id, label }` replaces the raw morph columns; `reference` is `COM-YYYY-NNNN`. A logged
   communication writes exactly one mirror `Activity` (`communication_id` links it, channel → activity
   type) and refreshes the record's `last_activity_at`, so the module 01/02 timelines need no endpoint
-  change. S1 accepts `sent|received|failed|logged` (`draft`/`scheduled` are 422 — reserved for S2 and
-  module 04); the default status is inbound → `received`, electronic outbound → `sent`, else `logged`.
-  Visibility is inherited from the subject, so the `CommunicationPolicy` **only** delegates; editability
-  is a state rule raised in the controller: a `sent`/`received` entry is immutable (422), a
-  `draft`/`logged` one is the author's (or a manager+ in scope) to correct. Delete is soft by the
-  author/manager+, restore is manager+. Each record's timeline keeps the merged feed. Events:
-  `CommunicationLogged`. **Not built here (later slices):** the mocked email gateway (S2), attachments
-  (S3), threading (S4), templates (S5).
+  change. A `draft` is the exception — it has not happened yet, so it carries no mirror and moves no
+  clock. S1 accepts `sent|received|failed|logged`; S2 adds `draft` for an **outbound email only**
+  (`scheduled` is 422 — reserved for module 04); the default status is inbound → `received`, electronic
+  outbound → `sent`, else `logged`. Visibility is inherited from the subject, so the
+  `CommunicationPolicy` **only** delegates; editability is a state rule raised in the controller: a
+  `sent`/`received` entry is immutable (422), a `draft`/`logged` one is the author's (or a manager+ in
+  scope) to correct. Delete is soft by the author/manager+, restore is manager+. Each record's timeline
+  keeps the merged feed. Events: `CommunicationLogged`, `CommunicationSent`, `CommunicationFailed`.
+- **Module 03 slice S2 — the outbound email path (mocked):** `POST /communications/{id}/send` (200
+  either way — a rejection is a delivery outcome, not an HTTP error), `POST /communications/{id}/retry`,
+  and `POST /communications/sync-inbound` (**admin+**, the in-app twin of
+  `php artisan communication:sync-inbound`). Email is mocked behind `EmailGateway` + `MockEmailGateway`
+  (ADR-0005/0017 §4): `CRM_EMAIL_SIMULATE_FAILURE=true` forces the failure path, every id is derived from
+  the message reference (so a repeated sync is idempotent), `meta.source: Email (mocked)` marks every
+  gateway-backed payload, and the send response carries the record as it ended up (`sent` with
+  `external_id`, or `failed` with `failed_reason`). Sending needs the subject's `update` right; a
+  recipient is taken from the linked contact when none was typed, and no destination is 422. Sending
+  stamps `occurred_at`, writes the timeline mirror and restarts the record's clock. Inbound is **pulled,
+  never pushed**: the sync records the mock's reply as a `received` message on the record its original
+  belongs to, drops a reply it cannot place, and never records one twice. **Not built here (later
+  slices):** attachments (S3), threading (S4), templates (S5).
 
 Frontend routes: `/login`, `/leads` (views: All / My Leads / Unassigned / Team / Archived, inline
 owner control, bulk assign, status/rating/aging columns, "Stale only" filter), `/leads/new`,
@@ -183,20 +196,23 @@ filters, pagination, summary), `/opportunities/new` (deal created directly on an
 `/opportunities/:id` (edit form, stage control, deal timeline + log-activity, linked contracts and
 "Create contract from deal" when won). `/companies/:id?tab=contracts&opportunity_id=…` opens the
 contract upload prefilled from a won deal. `/communications` (history book: summary cards, channel/
-direction/status/record-type/owner/date filters and a `?subject_type=&subject_id=` deep link),
-`/communications/new` (log form, prefilled when a record links to it) and `/communications/:id`
-(detail, inline correction of what the author logged, retire/restore); the account detail gains a
+direction/status/record-type/owner/date filters, a `?subject_type=&subject_id=` deep link and an admin
+"Pull replies" action), `/communications/new` (log form — a **Draft** status for an outbound email,
+prefilled when a record links to it) and `/communications/:id` (detail, inline correction of what the
+author logged, **Send now** on a draft, **Retry send** on a rejected one, the simulated-mailbox note,
+retire/restore); the account detail gains a
 Communications tab with a per-contract "Log" action, and leads and deals carry a Communications
 section. The topbar bell shows assignment notifications. The sidebar
 is **grouped by module** — module 01's submodules under `Lead & Client Tracking`, module 02's screens
-under `Opportunity Pipeline Visualization`, module 03's slice under `Communication History
+under `Opportunity Pipeline Visualization`, module 03's slices under `Communication History
 Management`. Account + logout live in the sidebar footer; the brand is
 "Primepower Manpower Services / Customer Relationship Management".
 
-**Not implemented yet — next up is module 03, slice S2 (email compose, send & retry)** (spec
+**Not implemented yet — next up is module 03, slice S3 (attachments)** (spec
 `resources/specs/11-communication-history.md`, ADR-0017). Module 03 declares five slices: **S1 log &
-history (built)**, S2 email compose/send/retry through a **mocked** gateway, S3 attachments (implements
-the deferred polymorphic `attachments` table), S4 threading, S5 templates (candidate). `Activity` stays the
+history (built)**, **S2 email compose/send/retry through a mocked gateway (built)**, S3 attachments
+(implements the deferred polymorphic `attachments` table), S4 threading, S5 templates (candidate).
+`Activity` stays the
 lightweight quick log; `Communication` is the detailed record and every logged communication also writes
 an activity, so the existing timelines stay the merged feed. Still deferred: contract
 versioning/e-signature, renewal reminders/automatic client aging, duplicate detection & merge (a
@@ -214,7 +230,10 @@ stage (e.g. Sunrise `discovery`/`proposal_sent`, BPO `negotiation`/`on_hold`, Ha
 `won`, Greenfield `lost`, Greenfield Cebu `new_inquiry`/`qualified`) owned across Sam/Liza/Maria, so
 the board, the forecast header and the win rate demo without faking. The seeded communication book
 spans email/call/meeting in both directions across Sunrise, BPO and Harbor, and leaves Greenfield
-Hotels silent so "last contacted" and the stale worklists have something to show.
+Hotels silent so "last contacted" and the stale worklists have something to show. The seeded book also
+carries one send the mocked gateway rejected, so the retry path demos without touching config, and every
+seeded message that went out holds the gateway id — so an admin **Pull replies** (or the artisan command)
+adds only what is genuinely new.
 
 ## Conventions that differ from framework defaults
 
@@ -292,7 +311,8 @@ Before implementing a submodule, read `resources/specs/README.md` (conventions) 
 qualification, assignment, lifecycle, company/contact, lead→client conversion and client lifecycle;
 module 02 (Opportunity Pipeline Visualization) covers the deal book, the Kanban board, stage
 moves/won-lost and the board forecast. **Module 03** (Communication History) is specified with five
-declared slices — S1 (log & history) is built, **S2 (email) is next**. The remaining CRM modules — 04
+declared slices — S1 (log & history) and S2 (mocked email send/retry) are built, **S3 (attachments) is
+next**. The remaining CRM modules — 04
 follow-up reminders, 05 client satisfaction
 — are in **ADR-0014** (specs `12`–`13`). Dedup/merge and advanced tiers are module-01 deferrals
 (ADR-0006). Other departments are consumed via **mocked integrations** (ADR-0005), not built here.
