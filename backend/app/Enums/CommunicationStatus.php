@@ -7,7 +7,8 @@ namespace App\Enums;
  *
  * `scheduled` is reserved for the follow-up module (module 04) and cannot be set here.
  * `sent`/`received`/`failed` are gateway outcomes; `logged` is a touch recorded after the
- * fact (a call taken in person). Only `draft`/`logged` records are editable (ADR-0017 §6).
+ * fact (a call taken in person); `draft` is an outbound email waiting to be sent (slice S2).
+ * Only `draft`/`logged` records are editable (ADR-0017 §6).
  */
 enum CommunicationStatus: string
 {
@@ -19,14 +20,32 @@ enum CommunicationStatus: string
     case Logged = 'logged';
 
     /**
-     * Statuses a caller may submit when logging something that already happened (slice S1).
-     * `draft` arrives with the composer (slice S2); `scheduled` belongs to module 04.
+     * Statuses a caller may submit when logging something that already happened.
+     * `scheduled` belongs to module 04.
      *
      * @return array<int, self>
      */
     public static function loggable(): array
     {
         return [self::Sent, self::Received, self::Failed, self::Logged];
+    }
+
+    /**
+     * The statuses a caller may submit for a message on this channel and direction (slice S2):
+     * everything that already happened, plus `draft` for an outbound email — only electronic
+     * mail can be written and sent later, so only it has a draft.
+     *
+     * @return array<int, self>
+     */
+    public static function settableFor(CommunicationChannel $channel, CommunicationDirection $direction): array
+    {
+        $statuses = self::loggable();
+
+        if ($channel === CommunicationChannel::Email && $direction === CommunicationDirection::Outbound) {
+            $statuses[] = self::Draft;
+        }
+
+        return $statuses;
     }
 
     /**

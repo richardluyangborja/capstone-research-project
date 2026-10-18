@@ -9,7 +9,7 @@ import * as communicationApi from '../lib/communications'
 import type { Communication, CommunicationsPage } from '../types'
 
 // `vi.mock` factories are hoisted above the imports, so fixtures must come from `vi.hoisted`.
-const { sentMessage, loggedCall, book } = vi.hoisted(() => {
+const { sentMessage, loggedCall, draftMessage, failedMessage, book } = vi.hoisted(() => {
   const base = {
     id: 'com-1',
     reference: 'COM-2026-0001',
@@ -36,6 +36,7 @@ const { sentMessage, loggedCall, book } = vi.hoisted(() => {
     owner_id: 1,
     owner: { id: 1, name: 'Sam Salesrep' },
     is_editable: false,
+    can_send: false,
     can_update: true,
     can_delete: true,
     can_restore: false,
@@ -73,7 +74,29 @@ const { sentMessage, loggedCall, book } = vi.hoisted(() => {
     },
   }
 
-  return { sentMessage, loggedCall, book }
+  // Slice S2: an outbound email the rep has written but not sent.
+  const draftMessage: Communication = {
+    ...base,
+    id: 'com-3',
+    reference: 'COM-2026-0003',
+    status: 'draft',
+    subject: 'Rate card for the Ortigas launch',
+    is_editable: true,
+    can_send: true,
+  }
+
+  // Slice S2: a send the gateway rejected, so it can be retried.
+  const failedMessage: Communication = {
+    ...base,
+    id: 'com-4',
+    reference: 'COM-2026-0004',
+    status: 'failed',
+    subject: 'Site visit schedule for the Ortigas floor',
+    failed_reason: 'The mail provider rejected the message (mocked failure).',
+    can_send: true,
+  }
+
+  return { sentMessage, loggedCall, draftMessage, failedMessage, book }
 })
 
 vi.mock('../lib/communications', () => ({
@@ -84,6 +107,13 @@ vi.mock('../lib/communications', () => ({
   deleteCommunication: vi.fn(),
   restoreCommunication: vi.fn(),
   listCommunicationsFor: vi.fn(),
+  sendCommunication: vi.fn(),
+  retryCommunication: vi.fn(),
+  syncInboundCommunications: vi.fn(),
+}))
+
+vi.mock('../lib/auth-context', () => ({
+  useAuth: () => ({ user: { id: 1, name: 'Ada Admin', role: 'admin' }, logout: vi.fn() }),
 }))
 
 vi.mock('../lib/leads', () => ({
@@ -165,6 +195,27 @@ describe('Communication history book', () => {
       ),
     )
   })
+
+  // Slice S2 — the mailbox is pulled, so the demo needs a way to ask for it.
+  it('pulls the simulated mailbox and reports what arrived', async () => {
+    vi.mocked(communicationApi.syncInboundCommunications).mockResolvedValue({
+      recorded: 2,
+      source: 'Email (mocked)',
+    })
+
+    render(
+      <MemoryRouter>
+        <Communications />
+      </MemoryRouter>,
+    )
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Pull replies' }))
+
+    await waitFor(() => expect(communicationApi.syncInboundCommunications).toHaveBeenCalled())
+    expect(
+      await screen.findByText('2 replies pulled in from the simulated mailbox.'),
+    ).toBeInTheDocument()
+  })
 })
 
 describe('Log communication', () => {
@@ -227,6 +278,61 @@ describe('Log communication', () => {
     ).toBeInTheDocument()
     expect(communicationApi.createCommunication).not.toHaveBeenCalled()
   })
+
+  // Slice S2 — only an outbound email is written first and sent later.
+  it('offers a draft for an outbound email and saves it as one', async () => {
+    vi.mocked(communicationApi.createCommunication).mockResolvedValue(draftMessage)
+
+    render(
+      <MemoryRouter
+        initialEntries={['/communications/new?subject_type=company&subject_id=company-1']}
+      >
+        <Routes>
+          <Route path="/communications/new" element={<NewCommunication />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    const status = await screen.findByLabelText('Status')
+    expect(within(status).getByRole('option', { name: 'Draft' })).toBeInTheDocument()
+
+    fireEvent.change(status, { target: { value: 'draft' } })
+    expect(
+      screen.getByText('A draft is saved but not sent — you can send it from its own page.'),
+    ).toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText('Subject'), {
+      target: { value: 'Rate card for the Ortigas launch' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Save draft' }))
+
+    await waitFor(() =>
+      expect(communicationApi.createCommunication).toHaveBeenCalledWith(
+        expect.objectContaining({ status: 'draft', subject: 'Rate card for the Ortigas launch' }),
+      ),
+    )
+  })
+
+  it('drops the draft option when the channel can no longer have one', async () => {
+    render(
+      <MemoryRouter
+        initialEntries={['/communications/new?subject_type=company&subject_id=company-1']}
+      >
+        <Routes>
+          <Route path="/communications/new" element={<NewCommunication />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    const status = await screen.findByLabelText('Status')
+    fireEvent.change(status, { target: { value: 'draft' } })
+    fireEvent.change(screen.getByLabelText('Channel'), { target: { value: 'call' } })
+
+    await waitFor(() => expect(screen.getByLabelText('Status')).toHaveValue('logged'))
+    expect(
+      within(screen.getByLabelText('Status')).queryByRole('option', { name: 'Draft' }),
+    ).not.toBeInTheDocument()
+  })
 })
 
 describe('Communication detail', () => {
@@ -269,6 +375,59 @@ describe('Communication detail', () => {
         expect.objectContaining({ subject: 'Call — site walk moved to Friday' }),
       ),
     )
+  })
+
+  it('sends a draft through the mocked gateway', async () => {
+    vi.mocked(communicationApi.getCommunication).mockResolvedValue(draftMessage)
+    vi.mocked(communicationApi.sendCommunication).mockResolvedValue({
+      ...draftMessage,
+      status: 'sent',
+      external_id: 'EMAIL-COM-2026-0003',
+      is_editable: false,
+      can_send: false,
+    })
+
+    renderDetail('com-3')
+
+    expect(await screen.findByText('Draft — not sent yet')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Send now' }))
+
+    await waitFor(() => expect(communicationApi.sendCommunication).toHaveBeenCalledWith('com-3'))
+    // The page reports where it went: the simulated mailbox, not a mail provider.
+    await waitFor(() =>
+      expect(screen.getAllByText(/EMAIL-COM-2026-0003/).length).toBeGreaterThan(0),
+    )
+  })
+
+  it('retries a send the gateway rejected', async () => {
+    vi.mocked(communicationApi.getCommunication).mockResolvedValue(failedMessage)
+    vi.mocked(communicationApi.retryCommunication).mockResolvedValue({
+      ...failedMessage,
+      status: 'sent',
+      external_id: 'EMAIL-COM-2026-0004',
+      failed_reason: null,
+      can_send: false,
+    })
+
+    renderDetail('com-4')
+
+    expect(await screen.findByText('Delivery failed')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Retry send' }))
+
+    await waitFor(() => expect(communicationApi.retryCommunication).toHaveBeenCalledWith('com-4'))
+  })
+
+  it('marks a gateway email as carried by the simulated mailbox', async () => {
+    vi.mocked(communicationApi.getCommunication).mockResolvedValue({
+      ...sentMessage,
+      status: 'sent',
+      external_id: 'EMAIL-COM-2026-0001',
+    })
+
+    renderDetail()
+
+    expect(await screen.findByText('Simulated mailbox')).toBeInTheDocument()
+    expect(screen.getByText(/Sent through the mocked email gateway/)).toBeInTheDocument()
   })
 })
 

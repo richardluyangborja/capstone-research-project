@@ -44,6 +44,18 @@ class CommunicationPolicy
             && $this->maySeeSubject($user, $communication);
     }
 
+    /**
+     * Sending is work on the record, not on the message (spec 11 §Permissions): whoever may
+     * update the subject may send its mail. The message's own state (a draft, or one that
+     * bounced) is checked separately, because that is a 422, not a 403.
+     */
+    public function send(User $user, Communication $communication): bool
+    {
+        $subject = $communication->subjectable;
+
+        return $subject !== null && $user->can('update', $subject);
+    }
+
     public function delete(User $user, Communication $communication): bool
     {
         return $this->ownsOrOversees($user, $communication)
@@ -58,6 +70,15 @@ class CommunicationPolicy
         return $user->role !== Role::Salesrep
             && $this->ownsOrOversees($user, $communication)
             && $this->maySeeSubject($user, $communication);
+    }
+
+    /**
+     * Pulling the mailbox is a system action rather than a per-message one: admin+ only,
+     * because one sync writes history across every team (spec 11 §S2).
+     */
+    public function sync(User $user): bool
+    {
+        return $user->role->isAdmin();
     }
 
     public function forceDelete(User $user, Communication $communication): bool

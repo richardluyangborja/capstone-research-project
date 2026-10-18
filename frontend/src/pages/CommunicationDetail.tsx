@@ -1,6 +1,14 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowDownLeft, ArrowLeft, ArrowUpRight, Pencil, RotateCcw, Trash2 } from 'lucide-react'
+import {
+  ArrowDownLeft,
+  ArrowLeft,
+  ArrowUpRight,
+  Pencil,
+  RotateCcw,
+  Send,
+  Trash2,
+} from 'lucide-react'
 import PageHeader from '../components/common/PageHeader'
 import FormCard from '../components/common/FormCard'
 import AlertItem from '../components/common/AlertItem'
@@ -9,6 +17,8 @@ import {
   deleteCommunication,
   getCommunication,
   restoreCommunication,
+  retryCommunication,
+  sendCommunication,
   updateCommunication,
 } from '../lib/communications'
 import {
@@ -104,6 +114,31 @@ export default function CommunicationDetail() {
     }
   }
 
+  /** Sending (or retrying) is the one action that leaves the app (spec 11 §S2). */
+  const onGateway = async () => {
+    if (!communication) return
+    setSaving(true)
+    setMessage('')
+    setErrors({})
+    try {
+      const updated =
+        communication.status === 'draft'
+          ? await sendCommunication(id)
+          : await retryCommunication(id)
+      setCommunication(updated)
+      setVariant(updated.status === 'sent' ? 'success' : 'danger')
+      setMessage(
+        updated.status === 'sent'
+          ? `Sent through the mocked mailbox — ${updated.external_id}.`
+          : 'The gateway rejected it again; the reason is below.',
+      )
+    } catch (error) {
+      handleFailure(error, 'The gateway could not be reached.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const onDelete = async () => {
     setSaving(true)
     setMessage('')
@@ -152,6 +187,9 @@ export default function CommunicationDetail() {
   const DirectionIcon = communication.direction === 'inbound' ? ArrowDownLeft : ArrowUpRight
   const recordHref = communicationRecordPath(communication.record)
   const retired = communication.deleted_at !== null
+  // Only a gateway-backed email carries the mocked mailbox's id; a hand-logged "sent" email
+  // never went near it, so it must not claim to have.
+  const gatewayEmail = communication.channel === 'email' && communication.external_id !== null
 
   return (
     <div>
@@ -175,6 +213,17 @@ export default function CommunicationDetail() {
               >
                 <Pencil className="h-4 w-4" aria-hidden="true" />
                 {editing ? 'Close editor' : 'Edit'}
+              </button>
+            )}
+            {!retired && communication.can_send && (
+              <button
+                type="button"
+                onClick={() => void onGateway()}
+                disabled={saving}
+                className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60"
+              >
+                <Send className="h-4 w-4" aria-hidden="true" />
+                {communication.status === 'failed' ? 'Retry send' : 'Send now'}
               </button>
             )}
             {retired && communication.can_restore && (
@@ -228,6 +277,26 @@ export default function CommunicationDetail() {
         <div className="mb-4">
           <AlertItem variant="danger" title="Delivery failed">
             {communication.failed_reason ?? 'The gateway rejected this message.'}
+          </AlertItem>
+        </div>
+      )}
+
+      {!retired && communication.status === 'draft' && (
+        <div className="mb-4">
+          <AlertItem variant="info" title="Draft — not sent yet">
+            Written but not delivered. Send it when the wording is right; until then it stays off
+            the record's timeline.
+          </AlertItem>
+        </div>
+      )}
+
+      {!retired && gatewayEmail && communication.status !== 'failed' && (
+        <div className="mb-4">
+          <AlertItem variant="info" title="Simulated mailbox">
+            {communication.direction === 'inbound'
+              ? 'Pulled from the mocked mailbox'
+              : 'Sent through the mocked email gateway'}{' '}
+            — {communication.external_id}. No external mail provider is involved.
           </AlertItem>
         </div>
       )}
@@ -413,6 +482,12 @@ export default function CommunicationDetail() {
                 <dt className="text-xs font-medium text-muted-foreground">Reference</dt>
                 <dd className="font-mono text-xs text-foreground">{communication.reference}</dd>
               </div>
+              {communication.external_id && (
+                <div>
+                  <dt className="text-xs font-medium text-muted-foreground">Mailbox id</dt>
+                  <dd className="font-mono text-xs text-foreground">{communication.external_id}</dd>
+                </div>
+              )}
             </dl>
 
             {communication.record && !recordHref && (

@@ -7,6 +7,11 @@ use App\Enums\CommunicationChannel;
 use App\Enums\CommunicationDirection;
 use App\Enums\CommunicationOutcome;
 use App\Enums\CommunicationStatus;
+use App\Events\CommunicationFailed;
+use App\Events\CommunicationLogged;
+use App\Events\CommunicationSent;
+use App\Integrations\EmailGateway;
+use App\Integrations\OutboundEmail;
 use Database\Factories\CommunicationFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
@@ -16,6 +21,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\DB;
 
 /**
  * The detailed communication history entry (module 03, spec 11, ADR-0017).
@@ -143,6 +149,13 @@ class Communication extends Model
      */
     public function syncActivityMirror(): void
     {
+        // A draft has not happened yet, so it has no place on the record's timeline (S2).
+        if ($this->status === CommunicationStatus::Draft) {
+            $this->activities()->delete();
+
+            return;
+        }
+
         $attributes = [
             'type' => $this->channel->activityType(),
             'subject' => $this->subject,
@@ -214,6 +227,135 @@ class Communication extends Model
     public function isEditable(): bool
     {
         return $this->status->isEditable();
+    }
+
+    /**
+     * Whether this message could go out *now*: an outbound email still in its draft, or one
+     * the gateway rejected and the rep can try again (spec 11 §S2). Whether the caller may
+     * send it is the policy's question, not this one.
+     */
+    public function isSendable(): bool
+    {
+        return $this->channel === CommunicationChannel::Email
+            && $this->direction === CommunicationDirection::Outbound
+            && in_array($this->status, [CommunicationStatus::Draft, CommunicationStatus::Failed], true);
+    }
+
+    /**
+     * Hand this message to the email gateway and record what came back (spec 11 §S2,
+     * ADR-0017 §4). A rejected send is not an exception: the record is parked as `failed`
+     * with the gateway's reason, so the rep can read it and retry — and the timeline still
+     * learns about the attempt.
+     *
+     * The message "happened" when it left, so a send (or a successful retry) stamps
+     * `occurred_at` too.
+     */
+    public function sendThrough(EmailGateway $gateway): self
+    {
+        $result = $gateway->send(OutboundEmail::forCommunication($this));
+
+        return DB::transaction(function () use ($result): self {
+            $this->status = $result->success ? CommunicationStatus::Sent : CommunicationStatus::Failed;
+            $this->external_id = $result->externalId;
+            $this->failed_reason = $result->message;
+            $this->occurred_at = now();
+            $this->save();
+
+            if ($result->success) {
+                CommunicationSent::dispatch($this);
+            } else {
+                CommunicationFailed::dispatch($this);
+            }
+
+            return $this;
+        });
+    }
+
+    /**
+     * Fall back to the linked contact's address when no recipient was typed: the composer
+     * lets a rep pick a person instead of an address, and a send needs a destination.
+     */
+    public function fillRecipientFromContact(): void
+    {
+        if ($this->to_address !== null && $this->to_address !== '') {
+            return;
+        }
+
+        $this->to_address = $this->contact?->email;
+        $this->to_name ??= $this->contact?->name;
+    }
+
+    /**
+     * Pull the mocked mailbox's replies into the history (module 03 slice S2, spec 11
+     * §Business rules 7). Inbound is never pushed and nothing runs on a timer in this phase,
+     * so both the artisan command and the demo action call this.
+     *
+     * A reply is recorded against the record its original message belongs to, is skipped if it
+     * was already pulled (its external id is the key), and is dropped when it answers a message
+     * we do not have — there are no orphan messages (spec 11 §Business rules 1).
+     *
+     * @return int the number of replies recorded
+     */
+    public static function pullInbound(EmailGateway $gateway): int
+    {
+        $sent = static::query()
+            ->where('channel', CommunicationChannel::Email)
+            ->where('direction', CommunicationDirection::Outbound)
+            ->where('status', CommunicationStatus::Sent)
+            ->orderByDesc('occurred_at')
+            ->limit(25)
+            ->get();
+
+        $byExternalId = $sent->keyBy(fn (self $communication): string => (string) $communication->external_id);
+
+        $replies = $gateway->received(
+            $sent->map(fn (self $communication): OutboundEmail => OutboundEmail::forCommunication($communication))->all(),
+        );
+
+        $recorded = 0;
+
+        foreach ($replies as $reply) {
+            $origin = $reply->inReplyTo === null || $reply->inReplyTo === ''
+                ? null
+                : $byExternalId->get($reply->inReplyTo);
+
+            if (! $origin instanceof self) {
+                continue;
+            }
+
+            if (static::withTrashed()->where('external_id', $reply->externalId)->exists()) {
+                continue;
+            }
+
+            $subject = $origin->subjectable;
+
+            if ($subject === null) {
+                continue;
+            }
+
+            /** @var self $inbound */
+            $inbound = $subject->communications()->create([
+                'contact_id' => $origin->contact_id,
+                'channel' => CommunicationChannel::Email,
+                'direction' => CommunicationDirection::Inbound,
+                'status' => CommunicationStatus::Received,
+                'subject' => $reply->subject,
+                'body' => $reply->body,
+                'from_name' => $reply->fromName,
+                'from_address' => $reply->fromAddress,
+                'to_name' => $reply->toName,
+                'to_address' => $reply->toAddress,
+                'occurred_at' => $reply->receivedAt,
+                'external_id' => $reply->externalId,
+                'owner_id' => $origin->owner_id,
+            ]);
+
+            CommunicationLogged::dispatch($inbound);
+
+            $recorded++;
+        }
+
+        return $recorded;
     }
 
     /**

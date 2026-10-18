@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Enums\CommunicationStatus;
 use App\Events\CommunicationLogged;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreCommunicationRequest;
 use App\Http\Requests\UpdateCommunicationRequest;
 use App\Http\Resources\CommunicationResource;
+use App\Integrations\EmailGateway;
 use App\Models\Communication;
 use App\Models\Company;
 use App\Models\Contact;
@@ -22,12 +24,12 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 /**
- * The communication history book (module 03, slice S1): log a channel-aware entry against a
- * lead, account, contact, deal or contract, then read, correct and retire it. Email sending
- * is slice S2 — nothing here talks to a mail server.
+ * The communication history book (module 03): log a channel-aware entry against a lead,
+ * account, contact, deal or contract, then read, correct and retire it. Slice S2 adds the
+ * outbound email path — a draft goes to the mocked gateway and its reply is pulled back.
  *
- * Every logged entry also writes an activity mirror on the subject's timeline, so the
- * timeline endpoints from modules 01–02 need no change (ADR-0017 §2).
+ * Every entry that has happened also writes an activity mirror on the subject's timeline, so
+ * the timeline endpoints from modules 01–02 need no change (ADR-0017 §2).
  */
 class CommunicationController extends Controller
 {
@@ -127,7 +129,11 @@ class CommunicationController extends Controller
                 'owner_id' => $user->id,
             ]);
 
-            CommunicationLogged::dispatch($communication, $user);
+            // A draft has not happened yet: it gets no timeline mirror, and it must not move
+            // the record's aging clock (slice S2).
+            if ($communication->status !== CommunicationStatus::Draft) {
+                CommunicationLogged::dispatch($communication, $user);
+            }
 
             return $communication;
         });
@@ -142,6 +148,40 @@ class CommunicationController extends Controller
         $this->authorize('view', $communication);
 
         return new CommunicationResource($communication->load($this->relations()));
+    }
+
+    /**
+     * Send a draft through the email gateway (spec 11 §S2). A rejected send is not an HTTP
+     * error: the record comes back as `failed` with the gateway's reason, so the rep can read
+     * it and retry — and `meta.source` says the gateway was a mock.
+     */
+    public function send(EmailGateway $gateway, Communication $communication): JsonResponse
+    {
+        return $this->handToGateway($gateway, $communication, CommunicationStatus::Draft);
+    }
+
+    /**
+     * Try a rejected message again (spec 11 §S2).
+     */
+    public function retry(EmailGateway $gateway, Communication $communication): JsonResponse
+    {
+        return $this->handToGateway($gateway, $communication, CommunicationStatus::Failed);
+    }
+
+    /**
+     * Pull the mocked mailbox's replies into the history (spec 11 §S2, §Business rules 7).
+     * Inbound is pulled, never pushed, and nothing runs on a timer in this phase — so the demo
+     * needs a way to trigger the same job the `communication:sync-inbound` command runs.
+     * Admin-only: a sync rewrites history records across every team.
+     */
+    public function syncInbound(EmailGateway $gateway): JsonResponse
+    {
+        $this->authorize('sync', Communication::class);
+
+        return response()->json([
+            'data' => ['recorded' => Communication::pullInbound($gateway)],
+            'meta' => ['source' => $gateway->source()],
+        ]);
     }
 
     public function update(UpdateCommunicationRequest $request, Communication $communication): CommunicationResource
@@ -160,6 +200,44 @@ class CommunicationController extends Controller
         $communication->syncActivityMirror();
 
         return new CommunicationResource($communication->load($this->relations()));
+    }
+
+    /**
+     * The shared send/retry flow. Both are the same act — hand an outbound email to the
+     * gateway — differing only in the state they are legal from, which is a state error
+     * (422), not a permission one (spec 11 §Errors).
+     */
+    private function handToGateway(
+        EmailGateway $gateway,
+        Communication $communication,
+        CommunicationStatus $from,
+    ): JsonResponse {
+        $this->authorize('send', $communication);
+
+        $expected = $from === CommunicationStatus::Draft
+            ? 'a draft'
+            : 'a message the gateway rejected';
+
+        if ($communication->status !== $from || ! $communication->isSendable()) {
+            throw ValidationException::withMessages([
+                'status' => [sprintf('Only %s can go to the mail gateway.', $expected)],
+            ]);
+        }
+
+        // A rep may pick a person instead of typing an address; a send needs a destination.
+        $communication->fillRecipientFromContact();
+
+        if (($communication->to_address ?? '') === '') {
+            throw ValidationException::withMessages([
+                'to_address' => ['Add a recipient before sending — pick a contact or type an address.'],
+            ]);
+        }
+
+        $communication = $communication->sendThrough($gateway);
+
+        return (new CommunicationResource($communication->load($this->relations())))
+            ->additional(['meta' => ['source' => $gateway->source()]])
+            ->response();
     }
 
     public function destroy(Communication $communication): Response

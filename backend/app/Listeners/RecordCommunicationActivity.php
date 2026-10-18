@@ -2,18 +2,24 @@
 
 namespace App\Listeners;
 
+use App\Events\CommunicationFailed;
 use App\Events\CommunicationLogged;
+use App\Events\CommunicationSent;
 use App\Models\Lead;
 use App\Models\Opportunity;
 
 class RecordCommunicationActivity
 {
     /**
-     * A logged communication shows up on the record's existing timeline and restarts the
-     * aging clock (module 03, spec 11 §Business rules 2, ADR-0017 §2) — the same follow-up
-     * `RecordLeadStatusChange` and `RecordOpportunityStageChange` perform for their events.
+     * A logged, sent or failed communication shows up on the record's existing timeline and
+     * restarts the aging clock (module 03, spec 11 §Business rules 2, ADR-0017 §2) — the same
+     * follow-up `RecordLeadStatusChange` and `RecordOpportunityStageChange` perform for their
+     * events.
+     *
+     * A draft is absent from the list on purpose: nothing has happened yet, so it must not
+     * move a record's clock (slice S2, `Communication::syncActivityMirror()`).
      */
-    public function handle(CommunicationLogged $event): void
+    public function handle(CommunicationLogged|CommunicationSent|CommunicationFailed $event): void
     {
         $communication = $event->communication;
 

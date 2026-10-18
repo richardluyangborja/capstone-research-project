@@ -2,7 +2,9 @@
 
 namespace App\Providers;
 
+use App\Integrations\EmailGateway;
 use App\Integrations\FinanceBilling;
+use App\Integrations\MockEmailGateway;
 use App\Integrations\MockFinanceBilling;
 use App\Integrations\MockServiceHandoff;
 use App\Integrations\ServiceHandoff;
@@ -19,6 +21,7 @@ class AppServiceProvider extends ServiceProvider
         // driver is a binding change here — no caller changes.
         $this->app->bind(ServiceHandoff::class, MockServiceHandoff::class);
         $this->app->bind(FinanceBilling::class, MockFinanceBilling::class);
+        $this->app->bind(EmailGateway::class, MockEmailGateway::class);
     }
 
     /**

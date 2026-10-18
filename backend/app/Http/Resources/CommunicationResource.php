@@ -57,6 +57,7 @@ class CommunicationResource extends JsonResource
                 'name' => $this->owner->name,
             ]),
             'is_editable' => $this->isEditable(),
+            'can_send' => $this->isSendable() && (bool) $request->user()?->can('send', $this->resource),
             'can_update' => (bool) $request->user()?->can('update', $this->resource),
             'can_delete' => (bool) $request->user()?->can('delete', $this->resource),
             'can_restore' => (bool) $request->user()?->can('restore', $this->resource),

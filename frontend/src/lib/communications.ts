@@ -6,6 +6,7 @@ import type {
   CommunicationInput,
   CommunicationsPage,
   CommunicationSubjectType,
+  CommunicationSyncResult,
 } from '../types'
 
 export interface CommunicationFilters {
@@ -72,6 +73,35 @@ export const updateCommunication = async (
 
 export const deleteCommunication = async (id: string): Promise<void> => {
   await api.delete(`/communications/${id}`)
+}
+
+/**
+ * Hand a draft to the email gateway (spec 11 §S2). The response is the record as it ended up —
+ * `sent` with the gateway's id, or `failed` with its reason, which is a delivery outcome rather
+ * than an HTTP error.
+ */
+export const sendCommunication = async (id: string): Promise<Communication> => {
+  const { data } = await api.post<{ data: Communication }>(`/communications/${id}/send`)
+  return data.data
+}
+
+/** Try a message the gateway rejected again (spec 11 §S2). */
+export const retryCommunication = async (id: string): Promise<Communication> => {
+  const { data } = await api.post<{ data: Communication }>(`/communications/${id}/retry`)
+  return data.data
+}
+
+/**
+ * Pull the mocked mailbox's replies into the history (spec 11 §S2, §Business rules 7). Inbound
+ * is pulled, never pushed — this is what the `communication:sync-inbound` command runs, exposed
+ * for the demo. Admin-only, because one pull writes history across every team.
+ */
+export const syncInboundCommunications = async (): Promise<CommunicationSyncResult> => {
+  const { data } = await api.post<{
+    data: { recorded: number }
+    meta: { source: string }
+  }>('/communications/sync-inbound')
+  return { recorded: data.data.recorded, source: data.meta.source }
 }
 
 export const restoreCommunication = async (id: string): Promise<Communication> => {

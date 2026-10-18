@@ -1,13 +1,18 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { MailPlus, Search } from 'lucide-react'
+import { MailPlus, RefreshCw, Search } from 'lucide-react'
 import PageHeader from '../components/common/PageHeader'
 import StatusBadge from '../components/common/StatusBadge'
 import EmptyState from '../components/common/EmptyState'
 import AlertItem from '../components/common/AlertItem'
 import StatCard from '../components/common/StatCard'
 import DataTable, { type DataTableColumn } from '../components/common/DataTable'
-import { listCommunications, type CommunicationFilters } from '../lib/communications'
+import {
+  listCommunications,
+  syncInboundCommunications,
+  type CommunicationFilters,
+} from '../lib/communications'
+import { useAuth } from '../lib/auth-context'
 import {
   communicationChannelMeta,
   communicationDirectionMeta,
@@ -100,6 +105,7 @@ const columns: DataTableColumn<Communication>[] = [
 // newest first, across every record type. Logging happens here or from a record's own page.
 export default function Communications() {
   const [searchParams] = useSearchParams()
+  const { user } = useAuth()
   const [communications, setCommunications] = useState<Communication[]>([])
   const [summary, setSummary] = useState<CommunicationSummary | null>(null)
   const [search, setSearch] = useState('')
@@ -119,6 +125,12 @@ export default function Communications() {
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [syncing, setSyncing] = useState(false)
+  const [syncNote, setSyncNote] = useState('')
+
+  // Pulling the mailbox rewrites history across every team, so it is an admin action — the
+  // salesrep's own demo runs `php artisan communication:sync-inbound` meanwhile (spec 11 §S2).
+  const canSyncMailbox = user?.role === 'admin' || user?.role === 'superadmin'
 
   const buildFilters = useCallback(
     (targetPage: number): CommunicationFilters => ({
@@ -161,25 +173,65 @@ export default function Communications() {
     void load(1)
   }, [load])
 
+  const onSyncMailbox = async () => {
+    setSyncing(true)
+    setError('')
+    setSyncNote('')
+    try {
+      const result = await syncInboundCommunications()
+      setSyncNote(
+        result.recorded === 0
+          ? 'The simulated mailbox holds nothing new.'
+          : `${result.recorded} ${
+              result.recorded === 1 ? 'reply' : 'replies'
+            } pulled in from the simulated mailbox.`,
+      )
+      await load(1)
+    } catch {
+      setError('Could not reach the simulated mailbox.')
+    } finally {
+      setSyncing(false)
+    }
+  }
+
   return (
     <div>
       <PageHeader
         title="Communication history"
         description="Every call, email, meeting and letter logged against a lead, account, contact, deal or contract."
         actions={
-          <Link
-            to={
-              subjectType && subjectId
-                ? `/communications/new?subject_type=${subjectType}&subject_id=${subjectId}`
-                : '/communications/new'
-            }
-            className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground"
-          >
-            <MailPlus className="h-4 w-4" aria-hidden="true" />
-            Log communication
-          </Link>
+          <>
+            {canSyncMailbox && (
+              <button
+                type="button"
+                onClick={() => void onSyncMailbox()}
+                disabled={syncing}
+                className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-60"
+              >
+                <RefreshCw className="h-4 w-4" aria-hidden="true" />
+                {syncing ? 'Pulling…' : 'Pull replies'}
+              </button>
+            )}
+            <Link
+              to={
+                subjectType && subjectId
+                  ? `/communications/new?subject_type=${subjectType}&subject_id=${subjectId}`
+                  : '/communications/new'
+              }
+              className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground"
+            >
+              <MailPlus className="h-4 w-4" aria-hidden="true" />
+              Log communication
+            </Link>
+          </>
         }
       />
+
+      {syncNote && (
+        <div className="mb-4">
+          <AlertItem variant="success">{syncNote}</AlertItem>
+        </div>
+      )}
 
       {summary && (
         <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
