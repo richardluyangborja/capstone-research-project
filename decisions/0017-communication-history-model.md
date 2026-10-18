@@ -59,8 +59,18 @@ communication, so the model has to leave room for that without building it.
 8. **Attachments arrive as their own slice**, implementing the polymorphic `attachments` table that
    `specs/00-data-model.md` deferred; until then a communication has no files and the detail screen says
    nothing about them.
-9. **Threading arrives as its own slice** (`thread_id` + `in_reply_to` on the communication), because a
+9. **Threading arrives as its own slice** (`thread_id` + `in_reply_to_id` on the communication), because a
    flat merged feed is genuinely useful on its own and grouping is a display concern over the same rows.
+   The thread's id is the **root message's own id** — a message nobody answered has `thread_id = null`,
+   and the first reply stamps the root — so one indexed `where thread_id = ?` selects the whole
+   conversation, the original included, and a reply names its **direct parent** with `in_reply_to_id`.
+   A reply is created into its parent's thread and its record is **prohibited** in the payload rather than
+   merely ignored: a conversation is a property of the record it belongs to, so a message never changes
+   hands. What a reply inherits is what the conversation already settled (record, channel, contact, title
+   line); what it does not is the caller's, and it defaults to the caller's own side (`outbound`), because
+   the person using the app is the one answering. Whether a message *may* be answered is a state question
+   (`draft`/`scheduled`/`failed` never happened → 422, the same split as sending) and a thread is visible
+   only while every message in it is (ADR-0017 §5).
 
 ## Consequences
 
@@ -88,4 +98,8 @@ communication, so the model has to leave room for that without building it.
   writing; and the mocked driver derives every id from the message reference, which is what makes a
   repeated inbound sync idempotent instead of duplicating the same reply. S3 settled that the size
   ceiling, file cap and disk are config (`crm.attachments.*`) rather than constants, and that the stored
-  path is never exposed — the client only ever holds the attachment's id.
+  path is never exposed — the client only ever holds the attachment's id. S4 settled that a conversation
+  is identified by its root's id rather than by matching subject lines, that the record (and the channel,
+  contact and title line) is inherited from the parent while the caller's own side is the default, and
+  that a pulled inbound reply is filed into the conversation it answers — so the S2 sync now closes the
+  loop the S4 view reads.

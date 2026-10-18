@@ -23,7 +23,7 @@ Adopted from standard CRM design (Salesforce-style objects) adapted to a staffin
 | **Contact** | A person at a company | name, role/decision-maker type (hiring manager, HR, procurement, finance), email, phone, primary flag | A company has many contacts |
 | **Opportunity (Deal)** | A potential engagement/deal | name, pipeline stage, est. value, expected close date, probability, source, owner | Can exist before/after conversion |
 | **Activity** | A logged touch or task (the quick log) | type (call/email/meeting/walk-in/task), subject, notes, due date, owner, related record | Drives follow-ups; mirrors a logged communication |
-| **Communication** | Detailed stored communication (module 03, spec 11) | channel, direction, participants, content/body, duration, outcome, external id, attachments, timestamps | Detail-rich, per lead/company/contact/deal/contract |
+| **Communication** | Detailed stored communication (module 03, spec 11) | channel, direction, participants, content/body, duration, outcome, external id, attachments, conversation links (thread/parent), timestamps | Detail-rich, per lead/company/contact/deal/contract |
 | **Contract** | A signed agreement | reference no., term start/end, rate/terms summary, status, attachments (pdf/png/jpeg) | Upload required; drives renewals & billing handoff |
 | **Client** | An account with a signed/active contract | (state on Company) status, tier, onboarding date, health | Modeled as a lifecycle state on Company, not a separate table (ADR-0001) |
 
@@ -91,7 +91,7 @@ on the one before:
 | --- | --- | --- | --- |
 | 01 | Lead & Client Tracking | — | `01`–`09` **(built)** |
 | 02 | Opportunity Pipeline Visualization | `Opportunity` record (08) | `10` **(built)** |
-| 03 | Communication History Management | objects from 01–02 | `11` *(S1–S3 built — 5 slices)* |
+| 03 | Communication History Management | objects from 01–02 | `11` *(S1–S4 built — 5 slices)* |
 | 04 | Follow-up Reminder System | 03 + notifications | `12` |
 | 05 | Client Satisfaction & Survey | clients + contacts | `13` |
 
@@ -120,7 +120,9 @@ mocked Service handoff still fires only on `mark-signed` (ADR-0015 §4).
    `00-data-model.md`: up to 5 files of 10 MB (pdf/png/jpeg) per message on a private disk, downloaded
    only through an authorized endpoint. Files obey the message's state — changeable while it is still
    editable or never delivered, fixed once `sent`/`received`.
-4. **S4 Threading** *(next)* — `thread_id`/`in_reply_to`; conversations and replies.
+4. **S4 Threading** *(built)* — a reply joins the message it answers (`thread_id` = the conversation's
+   root, `in_reply_to_id` = the message answered); the conversation list and a thread view read an
+   exchange back in order, and a pulled inbound reply is filed into the conversation it answers.
 5. **S5 Templates** *(candidate)* — reusable templates with merge fields.
 
 `Activity` stays the lightweight quick log; `Communication` is the detailed record (ADR-0017 §1). Each

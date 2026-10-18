@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { MailPlus, Paperclip, RefreshCw, Search } from 'lucide-react'
+import { MailPlus, MessagesSquare, Paperclip, RefreshCw, Search } from 'lucide-react'
 import PageHeader from '../components/common/PageHeader'
 import StatusBadge from '../components/common/StatusBadge'
 import EmptyState from '../components/common/EmptyState'
@@ -65,6 +65,17 @@ const columns: DataTableColumn<Communication>[] = [
             <Paperclip className="h-3 w-3" aria-hidden />
             {communication.attachments_count}{' '}
             {communication.attachments_count === 1 ? 'file' : 'files'}
+          </div>
+        ) : null}
+        {communication.thread_id ? (
+          <div className="mt-1">
+            <Link
+              to={`/communications/threads/${communication.thread_id}`}
+              className="inline-flex items-center gap-1 text-xs font-medium text-counts"
+            >
+              <MessagesSquare className="h-3 w-3" aria-hidden />
+              In a conversation
+            </Link>
           </div>
         ) : null}
       </>
@@ -219,6 +230,13 @@ export default function Communications() {
                 {syncing ? 'Pulling…' : 'Pull replies'}
               </button>
             )}
+            <Link
+              to="/communications/threads"
+              className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
+            >
+              <MessagesSquare className="h-4 w-4" aria-hidden="true" />
+              Conversations
+            </Link>
             <Link
               to={
                 subjectType && subjectId

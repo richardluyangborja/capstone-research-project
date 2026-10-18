@@ -129,16 +129,22 @@ Route::prefix('v1')->group(function (): void {
         // record's timeline; the flat book is the resource route below. Slice S2 adds the
         // outbound email path: send a draft, retry a rejected one, pull the mocked replies.
         // Slice S3 hangs files off a message: upload under the message, download and remove
-        // through the attachment's own route.
+        // through the attachment's own route. Slice S4 groups messages into conversations:
+        // list them, read one, and answer a message into its own thread.
         Route::get('leads/{lead}/communications', [CommunicationController::class, 'forLead']);
         Route::get('companies/{company}/communications', [CommunicationController::class, 'forCompany']);
         Route::get('contacts/{contact}/communications', [CommunicationController::class, 'forContact']);
         Route::get('opportunities/{opportunity}/communications', [CommunicationController::class, 'forOpportunity']);
         Route::get('contracts/{contract}/communications', [CommunicationController::class, 'forContract']);
+        // `threads` is a static segment, so it has to be declared before the resource route
+        // below: otherwise `communications/{communication}` would swallow it as an id.
+        Route::get('communications/threads', [CommunicationController::class, 'threads']);
+        Route::get('communications/threads/{threadId}', [CommunicationController::class, 'thread']);
         Route::post('communications/sync-inbound', [CommunicationController::class, 'syncInbound']);
         Route::post('communications/{communication}/attachments', [AttachmentController::class, 'store']);
         Route::post('communications/{communication}/send', [CommunicationController::class, 'send']);
         Route::post('communications/{communication}/retry', [CommunicationController::class, 'retry']);
+        Route::post('communications/{communication}/reply', [CommunicationController::class, 'reply']);
         Route::post('communications/{id}/restore', [CommunicationController::class, 'restore']);
         Route::apiResource('communications', CommunicationController::class)
             ->only(['index', 'store', 'show', 'update', 'destroy']);

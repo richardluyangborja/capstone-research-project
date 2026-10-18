@@ -10,6 +10,7 @@ import {
   LayoutDashboard,
   LogOut,
   MessageSquare,
+  MessagesSquare,
   SquareKanban,
   Target,
   UserCheck,
@@ -24,6 +25,8 @@ interface NavItem {
   to: string
   label: string
   icon: LucideIcon
+  /** Match the path exactly, for an entry that would otherwise stay lit on its own child. */
+  end?: boolean
 }
 
 interface NavGroup {
@@ -60,9 +63,17 @@ const groups: NavGroup[] = [
   },
   {
     // Module 03 (ADR-0014 §1, ADR-0016). One entry per shipped slice: S1 is the log & the
-    // history book; the email composer, attachments, threads and templates follow as slices.
+    // history book, S4 the conversations read back as threads; the template picker follows.
     label: 'Communication History Management',
-    items: [{ to: '/communications', label: 'Communication Log & History', icon: MessageSquare }],
+    items: [
+      {
+        to: '/communications',
+        label: 'Communication Log & History',
+        icon: MessageSquare,
+        end: true,
+      },
+      { to: '/communications/threads', label: 'Threaded Conversations', icon: MessagesSquare },
+    ],
   },
 ]
 
@@ -147,7 +158,7 @@ function NavGroupSection({ group }: { group: NavGroup }) {
       {open && (
         <ul className="mt-1 flex flex-col gap-1">
           {group.items.map((item) => (
-            <NavRow key={item.to} item={item} />
+            <NavRow key={item.to} item={item} end={item.end} />
           ))}
         </ul>
       )}

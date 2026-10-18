@@ -183,7 +183,7 @@ contract is created from the deal and the mocked Service handoff still fires on 
 | `duration_minutes` | int | | calls/meetings |
 | `outcome` | `CommunicationOutcome` | | calls |
 | `external_id` | string | | message id from the mocked email gateway |
-| `thread_id` / `in_reply_to_id` | string / ULID | | threading (slice S4) |
+| `thread_id` / `in_reply_to_id` | string / ULID | | threading: the conversation's root message / the message answered (slice S4) |
 | `failed_reason` | string | | set when a send fails |
 | `owner_id` | FK users | ✓ | who logged or sent it |
 

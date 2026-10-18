@@ -143,7 +143,8 @@ Laravel's own and is separate from `frontend/`.
   (ADR-0013 §5). Events: `OpportunityStageChanged`, `OpportunityWon`, `OpportunityLost`
   (`OpportunityCreated` now also fires on manual creation). **Not built here:** the
   dashboard/management reports (the AI module).
-- **Module 03 — Communication History Management (slices S1–S3 — log & history, email, attachments):** the detailed,
+- **Module 03 — Communication History Management (slices S1–S4 — log & history, email, attachments,
+  threads):** the detailed,
   channel-aware history record beside `Activity` (ADR-0017). Flat `/api/v1/communications`
   (index/store/show/update/destroy + `POST /{id}/restore`) with `filter[channel|direction|status|
   subject_type|subject_id|company|contact|owner|date_from|date_to]` + `search` and a `summary` block
@@ -187,7 +188,26 @@ Laravel's own and is separate from `frontend/`.
   while the message is `draft`/`logged` **or** `failed` (a rejected send never left), and a
   `sent`/`received` message keeps what it carried. `CommunicationResource` carries `attachments[]`
   (when loaded), `attachments_count` (when counted, on the book and nested rows) and `can_attach`.
-  **Not built here (later slices):** threading (S4), templates (S5).
+  **Not built here (later slices):** templates (S5).
+- **Module 03 slice S4 — threading (conversations):** `GET /communications/threads` (groups the caller may
+  see, newest first: title, record, channel, `message_count`, `first_at`/`last_at` and a `last_message`
+  block) and `GET /communications/threads/{threadId}` (the conversation, oldest first), plus
+  `POST /communications/{id}/reply`. The thread id is the **root message's own id**: a message nobody
+  answered has `thread_id = null` and is not a conversation, the first reply stamps the root, and
+  `in_reply_to_id` names the immediate parent — so one indexed `thread_id` selects the whole exchange,
+  original included. A reply is created into its parent's thread; the record is **inherited and
+  prohibited** in the payload (`subject_type`/`subject_id` → 422), as are the channel (defaults to the
+  parent's), the contact and the title line, while the direction defaults `outbound` (the caller is the
+  one answering). A reply is an ordinary history entry otherwise: it reuses the store path's mirror
+  activity + clock refresh, and may be saved as a `draft` for an outbound email. Answering needs `view`
+  on the message **and** the subject's `update` right (`CommunicationPolicy::reply`); a message that never
+  happened (`draft`/`scheduled`/`failed`) is a **422 state error** (`Communication::hasHappened()` /
+  `replyLockReason()`), not a permission one — the same split as sending. A thread is visible only while
+  **every** message in it is (a hand-built mixed record 404s; by construction a reply inherits its
+  parent's record, so this equals the record's own visibility) and an unknown thread is 404. The S2 sync
+  now files a pulled inbound reply **into** its original's conversation. `CommunicationResource` gains
+  `in_reply_to_id` + an `in_reply_to` block and `can_reply`; the book/detail mark a threaded message.
+  **Not built here (later slices):** templates (S5).
 
 Frontend routes: `/login`, `/leads` (views: All / My Leads / Unassigned / Team / Archived, inline
 owner control, bulk assign, status/rating/aging columns, "Stale only" filter), `/leads/new`,
@@ -216,7 +236,14 @@ direction/status/record-type/owner/date filters, a `?subject_type=&subject_id=` 
 prefilled when a record links to it) and `/communications/:id` (detail, inline correction of what the
 author logged, **Send now** on a draft, **Retry send** on a rejected one, the simulated-mailbox note,
 an **Attachments** panel — list, **Attach file**, download and remove, offered only while the API says
-`can_attach` — and retire/restore); the book and the record history panel mark a message that carries
+`can_attach` — and retire/restore), `/communications/threads` (conversation book: title, record, channel,
+message count and the last word, narrowed by channel/record/owner + search) and
+`/communications/threads/:threadId` (the exchange read back in order, each message a card naming the
+message it answers, with **Reply** where the API allows it and **Open message** through to the record);
+`/communications/new?reply_to=…` starts the log form from a message (record/channel/contact/title
+inherited, picker locked, **Log reply** / **Save draft reply**); the message detail carries **Reply**,
+**In reply to** and **Part of a conversation** links; the book and the record history panel mark a message
+that carries
 files; the account detail gains a
 Communications tab with a per-contract "Log" action, and leads and deals carry a Communications
 section. The topbar bell shows assignment notifications. The sidebar
@@ -225,10 +252,11 @@ under `Opportunity Pipeline Visualization`, module 03's slices under `Communicat
 Management`. Account + logout live in the sidebar footer; the brand is
 "Primepower Manpower Services / Customer Relationship Management".
 
-**Not implemented yet — next up is module 03, slice S4 (threading)** (spec
+**Not implemented yet — next up is module 03, slice S5 (templates)** (spec
 `resources/specs/11-communication-history.md`, ADR-0017). Module 03 declares five slices: **S1 log &
 history (built)**, **S2 email compose/send/retry through a mocked gateway (built)**, **S3 attachments
-(built — the deferred polymorphic `attachments` table)**, S4 threading, S5 templates (candidate).
+(built — the deferred polymorphic `attachments` table)**, **S4 threading (built — conversations, replies
+and the thread view)**, S5 templates (candidate).
 `Activity` stays the
 lightweight quick log; `Communication` is the detailed record and every logged communication also writes
 an activity, so the existing timelines stay the merged feed. Still deferred: contract
@@ -252,7 +280,11 @@ carries one send the mocked gateway rejected, so the retry path demos without to
 seeded message that went out holds the gateway id — so an admin **Pull replies** (or the artisan command)
 adds only what is genuinely new. Two placeholder scans (a valid tiny PNG, so a demo download opens) ride
 on the book: one on the Sunrise rate-sheet email — a `sent` message, so it shows the locked side of S3 —
-and one on the Sunrise commissary call, which is `logged`, so another file can be attached live.
+and one on the Sunrise commissary call, which is `logged`, so another file can be attached live. S4 seeds
+**two real conversations** — the BPO "commercial terms" email with the procurement answer that came back,
+and the Sunrise rate-sheet email with the client's approval and Sam's reply (three messages, each pointing
+at the message it answers) — so the conversation list, the thread view and the "last word" demo without
+answering anything first.
 
 ## Conventions that differ from framework defaults
 
@@ -330,8 +362,8 @@ Before implementing a submodule, read `resources/specs/README.md` (conventions) 
 qualification, assignment, lifecycle, company/contact, lead→client conversion and client lifecycle;
 module 02 (Opportunity Pipeline Visualization) covers the deal book, the Kanban board, stage
 moves/won-lost and the board forecast. **Module 03** (Communication History) is specified with five
-declared slices — S1 (log & history), S2 (mocked email send/retry) and S3 (attachments) are built,
-**S4 (threading) is next**. The remaining CRM modules — 04
+declared slices — S1 (log & history), S2 (mocked email send/retry), S3 (attachments) and S4 (threading)
+are built, **S5 (templates) is next, and a candidate**. The remaining CRM modules — 04
 follow-up reminders, 05 client satisfaction
 — are in **ADR-0014** (specs `12`–`13`). Dedup/merge and advanced tiers are module-01 deferrals
 (ADR-0006). Other departments are consumed via **mocked integrations** (ADR-0005), not built here.

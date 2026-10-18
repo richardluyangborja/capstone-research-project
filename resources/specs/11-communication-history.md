@@ -3,18 +3,20 @@
 Module 3 (ADR-0014). Entities: `Communication` (new), `Attachment` (new, S3), `Activity`, `Lead`,
 `Company`, `Contact`, `Opportunity`, `Contract`, `User`. ADRs: 0004, 0005, 0007, 0011, 0013, 0016, 0017.
 
-> **S1–S3 built, S4–S5 planned.** This is the contract for module 03; the slices land one PR at a time
+> **S1–S4 built, S5 planned.** This is the contract for module 03; the slices land one PR at a time
 > (ADR-0016 §2), so the parts a slice has not reached yet are marked where the text says so. It adds
 > the `communications` table that `00-data-model.md` reserved, implements its deferred polymorphic
-> `attachments` table (S3), and keeps `Activity` as the lightweight quick-log (ADR-0017 §1). Email is a
+> `attachments` table (S3), groups messages into conversations (S4), and keeps `Activity` as the
+> lightweight quick-log (ADR-0017 §1). Email is a
 > **mocked** integration (ADR-0017 §4) — nothing leaves the machine.
 
 ## Purpose
 
 Give every record a truthful, channel-aware history of what was said: log and read emails, calls,
 messages and meetings against a lead, account, contact, deal or contract; search and filter the
-history; (from slice 2) compose, send and retry an email through the mocked gateway; and (from slice 3)
-attach the documents that went with it — so a rep can see "what did we last tell BPO Solutions?", a
+history; (from slice 2) compose, send and retry an email through the mocked gateway; (from slice 3)
+attach the documents that went with it; and (from slice 4) read an exchange as one conversation —
+so a rep can see "what did we last tell BPO Solutions?", a
 manager can read the trail behind a deal, and the rate sheet or signed page is where the conversation
 is.
 
@@ -44,12 +46,13 @@ spec declares five slices (ADR-0016 §2); each is demoable end to end and leaves
 | **S1** *(built)* | `feature/communication-log` | Communication log & history | log a call on a deal → read it in the book and on the deal timeline |
 | **S2** *(built)* | `feature/communication-email` | Email compose, send & retry (mocked gateway) | compose → send → status `sent` with the mocked source, force a failure → retry |
 | **S3** *(built)* | `feature/communication-attachments` | Attachments on a communication | attach a PDF to an email, download it through the authorized endpoint |
-| **S4** *(next)* | `feature/communication-threads` | Threading (conversations) | reply into a thread, see the conversation grouped |
+| **S4** *(built)* | `feature/communication-threads` | Threading (conversations) | reply into a thread, see the conversation grouped |
 | **S5** *(candidate)* | `feature/communication-templates` | Reusable templates + merge fields | quick-log from a template rendered with the contact's details |
 
 S1 is the foundation everything else attaches to. S2 before S3/S4 because sending is what makes a
 history worth reading; S3 implements the polymorphic `attachments` table `00-data-model.md` had already
-reserved; S5 only if the two write paths prove tedious in the demo.
+reserved; S4 groups what S1/S2 write into conversations and files a pulled reply into the one it
+answers; S5 only if the two write paths prove tedious in the demo.
 
 **Not built here:** real mail transport/inbound sync, open/click tracking, VoIP/CTI and call recording,
 campaigns, satisfaction surveys (module 05), reminder scheduling (module 04) and analytics (the AI
@@ -114,18 +117,31 @@ project decision.
 
 | Method | Path | Description |
 | --- | --- | --- |
-| `GET` | `/api/v1/communications/threads` | Threads the caller may see (subject, message count, last at) |
-| `GET` | `/api/v1/communications/threads/{threadId}` | The conversation |
-| `POST` | `/api/v1/communications/{id}/reply` | Reply into the same thread |
+| `GET` | `/api/v1/communications/threads` | Conversations the caller may see, newest first — `filter[channel\|subject_type\|subject_id\|company\|contact\|owner\|date_from\|date_to]` + `search`, paginated |
+| `GET` | `/api/v1/communications/threads/{threadId}` | The conversation itself, oldest message first |
+| `POST` | `/api/v1/communications/{id}/reply` | Answer a message; the reply joins its conversation |
 
-Despite the table above reading `{id}`, the send/retry/upload routes bind the model as `{communication}`
+A message nobody has answered has no `thread_id` and is not a conversation: it appears in the book and on
+the record, but not in the thread list. Thread endpoints are static paths declared **before** the
+`communications/{communication}` resource route, or the resource would swallow `threads` as an id.
+
+**Reply request:** the record is *inherited, never accepted* — the payload has no `subject_type`/`subject_id`
+(a request that names one is 422, so a conversation never changes hands). Everything the parent does not
+settle is the caller's: the channel defaults to the parent's (an email thread stays email), the direction to
+`outbound` (the person using the app is the one answering), the contact and the title line to the parent's,
+and the status to the pair's normal default. A reply may be saved as a `draft` for an outbound email exactly
+as a logged message can, and then sent (S2) or replied to (S4) from its own page.
+
+Despite the table above reading `{id}`, the send/retry/upload/reply routes bind the model as `{communication}`
 (project convention) — the path is what the client sees, the parameter name is internal.
 
 **Errors:** 422 — missing/invalid subject, unknown channel or direction, editing a sent message, sending
 a message that is not a draft (or retrying one that is not `failed`), sending with no recipient,
 uploading a wrong-typed/oversized file or more than the per-record cap, changing the files on a message
-that has left or arrived; 403 — subject outside scope, editing someone else's record, reading or removing
-a file outside scope, restore or a mailbox pull without the right role; 404 — missing communication, or a
+that has left or arrived, answering a message that never happened (`draft`/`scheduled`/`failed`) or a
+reply that names another record; 403 — subject outside scope, editing someone else's record, reading or
+removing a file outside scope, restore or a mailbox pull without the right role, answering a record the
+caller cannot work; 404 — missing communication, a conversation outside scope or unknown, or a
 file missing from the disk.
 
 ## Payloads
@@ -134,9 +150,16 @@ file missing from the disk.
 `contact`/`opportunity`/`contract`) + `subject_id` and a `record` block (`{ type, id, label }` — the app
 builds the link from the type), `contact`, `channel`, `direction`, `status`, `subject` (title line),
 `body`, `from_name`/`from_address`, `to_name`/`to_address`, `occurred_at`, `duration_minutes`, `outcome`,
-`external_id`, `failed_reason`, `thread_id` (S4), `attachments[]` (S3, loaded on the detail) and
+`external_id`, `failed_reason`, `thread_id` (S4), `in_reply_to_id` + an `in_reply_to` block
+(`{ id, reference, subject }`, S4), `attachments[]` (S3, loaded on the detail) and
 `attachments_count` (S3, counted on the book rows), `owner`, plus `is_editable` and `can_update`,
-`can_delete`, `can_restore`, `can_send` (S2), `can_attach` (S3).
+`can_delete`, `can_restore`, `can_send` (S2), `can_attach` (S3), `can_reply` (S4 — false on a message
+that never went out, or on a record the caller cannot work).
+
+**Thread resource (S4):** `{ thread_id, title, record, channel, message_count, first_at, last_at,
+last_message: { id, reference, direction, status, from_name, occurred_at } }`. The title is the original
+message's subject line; `last_message` names who had the last word, so the list says who is waiting on
+whom. The thread detail adds `messages: Communication[]`, oldest first.
 
 **`Attachment` resource (S3):** `id`, `name` (the uploader's filename, for display), `mime_type`, `size`
 (bytes — the client formats it), `uploaded_by` + `uploader`, `can_delete`, `created_at`. The disk and the
@@ -151,7 +174,8 @@ mistaken for a real one.
 **`communications` table:** `reference`, `subject_type`/`subject_id` (morph, required), `contact_id`
 (FK, nullable), `channel`, `direction`, `status`, `subject`, `body`, `from_name`, `from_address`,
 `to_name`, `to_address`, `occurred_at` (required), `duration_minutes`, `outcome`, `external_id`,
-`thread_id` (S4), `in_reply_to_id` (S4), `failed_reason`, `owner_id`, timestamps, `deleted_at`.
+`thread_id` (S4 — the root message's id; null until something answers), `in_reply_to_id` (S4 — the message
+answered), `failed_reason`, `owner_id`, timestamps, `deleted_at`.
 Indexes: `subject_type+subject_id`, `channel`, `direction`, `status`, `occurred_at`, `contact_id`,
 `owner_id`, `thread_id`. Plus `activities.communication_id` (nullable, indexed).
 
@@ -191,7 +215,8 @@ busy, other`).
 7. **Inbound is synced, never live.** There is no IMAP connection and no scheduler; the sync command is
    run to pull the mock's "received" messages. A reply is filed against the record its original message
    belongs to — a reply that answers nothing we hold is dropped, because there are no orphan messages
-   (rule 1).
+   (rule 1) — and it is filed **into that original's conversation** (S4): a pulled reply is a reply like
+   any other, so it joins the thread instead of landing beside it.
 8. **A communication is not a task.** No `due_at`, no assignee, no reminder — that is module 04.
 9. **Attachments are optional** and never required to log a communication; a failed upload never
    discards the saved record. A message carries at most **5 files of 10 MB** (pdf/png/jpeg — the contract
@@ -204,6 +229,17 @@ busy, other`).
    outright takes its files with it.
 10. **Scoping is inherited** from the subject: outside scope is 403, and a message never outlives its
     record's visibility.
+11. **A reply joins the conversation it answers** (S4). The message being answered opens the thread when
+    nothing has yet: it becomes the thread's **root** and carries **its own id** as `thread_id`, so one
+    `thread_id` selects the whole exchange — the original included — and only an already-recorded
+    message's index column is ever rewritten. The answer points back at the message it answers with
+    `in_reply_to_id` (the direct parent, not the root), inherits the parent's record, channel and title
+    line, and goes out, because the caller is the one answering. Nothing can answer a message that never
+    happened — a `draft` has not left, a `scheduled` follow-up is still to come (module 04) and a
+    rejected send went nowhere — so those are 422. A conversation is visible only while **every** message
+    in it is: one message on a record the caller may not see hides the whole exchange (in practice the
+    rule follows from the record being shared, since every reply inherits it — the check keeps that an
+    enforced invariant rather than an assumption).
 
 ## Permissions
 
@@ -217,6 +253,7 @@ busy, other`).
 | Send / retry an email (S2) | Subject updatable | ✓ | ✓ |
 | Pull the mocked mailbox (S2) | — | — | ✓ |
 | Upload / remove an attachment (S3) | Own record | Team | All |
+| Read a conversation / answer a message (S4) | Own record | Team | All |
 
 "Subject visible / updatable" reuses the subject's own policy: a salesrep's lead, account, contact
 (ADR-0011 §2) or deal (ADR-0012 §4) is theirs; a manager covers the team; an admin sees everything.
@@ -268,7 +305,30 @@ busy, other`).
 - The book rows and the record history panel add a file count beside the reference, so a message with a
   document is visible without opening it.
 
-**S4** adds the thread view and reply. **S5** adds the template picker.
+**S4 — conversations**
+
+- `/communications/threads` — the conversation list: a `DataTable` of exchanges (title line + message
+  count, the record it hangs off, channel, who had the last word with its reference at, when), narrowed by
+  `filter[channel|subject_type|subject_id|owner]` + `search`, paginated newest first. A message nobody has
+  answered is not a conversation and is not listed, so the page's empty state says how one starts: answer
+  a message.
+- `/communications/threads/:threadId` — the exchange read as it happened: the original first, each answer
+  after it, every message a card carrying its channel/direction/status badges, who it was with, who logged
+  it, the message it answers and its file count, with a **Reply** action on each message the API says may
+  be answered and an **Open message** link through to the full record. The aside names the record the
+  conversation hangs off and when it started and last moved.
+- `/communications/:id` carries the threading links — **In reply to** `COM-…` and **Part of a
+  conversation** — and a **Reply** action while `can_reply`; the book marks a threaded message **In a
+  conversation**. Both link into the thread.
+- The reply form is the log form started from a message (`/communications/new?reply_to=…`): the record,
+  channel, contact and title line come from the parent (an email is proposed `Re:`-prefixed), the record
+  picker is replaced by a read-only "In reply to" line, and it submits through the reply endpoint with
+  **Log reply** / **Save draft reply**. A **Reply** action never appears for a message that cannot be
+  answered.
+- Sidebar: the module 03 group gains `Threaded Conversations` (`/communications/threads`); the S1 entry
+  is now matched **exactly**, so it no longer stays lit on the child.
+
+**S5** adds the template picker.
 
 Channel/direction/status colors reuse `StatusBadge` tones (email = activity/purple, call = people/green,
 inbound = counts/blue, failed = danger) — tokens only, no hardcoded hex.
@@ -277,7 +337,7 @@ inbound = counts/blue, failed = danger) — tokens only, no hardcoded hex.
 
 | Event | Emitted by | Effect |
 | --- | --- | --- |
-| `CommunicationLogged` | S1 | listener writes the mirror `Activity` and refreshes `last_activity_at` |
+| `CommunicationLogged` | S1 (and S4 for a reply) | listener writes the mirror `Activity` and refreshes `last_activity_at` |
 | `CommunicationSent` | S2 | status `sent`, `external_id` from the gateway, `sent` activity mirror |
 | `CommunicationFailed` | S2 | status `failed` + `failed_reason`, retryable |
 
@@ -298,6 +358,13 @@ Slice S3 also seeds two placeholder scans (a real, if tiny, PNG so a demo downlo
 handing back a broken document): one on the Sunrise rate-sheet email — a `sent` message, so it shows the
 locked side — and one on the Sunrise commissary call, which is `logged`, so the demo can add another file
 live.
+
+Slice S4 seeds **two conversations** rather than matching subject lines by hand: the BPO "commercial terms"
+email and the procurement answer that came back, and the Sunrise rate-sheet email with the client's approval
+and Sam's answer — three messages, `in_reply_to_id` chained from each to the one it answers, so the thread
+view, the count and the "last word" all demo without answering anything first. The pulled replies keep the
+id the mock would assign them, so a demo **Pull replies** still adds only what is genuinely new — and now
+files what it does pull *into* the conversation it answers.
 
 ## Acceptance criteria
 
@@ -352,8 +419,28 @@ live.
 - [x] The detail lists the files with size and uploader and offers the upload only when the API says
       `can_attach`; the book and the record history show the count.
 
-**S4** — a reply joins the same thread; the thread endpoint returns the conversation in order; a thread is
-only visible if every message's subject is visible.
+**S4**
+
+- [x] Answering a message joins the same conversation: the parent becomes the thread's root (carrying its
+      own id as `thread_id`), the reply points back at the message it answers with `in_reply_to_id`, and
+      one `thread_id` selects the whole exchange.
+- [x] The reply inherits the parent's record, channel, contact and title line, goes out (default
+      `outbound`), and may be saved as a `draft` for an outbound email; a payload naming another record is
+      422.
+- [x] Answering a message that never happened — `draft`, `scheduled` or `failed` — is 422, as is
+      answering a record the caller cannot work (403) or one outside their scope.
+- [x] A reply writes its timeline mirror and restarts the record's clock, exactly like any other logged
+      message; a draft reply writes neither.
+- [x] `GET /communications/threads` groups only answered messages, newest first, with the title, record,
+      channel, message count, first/last timestamps and the last message; `GET /communications/threads/{id}`
+      returns the conversation oldest-first. An unknown thread is 404.
+- [x] A thread is only visible if every message's subject is visible: a conversation on a record outside
+      the caller's scope is hidden (404, and absent from the list), and a hand-built thread mixing two
+      records is hidden too.
+- [x] The inbound sync files a pulled reply into the conversation its original belongs to.
+- [x] The UI lists conversations, reads one back in order with the message each answer belongs to, offers
+      Reply only where the API allows it, and answers through the reply endpoint with the record locked.
+- [x] The demo seed shows two real conversations with chained replies.
 
 **S5** — a template renders with the subject record's merge fields and prefills the composer; templates
 are manager+ to manage.
@@ -373,3 +460,16 @@ are manager+ to manage.
 - Should the inbound sync be scheduled in production? — **No**: nothing runs on a timer in this phase
   (scheduled work is module 04); the command is run manually for the demo, and an admin can trigger the
   same job from the book.
+- How is a conversation identified, and can a message change threads? — **The root's id** (S4): a message
+  nobody answered has `thread_id = null`, the first reply stamps the root with its own id so one query
+  selects the whole exchange, and `in_reply_to_id` names the immediate parent. A reply is created into its
+  parent's thread and the record is prohibited in the payload, so a message never changes hands — moving
+  one is not a supported operation, not merely refused.
+- Which messages can be answered? — **Only ones that happened** (S4): a `draft` has not left, a
+  `scheduled` follow-up is still to come (module 04) and a rejected send went nowhere. The rule is a state
+  question (422, checked by the model) on top of the permission question (403, checked by the policy),
+  the same split as sending a draft (ADR-0017 §5).
+- Does a reply copy the parent's subject? — **It defaults to it, and the composer proposes `Re:` for an
+  email** (S4): the API never rewrites a title line, so `Re:` is a UI convention over a verbatim default,
+  not a threaded-header parser. Matching on subject lines is deliberately not how conversations are
+  grouped.

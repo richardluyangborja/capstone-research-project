@@ -34,6 +34,9 @@ const { sentMessage, loggedCall, draftMessage, failedMessage, book } = vi.hoiste
     external_id: null,
     failed_reason: null,
     thread_id: null,
+    in_reply_to_id: null,
+    in_reply_to: null,
+    can_reply: true,
     owner_id: 1,
     owner: { id: 1, name: 'Sam Salesrep' },
     is_editable: false,
@@ -100,6 +103,8 @@ const { sentMessage, loggedCall, draftMessage, failedMessage, book } = vi.hoiste
     subject: 'Rate card for the Ortigas launch',
     is_editable: true,
     can_send: true,
+    // A draft has not happened, so nothing can answer it (slice S4).
+    can_reply: false,
   }
 
   // Slice S2: a send the gateway rejected, so it can be retried.
@@ -111,6 +116,7 @@ const { sentMessage, loggedCall, draftMessage, failedMessage, book } = vi.hoiste
     subject: 'Site visit schedule for the Ortigas floor',
     failed_reason: 'The mail provider rejected the message (mocked failure).',
     can_send: true,
+    can_reply: false,
   }
 
   return { sentMessage, loggedCall, draftMessage, failedMessage, book }
@@ -127,6 +133,9 @@ vi.mock('../lib/communications', () => ({
   sendCommunication: vi.fn(),
   retryCommunication: vi.fn(),
   syncInboundCommunications: vi.fn(),
+  replyToCommunication: vi.fn(),
+  listCommunicationThreads: vi.fn(),
+  getCommunicationThread: vi.fn(),
 }))
 
 // Slice S3 — the detail page uploads, downloads and removes files through these.
@@ -561,5 +570,129 @@ describe('Record history panel', () => {
       '/communications/new?subject_type=company&subject_id=company-1',
     )
     expect(communicationApi.listCommunicationsFor).toHaveBeenCalledWith('company', 'company-1')
+  })
+})
+
+// Slice S4 — threading: a message knows what it answers and which conversation it sits in.
+describe('Threading a message', () => {
+  const renderDetail = (id = 'com-1') =>
+    render(
+      <MemoryRouter initialEntries={[`/communications/${id}`]}>
+        <Routes>
+          <Route path="/communications/:id" element={<CommunicationDetail />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+  it('offers to answer a message that went out and links to the conversation it sits in', async () => {
+    vi.mocked(communicationApi.getCommunication).mockResolvedValue({
+      ...sentMessage,
+      thread_id: 'com-1',
+      in_reply_to: { id: 'com-9', reference: 'COM-2026-0009', subject: 'The original ask' },
+      in_reply_to_id: 'com-9',
+    })
+
+    renderDetail()
+
+    expect(await screen.findByRole('link', { name: 'Reply' })).toHaveAttribute(
+      'href',
+      '/communications/new?reply_to=com-1',
+    )
+    expect(screen.getByRole('link', { name: 'Part of a conversation' })).toHaveAttribute(
+      'href',
+      '/communications/threads/com-1',
+    )
+    expect(screen.getByRole('link', { name: 'COM-2026-0009' })).toHaveAttribute(
+      'href',
+      '/communications/com-9',
+    )
+  })
+
+  it('offers no reply control for a message that never went out', async () => {
+    vi.mocked(communicationApi.getCommunication).mockResolvedValue(draftMessage)
+
+    renderDetail('com-3')
+
+    expect(await screen.findByText('Draft — not sent yet')).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Reply' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Part of a conversation' })).not.toBeInTheDocument()
+  })
+
+  it('marks a message that belongs to a conversation in the book', async () => {
+    vi.mocked(communicationApi.listCommunications).mockResolvedValue({
+      ...book,
+      data: [{ ...sentMessage, thread_id: 'com-1' }],
+    })
+
+    render(
+      <MemoryRouter>
+        <Communications />
+      </MemoryRouter>,
+    )
+
+    expect(await screen.findByRole('link', { name: 'In a conversation' })).toHaveAttribute(
+      'href',
+      '/communications/threads/com-1',
+    )
+  })
+})
+
+// Slice S4 — the reply form is the log form started from a message.
+describe('Replying to a message', () => {
+  const renderReply = (id = 'com-1') =>
+    render(
+      <MemoryRouter initialEntries={[`/communications/new?reply_to=${id}`]}>
+        <Routes>
+          <Route path="/communications/new" element={<NewCommunication />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+  it('starts from the message it answers and posts through the reply endpoint', async () => {
+    renderReply()
+
+    // The record comes from the parent and cannot be picked: a reply never changes hands.
+    expect(await screen.findByRole('link', { name: /COM-2026-0001/ })).toHaveAttribute(
+      'href',
+      '/communications/com-1',
+    )
+    expect(screen.queryByLabelText('Record type')).not.toBeInTheDocument()
+
+    // An email threads under Re:, and the answer goes to whoever the parent was with.
+    expect(screen.getByLabelText('Subject')).toHaveValue('Re: Revised rate sheet')
+    expect(screen.getByLabelText('Channel')).toHaveValue('email')
+    expect(screen.getByLabelText('To name')).toHaveValue('Rosa Dela Cruz')
+
+    fireEvent.change(screen.getByLabelText('Body'), { target: { value: 'The rates hold.' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Log reply' }))
+
+    await waitFor(() =>
+      expect(communicationApi.replyToCommunication).toHaveBeenCalledWith(
+        'com-1',
+        expect.objectContaining({ subject: 'Re: Revised rate sheet', body: 'The rates hold.' }),
+      ),
+    )
+    // The record is the parent's, so it is never sent (the API rejects one that is).
+    const payload = vi.mocked(communicationApi.replyToCommunication).mock.calls[0][1]
+    expect(payload).not.toHaveProperty('subject_type')
+    expect(payload).not.toHaveProperty('subject_id')
+    expect(communicationApi.createCommunication).not.toHaveBeenCalled()
+  })
+
+  it('saves an outbound email reply as a draft first', async () => {
+    vi.mocked(communicationApi.replyToCommunication).mockResolvedValue(draftMessage)
+
+    renderReply()
+
+    await screen.findByLabelText('Status')
+    fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'draft' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save draft reply' }))
+
+    await waitFor(() =>
+      expect(communicationApi.replyToCommunication).toHaveBeenCalledWith(
+        'com-1',
+        expect.objectContaining({ status: 'draft' }),
+      ),
+    )
   })
 })

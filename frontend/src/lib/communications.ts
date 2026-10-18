@@ -4,9 +4,12 @@ import type {
   Communication,
   CommunicationHistory,
   CommunicationInput,
+  CommunicationReplyInput,
   CommunicationsPage,
   CommunicationSubjectType,
   CommunicationSyncResult,
+  CommunicationThreadDetail,
+  CommunicationThreadsPage,
 } from '../types'
 
 export interface CommunicationFilters {
@@ -21,6 +24,20 @@ export interface CommunicationFilters {
   owner?: string
   date_from?: string
   date_to?: string
+  page?: number
+}
+
+/**
+ * What a conversation list can be narrowed by (slice S4). Fewer knobs than the book on
+ * purpose: a conversation holds both directions and every status, so filtering those would
+ * only ever hide half of it.
+ */
+export interface CommunicationThreadFilters {
+  search?: string
+  channel?: string
+  subject_type?: string
+  subject_id?: string
+  owner?: string
   page?: number
 }
 
@@ -106,6 +123,46 @@ export const syncInboundCommunications = async (): Promise<CommunicationSyncResu
 
 export const restoreCommunication = async (id: string): Promise<Communication> => {
   const { data } = await api.post<{ data: Communication }>(`/communications/${id}/restore`)
+  return data.data
+}
+
+/**
+ * Answer a message (spec 11 §S4). The reply joins the parent's conversation and cannot choose
+ * the record — that belongs to the conversation, not to the message. Only the parent's own
+ * state decides whether it may be answered at all (a 422 for a draft, a scheduled follow-up or
+ * a send the gateway rejected).
+ */
+export const replyToCommunication = async (
+  id: string,
+  input: CommunicationReplyInput,
+): Promise<Communication> => {
+  const { data } = await api.post<{ data: Communication }>(`/communications/${id}/reply`, input)
+  return data.data
+}
+
+/** The conversations the caller may see, newest first (spec 11 §S4). */
+export const listCommunicationThreads = async (
+  filters: CommunicationThreadFilters = {},
+): Promise<CommunicationThreadsPage> => {
+  const params: Record<string, string> = {}
+  if (filters.search) params.search = filters.search
+  if (filters.channel) params['filter[channel]'] = filters.channel
+  if (filters.subject_type) params['filter[subject_type]'] = filters.subject_type
+  if (filters.subject_id) params['filter[subject_id]'] = filters.subject_id
+  if (filters.owner) params['filter[owner]'] = filters.owner
+  if (filters.page && filters.page > 1) params.page = String(filters.page)
+
+  const { data } = await api.get<CommunicationThreadsPage>('/communications/threads', { params })
+  return data
+}
+
+/** One conversation in full, oldest message first (spec 11 §S4). */
+export const getCommunicationThread = async (
+  threadId: string,
+): Promise<CommunicationThreadDetail> => {
+  const { data } = await api.get<{ data: CommunicationThreadDetail }>(
+    `/communications/threads/${threadId}`,
+  )
   return data.data
 }
 

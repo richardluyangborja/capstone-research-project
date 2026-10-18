@@ -52,6 +52,15 @@ class CommunicationResource extends JsonResource
             'external_id' => $this->external_id,
             'failed_reason' => $this->failed_reason,
             'thread_id' => $this->thread_id,
+            // Threading (slice S4): what this message answers, and whether it may be answered
+            // in turn. A draft, a scheduled follow-up or a rejected send has not happened, so
+            // nothing can reply to it — that is a state rule, not a permission.
+            'in_reply_to_id' => $this->in_reply_to_id,
+            'in_reply_to' => $this->whenLoaded('inReplyTo', fn (): ?array => $this->inReplyTo === null ? null : [
+                'id' => $this->inReplyTo->id,
+                'reference' => $this->inReplyTo->reference,
+                'subject' => $this->inReplyTo->subject,
+            ]),
             // Files ride with the message when the caller asked for them (the detail screen
             // does; the book only needs the count) — slice S3.
             'attachments' => AttachmentResource::collection($this->whenLoaded('attachments')),
@@ -65,6 +74,8 @@ class CommunicationResource extends JsonResource
             'can_send' => $this->isSendable() && (bool) $request->user()?->can('send', $this->resource),
             'can_attach' => $this->allowsAttachmentChanges()
                 && (bool) $request->user()?->can('create', [Attachment::class, $this->resource]),
+            'can_reply' => $this->replyLockReason() === null
+                && (bool) $request->user()?->can('reply', $this->resource),
             'can_update' => (bool) $request->user()?->can('update', $this->resource),
             'can_delete' => (bool) $request->user()?->can('delete', $this->resource),
             'can_restore' => (bool) $request->user()?->can('restore', $this->resource),
