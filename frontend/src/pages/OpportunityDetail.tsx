@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, Trash2 } from 'lucide-react'
 import PageHeader from '../components/common/PageHeader'
 import FormCard from '../components/common/FormCard'
+import CommunicationList from '../components/common/CommunicationList'
 import AlertItem from '../components/common/AlertItem'
 import StatusBadge from '../components/common/StatusBadge'
 import StatCard from '../components/common/StatCard'
@@ -454,6 +455,17 @@ export default function OpportunityDetail() {
                 ))}
               </ul>
             )}
+          </FormCard>
+
+          <FormCard
+            title="Communications"
+            description="The detailed log: calls, emails, meetings and letters on this deal."
+          >
+            <CommunicationList
+              subjectType="opportunity"
+              subjectId={deal.id}
+              canLog={deal.can_update}
+            />
           </FormCard>
         </div>
 

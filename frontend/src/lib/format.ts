@@ -29,3 +29,17 @@ export const formatDateTime = (value: string | Date | null | undefined): string 
     timeZone: TIME_ZONE,
   }).format(new Date(value))
 }
+
+/**
+ * An ISO instant (as the API returns it) → the local wall-clock string a `datetime-local`
+ * input expects. Kept local on purpose: the input has no zone, so converting back through
+ * `new Date(...)` round-trips the same instant.
+ */
+export const toDateTimeLocal = (value: string | Date | null | undefined): string => {
+  if (!value) return ''
+  const date = new Date(value)
+  const pad = (part: number) => String(part).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(
+    date.getHours(),
+  )}:${pad(date.getMinutes())}`
+}

@@ -130,6 +130,7 @@ export interface CompanyCounts {
   opportunities: number
   contracts: number
   activities: number
+  communications: number
 }
 
 export interface CompanyParentRef {
@@ -603,4 +604,100 @@ export interface BillingSummary {
 export interface CompanyBilling {
   data: BillingSummary
   meta: { source: string; read_only: boolean; as_of: string }
+}
+
+// --- Module 03: communication history ---------------------------------------
+
+export type CommunicationChannel =
+  'email' | 'call' | 'sms' | 'whatsapp' | 'meeting' | 'letter' | 'other'
+
+export type CommunicationDirection = 'inbound' | 'outbound'
+
+export type CommunicationStatus = 'draft' | 'scheduled' | 'sent' | 'received' | 'failed' | 'logged'
+
+export type CommunicationOutcome = 'connected' | 'no_answer' | 'voicemail' | 'busy' | 'other'
+
+/** The records a message can hang off (`Communication::subjectTypes()`). */
+export type CommunicationSubjectType = 'lead' | 'company' | 'contact' | 'opportunity' | 'contract'
+
+export interface CommunicationRecordRef {
+  type: CommunicationSubjectType
+  id: string
+  label: string | null
+}
+
+export interface CommunicationContactRef {
+  id: string
+  name: string
+  email: string | null
+  role_type: ContactRoleType
+}
+
+/** The detailed history entry (module 03, spec 11 §Payloads). */
+export interface Communication {
+  id: string
+  reference: string
+  subject_type: CommunicationSubjectType
+  subject_id: string
+  record: CommunicationRecordRef | null
+  contact_id: string | null
+  contact: CommunicationContactRef | null
+  channel: CommunicationChannel
+  direction: CommunicationDirection
+  status: CommunicationStatus
+  subject: string
+  body: string | null
+  from_name: string | null
+  from_address: string | null
+  to_name: string | null
+  to_address: string | null
+  occurred_at: string | null
+  duration_minutes: number | null
+  outcome: CommunicationOutcome | null
+  external_id: string | null
+  failed_reason: string | null
+  thread_id: string | null
+  owner_id: number
+  owner: { id: number; name: string } | null
+  is_editable: boolean
+  can_update: boolean
+  can_delete: boolean
+  can_restore: boolean
+  deleted_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface CommunicationSummary {
+  all: number
+  by_direction: Partial<Record<CommunicationDirection, number>>
+  by_channel: Partial<Record<CommunicationChannel, number>>
+  last_contacted_at: string | null
+}
+
+/** The history book (`GET /communications`) — pagination meta plus the header summary. */
+export type CommunicationsPage = Paginated<Communication> & { summary: CommunicationSummary }
+
+/** One record's history (`GET /leads/{id}/communications` and friends). */
+export interface CommunicationHistory {
+  data: Communication[]
+  meta: { total: number }
+}
+
+export interface CommunicationInput {
+  subject_type: CommunicationSubjectType
+  subject_id: string
+  channel: CommunicationChannel
+  direction: CommunicationDirection
+  status?: CommunicationStatus
+  contact_id?: string | null
+  subject: string
+  body?: string | null
+  from_name?: string | null
+  from_address?: string | null
+  to_name?: string | null
+  to_address?: string | null
+  occurred_at?: string | null
+  duration_minutes?: number | null
+  outcome?: CommunicationOutcome | null
 }

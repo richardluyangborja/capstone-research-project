@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import { ArrowLeft, UserPlus } from 'lucide-react'
 import PageHeader from '../components/common/PageHeader'
 import FormCard from '../components/common/FormCard'
+import CommunicationList from '../components/common/CommunicationList'
 import StatusBadge from '../components/common/StatusBadge'
 import AlertItem from '../components/common/AlertItem'
 import LeadOwnerControl from '../components/common/LeadOwnerControl'
@@ -537,6 +538,13 @@ export default function LeadDetail() {
                 })}
               </ul>
             )}
+          </FormCard>
+
+          <FormCard
+            title="Communications"
+            description="The detailed log: calls, emails, meetings and letters, with participants and outcomes."
+          >
+            <CommunicationList subjectType="lead" subjectId={lead.id} canLog={lead.can_update} />
           </FormCard>
         </div>
 
