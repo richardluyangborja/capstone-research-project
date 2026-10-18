@@ -216,16 +216,18 @@ Soft deletes; a `signed` contract blocks deleting its company. Indexes: `status`
 several files per record) stays a separate module — Phase 1 ships one document plus term/status
 tracking.
 
-## Attachment (deferred — module 03 slice S3 implements it)
+## Attachment (built — module 03 slice S3)
 
-A polymorphic `attachments` table (`attachable_type` / `attachable_id`, `disk`, `path`,
+A polymorphic `attachments` table (`attachable_type` / `attachable_id` (ULIDs), `disk`, `path`,
 `original_name`, `mime_type`, `size`, `uploaded_by`) is for records that need *several* files. Phase 1
 kept the single contract document on the contract row and serves it through
 `GET /api/v1/contracts/{id}/file`; uploads accept pdf/png/jpeg up to 10 MB on a private disk.
 
-**Module 03 slice S3 implements this table** (spec 11) for email attachments — up to 5 files per
-communication, 10 MB each, same MIME allow-list, downloads through an authorized endpoint. Once it
-exists, contracts and contacts can move to it; nothing is scheduled to.
+**Module 03 slice S3 implements this table** (spec 11) for a communication's files — up to 5 per message,
+10 MB each, same MIME allow-list, stored under a generated path with the uploader's filename kept for
+display, and downloaded only through `GET /api/v1/attachments/{id}/file`. There is no `deleted_at`: the
+file lives only as long as the row. Once the table exists, contracts and contacts can move onto it;
+nothing is scheduled to.
 
 ## Indexes / constraints (highlights)
 

@@ -76,10 +76,16 @@ communication, so the model has to leave room for that without building it.
   communications with a due time rather than inventing a second scheduling table.
 - The `attachments` slice is the first thing in the project to need several files on a record, so it
   unblocks that deferral for contracts and contacts too.
+- A file is part of the record of what was said, so it obeys the same state rule as the body: files may
+  change while a message is `draft`/`logged` or was never delivered (`failed`), and a `sent`/`received`
+  one keeps what it carried. A file has no retired-but-kept state — removing it removes the bytes — while
+  retiring a *message* keeps its files, because a retired message is still readable and restorable.
 - Module 03 ships as several slices rather than one PR (ADR-0016), which is the point: the log/history
   slice is demoable before email sending exists, and the delivery order is declared in spec 11.
-- S1 and S2 are built. S2 settled three seams the decision left open: `draft` is settable **only** for an
-  outbound email (it is the one record that is written and sent later) and it carries no timeline mirror
-  until it goes out; sending stamps `occurred_at` so the timeline records the send, not the writing; and
-  the mocked driver derives every id from the message reference, which is what makes a repeated inbound
-  sync idempotent instead of duplicating the same reply.
+- S1, S2 and S3 are built. S2 settled three seams the decision left open: `draft` is settable **only**
+  for an outbound email (it is the one record that is written and sent later) and it carries no timeline
+  mirror until it goes out; sending stamps `occurred_at` so the timeline records the send, not the
+  writing; and the mocked driver derives every id from the message reference, which is what makes a
+  repeated inbound sync idempotent instead of duplicating the same reply. S3 settled that the size
+  ceiling, file cap and disk are config (`crm.attachments.*`) rather than constants, and that the stored
+  path is never exposed — the client only ever holds the attachment's id.

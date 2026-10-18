@@ -1,20 +1,22 @@
 # 11 — Communication History Management
 
-Module 3 (ADR-0014). Entities: `Communication` (new), `Activity`, `Lead`, `Company`, `Contact`,
-`Opportunity`, `Contract`, `User`. ADRs: 0004, 0005, 0007, 0011, 0013, 0016, 0017.
+Module 3 (ADR-0014). Entities: `Communication` (new), `Attachment` (new, S3), `Activity`, `Lead`,
+`Company`, `Contact`, `Opportunity`, `Contract`, `User`. ADRs: 0004, 0005, 0007, 0011, 0013, 0016, 0017.
 
-> **S1–S2 built, S3–S5 planned.** This is the contract for module 03; the slices land one PR at a time
+> **S1–S3 built, S4–S5 planned.** This is the contract for module 03; the slices land one PR at a time
 > (ADR-0016 §2), so the parts a slice has not reached yet are marked where the text says so. It adds
-> the `communications` table that `00-data-model.md` reserved and keeps `Activity` as the lightweight
-> quick-log (ADR-0017 §1). Email is a **mocked** integration (ADR-0017 §4) — nothing leaves the
-> machine.
+> the `communications` table that `00-data-model.md` reserved, implements its deferred polymorphic
+> `attachments` table (S3), and keeps `Activity` as the lightweight quick-log (ADR-0017 §1). Email is a
+> **mocked** integration (ADR-0017 §4) — nothing leaves the machine.
 
 ## Purpose
 
 Give every record a truthful, channel-aware history of what was said: log and read emails, calls,
 messages and meetings against a lead, account, contact, deal or contract; search and filter the
-history; and (from slice 2) compose, send and retry an email through the mocked gateway — so a rep can
-see "what did we last tell BPO Solutions?", and a manager can read the trail behind a deal.
+history; (from slice 2) compose, send and retry an email through the mocked gateway; and (from slice 3)
+attach the documents that went with it — so a rep can see "what did we last tell BPO Solutions?", a
+manager can read the trail behind a deal, and the rate sheet or signed page is where the conversation
+is.
 
 ## Channels & records
 
@@ -41,12 +43,13 @@ spec declares five slices (ADR-0016 §2); each is demoable end to end and leaves
 | --- | --- | --- | --- |
 | **S1** *(built)* | `feature/communication-log` | Communication log & history | log a call on a deal → read it in the book and on the deal timeline |
 | **S2** *(built)* | `feature/communication-email` | Email compose, send & retry (mocked gateway) | compose → send → status `sent` with the mocked source, force a failure → retry |
-| **S3** *(next)* | `feature/communication-attachments` | Attachments on a communication | attach a PDF to an email, download it through the authorized endpoint |
-| **S4** | `feature/communication-threads` | Threading (conversations) | reply into a thread, see the conversation grouped |
+| **S3** *(built)* | `feature/communication-attachments` | Attachments on a communication | attach a PDF to an email, download it through the authorized endpoint |
+| **S4** *(next)* | `feature/communication-threads` | Threading (conversations) | reply into a thread, see the conversation grouped |
 | **S5** *(candidate)* | `feature/communication-templates` | Reusable templates + merge fields | quick-log from a template rendered with the contact's details |
 
 S1 is the foundation everything else attaches to. S2 before S3/S4 because sending is what makes a
-history worth reading; S5 only if the two write paths prove tedious in the demo.
+history worth reading; S3 implements the polymorphic `attachments` table `00-data-model.md` had already
+reserved; S5 only if the two write paths prove tedious in the demo.
 
 **Not built here:** real mail transport/inbound sync, open/click tracking, VoIP/CTI and call recording,
 campaigns, satisfaction surveys (module 05), reminder scheduling (module 04) and analytics (the AI
@@ -92,9 +95,20 @@ from the linked contact when none was typed, and a message with no destination i
 
 | Method | Path | Description |
 | --- | --- | --- |
-| `POST` | `/api/v1/communications/{id}/attachments` | Multipart upload — pdf/png/jpeg, ≤10 MB, private disk |
-| `GET` | `/api/v1/attachments/{id}/file` | Authorized download |
-| `DELETE` | `/api/v1/attachments/{id}` | Remove — author or manager+ |
+| `POST` | `/api/v1/communications/{id}/attachments` | Multipart upload — pdf/png/jpeg, ≤10 MB, private disk; the uploader needs the subject's `update` right |
+| `GET` | `/api/v1/attachments/{id}/file` | Authorized download (streamed, under the uploader's filename) |
+| `DELETE` | `/api/v1/attachments/{id}` | Remove — the same scope as uploading |
+
+Files live on a private disk and are never addressed by URL: the resource carries no path, and the bytes
+come only from the authorized download, exactly as a contract document does. The disk, size ceiling and
+per-record cap are config (`crm.attachments.*`), sharing the contract allow-list. Attaching is refused
+with **422** while a message has left or arrived — a `sent`/`received` message keeps the files it carried
+— and an upload that fails leaves the logged record untouched.
+
+The config ceiling is what *the app* enforces; the runtime has its own (`post_max_size` /
+`upload_max_filesize`), which on the dev machine is lower (8 MB / 2 MB), so a demo file should stay
+small — the seeded scans are tiny on purpose. Those runtime values are an environment setting, not a
+project decision.
 
 **S4 — threads**
 
@@ -104,10 +118,15 @@ from the linked contact when none was typed, and a message with no destination i
 | `GET` | `/api/v1/communications/threads/{threadId}` | The conversation |
 | `POST` | `/api/v1/communications/{id}/reply` | Reply into the same thread |
 
+Despite the table above reading `{id}`, the send/retry/upload routes bind the model as `{communication}`
+(project convention) — the path is what the client sees, the parameter name is internal.
+
 **Errors:** 422 — missing/invalid subject, unknown channel or direction, editing a sent message, sending
-a message that is not a draft (or retrying one that is not `failed`), sending with no recipient; 403 —
-subject outside scope, editing someone else's record, restore or a mailbox pull without the right role;
-404 — missing communication.
+a message that is not a draft (or retrying one that is not `failed`), sending with no recipient,
+uploading a wrong-typed/oversized file or more than the per-record cap, changing the files on a message
+that has left or arrived; 403 — subject outside scope, editing someone else's record, reading or removing
+a file outside scope, restore or a mailbox pull without the right role; 404 — missing communication, or a
+file missing from the disk.
 
 ## Payloads
 
@@ -115,8 +134,14 @@ subject outside scope, editing someone else's record, restore or a mailbox pull 
 `contact`/`opportunity`/`contract`) + `subject_id` and a `record` block (`{ type, id, label }` — the app
 builds the link from the type), `contact`, `channel`, `direction`, `status`, `subject` (title line),
 `body`, `from_name`/`from_address`, `to_name`/`to_address`, `occurred_at`, `duration_minutes`, `outcome`,
-`external_id`, `failed_reason`, `thread_id` (S4), `attachments[]` (S3), `owner`, plus `is_editable` and
-`can_update`, `can_delete`, `can_restore`, `can_send` (S2).
+`external_id`, `failed_reason`, `thread_id` (S4), `attachments[]` (S3, loaded on the detail) and
+`attachments_count` (S3, counted on the book rows), `owner`, plus `is_editable` and `can_update`,
+`can_delete`, `can_restore`, `can_send` (S2), `can_attach` (S3).
+
+**`Attachment` resource (S3):** `id`, `name` (the uploader's filename, for display), `mime_type`, `size`
+(bytes — the client formats it), `uploaded_by` + `uploader`, `can_delete`, `created_at`. The disk and the
+stored path are deliberately **absent**: the only handle is the attachment's own id, and the bytes come
+from `GET /attachments/{id}/file`.
 
 **History book:** `{ data: Communication[], meta: { current_page, per_page, total, last_page }, links }`
 plus `summary` — `{ all, inbound, outbound, by_channel: { email, call, … }, last_contacted_at }` for the
@@ -129,6 +154,12 @@ mistaken for a real one.
 `thread_id` (S4), `in_reply_to_id` (S4), `failed_reason`, `owner_id`, timestamps, `deleted_at`.
 Indexes: `subject_type+subject_id`, `channel`, `direction`, `status`, `occurred_at`, `contact_id`,
 `owner_id`, `thread_id`. Plus `activities.communication_id` (nullable, indexed).
+
+**`attachments` table (S3 — the polymorphic table `00-data-model.md` reserved):**
+`attachable_type`/`attachable_id` (morph, ULIDs), `disk`, `path`, `original_name`, `mime_type`, `size`,
+`uploaded_by` (FK), timestamps. No `deleted_at`: a file exists for its row and for nothing else, so
+removing the row removes the file (there is no "retired but kept" state for a file). Communications are
+its first user; the single contract document can move onto it later without a second table.
 
 Enums (added to `00-data-model.md`): `CommunicationChannel` (`email, call, sms, whatsapp, meeting,
 letter, other`), `CommunicationDirection` (`inbound, outbound`), `CommunicationStatus` (`draft,
@@ -163,7 +194,14 @@ busy, other`).
    (rule 1).
 8. **A communication is not a task.** No `due_at`, no assignee, no reminder — that is module 04.
 9. **Attachments are optional** and never required to log a communication; a failed upload never
-   discards the saved record.
+   discards the saved record. A message carries at most **5 files of 10 MB** (pdf/png/jpeg — the contract
+   allow-list), stored on a private disk and readable only through the authorized download; the stored
+   path is never sent to a client. Files follow the message's own rule: they may be added or removed
+   while it is still editable (`draft`, `logged`) **or has never been delivered** (`failed` — a rejected
+   send is still the rep's to fix before retrying), and a `sent`/`received` message keeps the files it
+   carried, because they are part of the record of what was said. Removing a file removes the row and the
+   bytes; retiring a message keeps them (it is still readable and restorable), while destroying a message
+   outright takes its files with it.
 10. **Scoping is inherited** from the subject: outside scope is 403, and a message never outlives its
     record's visibility.
 
@@ -219,8 +257,18 @@ busy, other`).
 - `/communications` gains a **Pull replies** action for admins (the in-app twin of
   `communication:sync-inbound`) and reports what arrived.
 
-**S3** adds the attachment list + upload + download on the detail. **S4** adds the thread view and reply.
-**S5** adds the template picker.
+**S3 — the attachment list**
+
+- `/communications/:id` carries an **Attachments** panel under the body: each file with its name (the
+  download action), formatted size and uploader, a **Download** action, and a **Remove** action while the
+  message still allows it. **Attach file** (a file picker + button, `accept` on the allow-list) appears
+  only when `can_attach`, so a sent or received message shows "A sent message keeps the files it carried."
+  instead of a control the API would refuse; a rejected upload reports why in place rather than losing
+  what was logged.
+- The book rows and the record history panel add a file count beside the reference, so a message with a
+  document is visible without opening it.
+
+**S4** adds the thread view and reply. **S5** adds the template picker.
 
 Channel/direction/status colors reuse `StatusBadge` tones (email = activity/purple, call = people/green,
 inbound = counts/blue, failed = danger) — tokens only, no hardcoded hex.
@@ -245,6 +293,11 @@ stale filters have something to show) — owned across Sam/Liza/Maria.
 Every seeded message that "went out" carries the id the mocked gateway assigns it, and the seeded BPO
 reply carries the id the mock would give that reply, so a demo **Pull replies** recognises what is
 already there and adds only what is new.
+
+Slice S3 also seeds two placeholder scans (a real, if tiny, PNG so a demo download opens rather than
+handing back a broken document): one on the Sunrise rate-sheet email — a `sent` message, so it shows the
+locked side — and one on the Sunrise commissary call, which is `logged`, so the demo can add another file
+live.
 
 ## Acceptance criteria
 
@@ -284,8 +337,20 @@ already there and adds only what is new.
 - [x] The detail screen sends a draft, retries a rejected one, shows the gateway's id and a case where
       there is none (a hand-logged "sent" email never claims the mock carried it).
 
-**S3** — a PDF/PNG/JPEG up to 10 MB attaches to a communication, is stored on the private disk, downloads
-only through the authorized endpoint, and an oversized or wrong-typed file is 422.
+**S3**
+
+- [x] A pdf, png or jpeg up to 10 MB attaches to a communication and is stored on the private disk under a
+      generated path; the uploader's filename is kept for display only, and the payload exposes no path.
+- [x] An oversized file, a wrong type or a sixth file on one message is 422 with the reason; nothing is
+      stored, and the logged record is untouched.
+- [x] The file downloads only through `GET /attachments/{id}/file`, under the name the uploader gave it;
+      a file missing from the disk is 404, and a caller outside the subject's scope is 403.
+- [x] A `sent`/`received` message takes no new files and gives none up (422 both ways); a `draft`, `logged`
+      or `failed` one may still be worked.
+- [x] Removing a file deletes the row and the bytes; retiring a message keeps its files, destroying it
+      takes them with it.
+- [x] The detail lists the files with size and uploader and offers the upload only when the API says
+      `can_attach`; the book and the record history show the count.
 
 **S4** — a reply joins the same thread; the thread endpoint returns the conversation in order; a thread is
 only visible if every message's subject is visible.
@@ -300,7 +365,11 @@ are manager+ to manage.
   if reps find two entry points confusing in the demo.
 - Reference prefix `COM-YYYY-NNNN` sits close to the company `CO-` prefix — acceptable, or use
   `MSG-`? — **`COM-`**, and S1 shipped it: the formats differ (four-digit tail, `COM-` vs `CO-`).
-- Attachment limits — **up to 5 files, 10 MB each**, same MIME allow-list as contracts (S3).
+- Attachment limits — **up to 5 files, 10 MB each**, same MIME allow-list as contracts (S3, config
+  `crm.attachments.*`).
+- May a file be added to a message that has already gone out? — **No** (S3): files are part of the record
+  of what was said, so `sent`/`received` keeps what it carried; `draft`, `logged` and a never-delivered
+  `failed` send may still be worked. Same shape as the body rule in ADR-0017 §6.
 - Should the inbound sync be scheduled in production? — **No**: nothing runs on a timer in this phase
   (scheduled work is module 04); the command is run manually for the demo, and an admin can trigger the
   same job from the book.

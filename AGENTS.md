@@ -143,7 +143,7 @@ Laravel's own and is separate from `frontend/`.
   (ADR-0013 §5). Events: `OpportunityStageChanged`, `OpportunityWon`, `OpportunityLost`
   (`OpportunityCreated` now also fires on manual creation). **Not built here:** the
   dashboard/management reports (the AI module).
-- **Module 03 — Communication History Management (slices S1–S2 — log & history, email):** the detailed,
+- **Module 03 — Communication History Management (slices S1–S3 — log & history, email, attachments):** the detailed,
   channel-aware history record beside `Activity` (ADR-0017). Flat `/api/v1/communications`
   (index/store/show/update/destroy + `POST /{id}/restore`) with `filter[channel|direction|status|
   subject_type|subject_id|company|contact|owner|date_from|date_to]` + `search` and a `summary` block
@@ -171,8 +171,23 @@ Laravel's own and is separate from `frontend/`.
   recipient is taken from the linked contact when none was typed, and no destination is 422. Sending
   stamps `occurred_at`, writes the timeline mirror and restarts the record's clock. Inbound is **pulled,
   never pushed**: the sync records the mock's reply as a `received` message on the record its original
-  belongs to, drops a reply it cannot place, and never records one twice. **Not built here (later
-  slices):** attachments (S3), threading (S4), templates (S5).
+  belongs to, drops a reply it cannot place, and never records one twice.
+- **Module 03 slice S3 — attachments (the deferred polymorphic table):** `POST
+  /communications/{communication}/attachments` (multipart), `GET /attachments/{id}/file` (authorized,
+  streamed download), `DELETE /attachments/{id}`. The `Attachment` model fills the polymorphic
+  `attachments` table `00-data-model.md` reserved (`attachable_type/id`, `disk`, `path`, `original_name`,
+  `mime_type`, `size`, `uploaded_by`; no `deleted_at` — a file exists only for its row, and deleting the
+  row deletes the bytes). Limits come from `config/crm.php` (`crm.attachments.disk|max_kb|max_files` —
+  private disk, 10 MB, 5 files) with the contract MIME allow-list (pdf/png/jpeg). The stored path is
+  **never** in the payload; the client only holds the attachment id. `AttachmentPolicy` inherits the
+  record's rights (`view` delegates to the subject's `view`, `create`/`delete` to its `update`), so a
+  salesrep works their own record's files, a manager the team's, an admin any. Whether a message still
+  *takes* files is a **state** rule, not a permission (raised as 422 by `StoreAttachmentRequest` and the
+  controller, via `Communication::allowsAttachmentChanges()`/`attachmentLockReason()`): files may change
+  while the message is `draft`/`logged` **or** `failed` (a rejected send never left), and a
+  `sent`/`received` message keeps what it carried. `CommunicationResource` carries `attachments[]`
+  (when loaded), `attachments_count` (when counted, on the book and nested rows) and `can_attach`.
+  **Not built here (later slices):** threading (S4), templates (S5).
 
 Frontend routes: `/login`, `/leads` (views: All / My Leads / Unassigned / Team / Archived, inline
 owner control, bulk assign, status/rating/aging columns, "Stale only" filter), `/leads/new`,
@@ -200,7 +215,9 @@ direction/status/record-type/owner/date filters, a `?subject_type=&subject_id=` 
 "Pull replies" action), `/communications/new` (log form — a **Draft** status for an outbound email,
 prefilled when a record links to it) and `/communications/:id` (detail, inline correction of what the
 author logged, **Send now** on a draft, **Retry send** on a rejected one, the simulated-mailbox note,
-retire/restore); the account detail gains a
+an **Attachments** panel — list, **Attach file**, download and remove, offered only while the API says
+`can_attach` — and retire/restore); the book and the record history panel mark a message that carries
+files; the account detail gains a
 Communications tab with a per-contract "Log" action, and leads and deals carry a Communications
 section. The topbar bell shows assignment notifications. The sidebar
 is **grouped by module** — module 01's submodules under `Lead & Client Tracking`, module 02's screens
@@ -208,10 +225,10 @@ under `Opportunity Pipeline Visualization`, module 03's slices under `Communicat
 Management`. Account + logout live in the sidebar footer; the brand is
 "Primepower Manpower Services / Customer Relationship Management".
 
-**Not implemented yet — next up is module 03, slice S3 (attachments)** (spec
+**Not implemented yet — next up is module 03, slice S4 (threading)** (spec
 `resources/specs/11-communication-history.md`, ADR-0017). Module 03 declares five slices: **S1 log &
-history (built)**, **S2 email compose/send/retry through a mocked gateway (built)**, S3 attachments
-(implements the deferred polymorphic `attachments` table), S4 threading, S5 templates (candidate).
+history (built)**, **S2 email compose/send/retry through a mocked gateway (built)**, **S3 attachments
+(built — the deferred polymorphic `attachments` table)**, S4 threading, S5 templates (candidate).
 `Activity` stays the
 lightweight quick log; `Communication` is the detailed record and every logged communication also writes
 an activity, so the existing timelines stay the merged feed. Still deferred: contract
@@ -233,7 +250,9 @@ spans email/call/meeting in both directions across Sunrise, BPO and Harbor, and 
 Hotels silent so "last contacted" and the stale worklists have something to show. The seeded book also
 carries one send the mocked gateway rejected, so the retry path demos without touching config, and every
 seeded message that went out holds the gateway id — so an admin **Pull replies** (or the artisan command)
-adds only what is genuinely new.
+adds only what is genuinely new. Two placeholder scans (a valid tiny PNG, so a demo download opens) ride
+on the book: one on the Sunrise rate-sheet email — a `sent` message, so it shows the locked side of S3 —
+and one on the Sunrise commissary call, which is `logged`, so another file can be attached live.
 
 ## Conventions that differ from framework defaults
 
@@ -311,8 +330,8 @@ Before implementing a submodule, read `resources/specs/README.md` (conventions) 
 qualification, assignment, lifecycle, company/contact, lead→client conversion and client lifecycle;
 module 02 (Opportunity Pipeline Visualization) covers the deal book, the Kanban board, stage
 moves/won-lost and the board forecast. **Module 03** (Communication History) is specified with five
-declared slices — S1 (log & history) and S2 (mocked email send/retry) are built, **S3 (attachments) is
-next**. The remaining CRM modules — 04
+declared slices — S1 (log & history), S2 (mocked email send/retry) and S3 (attachments) are built,
+**S4 (threading) is next**. The remaining CRM modules — 04
 follow-up reminders, 05 client satisfaction
 — are in **ADR-0014** (specs `12`–`13`). Dedup/merge and advanced tiers are module-01 deferrals
 (ADR-0006). Other departments are consumed via **mocked integrations** (ADR-0005), not built here.
