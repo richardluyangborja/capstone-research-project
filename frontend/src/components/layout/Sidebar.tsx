@@ -9,6 +9,7 @@ import {
   Inbox,
   LayoutDashboard,
   LogOut,
+  MessageSquare,
   SquareKanban,
   Target,
   UserCheck,
@@ -56,6 +57,12 @@ const groups: NavGroup[] = [
       { to: '/pipeline', label: 'Pipeline Board', icon: SquareKanban },
       { to: '/opportunities', label: 'Deal Management', icon: Target },
     ],
+  },
+  {
+    // Module 03 (ADR-0014 §1, ADR-0016). One entry per shipped slice: S1 is the log & the
+    // history book; the email composer, attachments, threads and templates follow as slices.
+    label: 'Communication History Management',
+    items: [{ to: '/communications', label: 'Communication Log & History', icon: MessageSquare }],
   },
 ]
 

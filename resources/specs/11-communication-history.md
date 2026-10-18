@@ -3,10 +3,11 @@
 Module 3 (ADR-0014). Entities: `Communication` (new), `Activity`, `Lead`, `Company`, `Contact`,
 `Opportunity`, `Contract`, `User`. ADRs: 0004, 0005, 0007, 0011, 0013, 0016, 0017.
 
-> **Planned — not yet implemented.** This is the contract for module 03. It adds the `communications`
-> table that `00-data-model.md` reserved, keeps `Activity` as the lightweight quick-log (ADR-0017 §1),
-> and ships in five declared slices (ADR-0016 §2). Email is a **mocked** integration (ADR-0017 §4) —
-> nothing leaves the machine.
+> **S1 built, S2–S5 planned.** This is the contract for module 03; the slices land one PR at a time
+> (ADR-0016 §2), so the parts a slice has not reached yet are marked where the text says so. It adds
+> the `communications` table that `00-data-model.md` reserved, keeps `Activity` as the lightweight
+> quick-log (ADR-0017 §1). Email is a **mocked** integration (ADR-0017 §4) — nothing leaves the
+> machine, and the mocked gateway arrives in S2.
 
 ## Purpose
 
@@ -38,8 +39,8 @@ spec declares five slices (ADR-0016 §2); each is demoable end to end and leaves
 
 | Slice | Branch | Submodule facet | Demo |
 | --- | --- | --- | --- |
-| **S1** | `feature/communication-log` | Communication log & history | log a call on a deal → read it in the book and on the deal timeline |
-| **S2** | `feature/communication-email` | Email compose, send & retry (mocked gateway) | compose → send → status `sent` with the mocked source, force a failure → retry |
+| **S1** *(built)* | `feature/communication-log` | Communication log & history | log a call on a deal → read it in the book and on the deal timeline |
+| **S2** *(next)* | `feature/communication-email` | Email compose, send & retry (mocked gateway) | compose → send → status `sent` with the mocked source, force a failure → retry |
 | **S3** | `feature/communication-attachments` | Attachments on a communication | attach a PDF to an email, download it through the authorized endpoint |
 | **S4** | `feature/communication-threads` | Threading (conversations) | reply into a thread, see the conversation grouped |
 | **S5** *(candidate)* | `feature/communication-templates` | Reusable templates + merge fields | quick-log from a template rendered with the contact's details |
@@ -59,10 +60,10 @@ Static paths precede resource routes (project convention, `routes/api.php`). Eac
 
 | Method | Path | Description |
 | --- | --- | --- |
-| `GET` | `/api/v1/communications` | History book — `filter[channel\|direction\|status\|subject_type\|subject_id\|contact_id\|company_id\|owner\|date_from\|date_to]` + `search`, paginated, `meta` summary |
+| `GET` | `/api/v1/communications` | History book — `filter[channel\|direction\|status\|subject_type\|subject_id\|company\|contact\|owner\|date_from\|date_to]` + `search`, paginated, `meta` summary. `company` matches the record's account (including messages on its deals), `contact` matches the person; `owner` takes an id or `me`/`team` |
 | `POST` | `/api/v1/communications` | Log a communication against a subject |
 | `GET` | `/api/v1/communications/{id}` | Detail (participants, body, linked record) |
-| `PATCH` | `/api/v1/communications/{id}` | Edit a `draft`/`logged` record — author only |
+| `PATCH` | `/api/v1/communications/{id}` | Edit a `draft`/`logged` record — its author or a manager+ in scope |
 | `DELETE` | `/api/v1/communications/{id}` | Soft delete |
 | `POST` | `/api/v1/communications/{id}/restore` | Restore — manager+ |
 | `GET` | `/leads/{id}/communications` | Nested history for a lead |
@@ -104,11 +105,12 @@ restore without the right role; 404 — missing communication.
 
 ## Payloads
 
-**`Communication` resource:** `id`, `reference` (`COM-YYYY-NNNN`), `subject_type`/`subject_id` + a
-`subject` display block (`{ type, id, label, link }`), `contact`, `channel`, `direction`, `status`,
-`subject` (title line), `body`, `from_name`/`from_address`, `to_name`/`to_address`, `occurred_at`,
-`duration_minutes`, `outcome`, `external_id`, `failed_reason`, `thread_id` (S4),
-`attachments[]` (S3), `owner`, plus `can_update`, `can_delete`, `can_restore`, `can_send` (S2).
+**`Communication` resource:** `id`, `reference` (`COM-YYYY-NNNN`), `subject_type` (`lead`/`company`/
+`contact`/`opportunity`/`contract`) + `subject_id` and a `record` block (`{ type, id, label }` — the app
+builds the link from the type), `contact`, `channel`, `direction`, `status`, `subject` (title line),
+`body`, `from_name`/`from_address`, `to_name`/`to_address`, `occurred_at`, `duration_minutes`, `outcome`,
+`external_id`, `failed_reason`, `thread_id` (S4), `attachments[]` (S3), `owner`, plus `is_editable` and
+`can_update`, `can_delete`, `can_restore`, `can_send` (S2).
 
 **History book:** `{ data: Communication[], meta: { current_page, per_page, total, last_page }, links }`
 plus `summary` — `{ all, inbound, outbound, by_channel: { email, call, … }, last_contacted_at }` for the
@@ -133,11 +135,13 @@ busy, other`).
    contact / opportunity / contract). There is no standalone "unfiled" history.
 2. **Logging mirrors an activity and refreshes the subject.** The mirror activity is written by the
    `CommunicationLogged` listener, and `last_activity_at` is refreshed where the subject has one (leads,
-   deals) so aging and deal staleness keep tracking real touches (ADR-0009, ADR-0015 §6).
+   deals) so aging and deal staleness keep tracking real touches (ADR-0009, ADR-0015 §6). Deleting a
+   communication removes its mirror; restoring rewrites it. The mirror is a pointer — the body lives only
+   on the communication.
 3. **Contact history is a view, not a copy.** A message on a company or a deal belongs to that record;
-   `filter[contact_id]` surfaces the ones addressed to a person. Nothing is duplicated per contact.
+   `filter[contact]` surfaces the ones addressed to a person. Nothing is duplicated per contact.
 4. **Sent and received are immutable.** Only `draft` and `logged` records are editable, and only by
-   their author. Deletion is soft; restore is manager+.
+   their author or a manager+ within the record's scope. Deletion is soft; restore is manager+.
 5. **`scheduled` is reserved for module 04** and is not settable in module 03. Follow-ups will create
    communications with a due time rather than a second scheduling table (ADR-0017 §3).
 6. **Email is mocked.** Sending goes through the `EmailGateway` interface + `MockEmailGateway`
@@ -170,20 +174,24 @@ busy, other`).
 
 **S1 — Communication History**
 
-- `/communications` — the book: a `DataTable` of rows (channel badge + direction arrow, subject line,
-  account/contact, owner, `occurred_at`, status badge) with `filter[channel|direction|status|company|
-  owner|date range]` + `search`, pagination, and a header summary (total, inbound/outbound, per-channel
-  counts, last contacted).
+- `/communications` — the book: a `DataTable` of rows (channel badge + direction badge, subject line
+  and reference, the linked record, contact, status, who logged it) with `filter[channel|direction|
+  status|subject_type|subject_id|company|owner|date range]` + `search`, pagination, and a header
+  summary (all, inbound, outbound, last contacted — the per-channel breakdown rides along in
+  `summary`). A `?subject_type=&subject_id=` deep link narrows it to one record.
 - `/communications/:id` — the detail: participants, the full body, the linked record (deep link), and
   the metadata; edit when `draft`/`logged`, otherwise read-only, with delete/restore by role.
-- A **Log communication** `FormCard`/dialog — channel, direction, contact, subject, body, occurred at,
-  duration and outcome for calls — reachable from the book, from each record page, and deep-linkable
-  (`/communications/new?subject_type=opportunity&subject_id=…`).
+- A **Log communication** form — record picker (or a prefilled deep link), channel, direction, status,
+  contact, subject, body, occurred at, and duration/outcome for calls — reachable from the book, from
+  each record page, and deep-linkable
+  (`/communications/new?subject_type=opportunity&subject_id=…`). Contracts are picked from the
+  account's Contracts tab (there is no flat contract book to search).
 - A **Communications** tab on `/companies/:id` (beside Contacts / Sites / Opportunities / Contracts /
-  Activities), and a communications section on the lead and deal detail pages.
+  Activities), a communications section on the lead and deal detail pages, and a per-contract **Log**
+  action on the account's Contracts tab. All three render the shared `CommunicationList` panel.
 - The existing quick-log form stays where it is and is labelled **Quick log**; the new one is **Log
   communication** (ADR-0017 §7).
-- Sidebar: module 03 group `Communication History Management` → `Communication History`
+- Sidebar: module 03 group `Communication History Management` → `Communication Log & History`
   (`/communications`).
 
 **S2** adds the composer (draft → send → retry), a `Sent via mocked email` note, and a "Sync inbound"
@@ -213,20 +221,20 @@ and the stale filters have something to show) — owned across Sam/Liza/Maria.
 
 **S1**
 
-- [ ] A communication can be logged against a lead, account, contact, deal and contract; an unknown or
+- [x] A communication can be logged against a lead, account, contact, deal and contract; an unknown or
       missing subject is 422.
-- [ ] Logging it writes exactly one mirror `Activity` (correct `ActivityType` for the channel) linked
+- [x] Logging it writes exactly one mirror `Activity` (correct `ActivityType` for the channel) linked
       via `communication_id`, and refreshes the subject's `last_activity_at`.
-- [ ] The mirror appears on the existing timelines (`/leads/{id}/timeline`, `/opportunities/{id}/timeline`,
+- [x] The mirror appears on the existing timelines (`/leads/{id}/timeline`, `/opportunities/{id}/timeline`,
       `/companies/{id}/activities`) with **no change** to those endpoints.
-- [ ] The book filters by channel, direction, status, company, contact, owner and date range, and
+- [x] The book filters by channel, direction, status, company, contact, owner and date range, and
       searches the subject line/body; `summary` carries the per-channel counts and `last_contacted_at`.
-- [ ] The nested history endpoints return only that record's messages and 403 for a record outside scope.
-- [ ] A salesrep sees only messages on their own records; a manager covers the team; an admin sees all.
-- [ ] A `sent`/`received` record cannot be edited (422); only the author may edit a `draft`/`logged` one;
-      deleting is soft and restore is manager+.
-- [ ] `status=scheduled` is rejected in module 03 (reserved for module 04).
-- [ ] The demo seed shows a populated book with both directions and several channels.
+- [x] The nested history endpoints return only that record's messages and 403 for a record outside scope.
+- [x] A salesrep sees only messages on their own records; a manager covers the team; an admin sees all.
+- [x] A `sent`/`received` record cannot be edited (422); only the author — or a manager+ in scope — may
+      edit a `draft`/`logged` one; deleting is soft and restore is manager+.
+- [x] `status=scheduled` is rejected in module 03 (reserved for module 04).
+- [x] The demo seed shows a populated book with both directions and several channels.
 
 **S2** — a draft sends through the mocked gateway to `sent` with `meta.source`; `CRM_EMAIL_SIMULATE_FAILURE`
 lands it in `failed` with a reason; retry succeeds and is not offered on an already-sent message; the

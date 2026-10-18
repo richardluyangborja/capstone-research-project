@@ -110,6 +110,14 @@ class Lead extends Model
     }
 
     /**
+     * The detailed communication history for this lead (module 03, spec 11).
+     */
+    public function communications(): MorphMany
+    {
+        return $this->morphMany(Communication::class, 'subjectable', 'subject_type', 'subject_id');
+    }
+
+    /**
      * Role + ownership scoping (ADR-0004): salesrep own, manager team + queue, admin all.
      *
      * The unassigned queue is a shared, claimable pool, so it is visible to every role

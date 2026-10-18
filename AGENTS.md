@@ -143,6 +143,23 @@ Laravel's own and is separate from `frontend/`.
   (ADR-0013 §5). Events: `OpportunityStageChanged`, `OpportunityWon`, `OpportunityLost`
   (`OpportunityCreated` now also fires on manual creation). **Not built here:** the
   dashboard/management reports (the AI module).
+- **Module 03 — Communication History Management (slice S1 — log & history):** the detailed,
+  channel-aware history record beside `Activity` (ADR-0017). Flat `/api/v1/communications`
+  (index/store/show/update/destroy + `POST /{id}/restore`) with `filter[channel|direction|status|
+  subject_type|subject_id|company|contact|owner|date_from|date_to]` + `search` and a `summary` block
+  (per-channel/direction counts + `last_contacted_at`), plus the nested history endpoints
+  (`/leads|companies|contacts|opportunities|contracts/{id}/communications`, no pagination). A record
+  block `{ type, id, label }` replaces the raw morph columns; `reference` is `COM-YYYY-NNNN`. A logged
+  communication writes exactly one mirror `Activity` (`communication_id` links it, channel → activity
+  type) and refreshes the record's `last_activity_at`, so the module 01/02 timelines need no endpoint
+  change. S1 accepts `sent|received|failed|logged` (`draft`/`scheduled` are 422 — reserved for S2 and
+  module 04); the default status is inbound → `received`, electronic outbound → `sent`, else `logged`.
+  Visibility is inherited from the subject, so the `CommunicationPolicy` **only** delegates; editability
+  is a state rule raised in the controller: a `sent`/`received` entry is immutable (422), a
+  `draft`/`logged` one is the author's (or a manager+ in scope) to correct. Delete is soft by the
+  author/manager+, restore is manager+. Each record's timeline keeps the merged feed. Events:
+  `CommunicationLogged`. **Not built here (later slices):** the mocked email gateway (S2), attachments
+  (S3), threading (S4), templates (S5).
 
 Frontend routes: `/login`, `/leads` (views: All / My Leads / Unassigned / Team / Archived, inline
 owner control, bulk assign, status/rating/aging columns, "Stale only" filter), `/leads/new`,
@@ -165,15 +182,21 @@ won/lost, owner/close-window/search filters and a forecast header), `/opportunit
 filters, pagination, summary), `/opportunities/new` (deal created directly on an account),
 `/opportunities/:id` (edit form, stage control, deal timeline + log-activity, linked contracts and
 "Create contract from deal" when won). `/companies/:id?tab=contracts&opportunity_id=…` opens the
-contract upload prefilled from a won deal. The topbar bell shows assignment notifications. The sidebar
+contract upload prefilled from a won deal. `/communications` (history book: summary cards, channel/
+direction/status/record-type/owner/date filters and a `?subject_type=&subject_id=` deep link),
+`/communications/new` (log form, prefilled when a record links to it) and `/communications/:id`
+(detail, inline correction of what the author logged, retire/restore); the account detail gains a
+Communications tab with a per-contract "Log" action, and leads and deals carry a Communications
+section. The topbar bell shows assignment notifications. The sidebar
 is **grouped by module** — module 01's submodules under `Lead & Client Tracking`, module 02's screens
-under `Opportunity Pipeline Visualization`. Account + logout live in the sidebar footer; the brand is
+under `Opportunity Pipeline Visualization`, module 03's slice under `Communication History
+Management`. Account + logout live in the sidebar footer; the brand is
 "Primepower Manpower Services / Customer Relationship Management".
 
-**Not implemented yet — next up is module 03, slice S1 (communication log & history)** (spec
-`resources/specs/11-communication-history.md`, ADR-0017). Module 03 declares five slices: S1 log &
-history, S2 email compose/send/retry through a **mocked** gateway, S3 attachments (implements the
-deferred polymorphic `attachments` table), S4 threading, S5 templates (candidate). `Activity` stays the
+**Not implemented yet — next up is module 03, slice S2 (email compose, send & retry)** (spec
+`resources/specs/11-communication-history.md`, ADR-0017). Module 03 declares five slices: **S1 log &
+history (built)**, S2 email compose/send/retry through a **mocked** gateway, S3 attachments (implements
+the deferred polymorphic `attachments` table), S4 threading, S5 templates (candidate). `Activity` stays the
 lightweight quick log; `Communication` is the detailed record and every logged communication also writes
 an activity, so the existing timelines stay the merged feed. Still deferred: contract
 versioning/e-signature, renewal reminders/automatic client aging, duplicate detection & merge (a
@@ -189,7 +212,9 @@ failed → retry banner), Sunrise Foods Inc (contract out for signature), Greenf
 (terminated/churned) and Greenfield Hotels Cebu (draft). The seeded pipeline places deals in **every**
 stage (e.g. Sunrise `discovery`/`proposal_sent`, BPO `negotiation`/`on_hold`, Harbor `negotiation` and
 `won`, Greenfield `lost`, Greenfield Cebu `new_inquiry`/`qualified`) owned across Sam/Liza/Maria, so
-the board, the forecast header and the win rate demo without faking.
+the board, the forecast header and the win rate demo without faking. The seeded communication book
+spans email/call/meeting in both directions across Sunrise, BPO and Harbor, and leaves Greenfield
+Hotels silent so "last contacted" and the stale worklists have something to show.
 
 ## Conventions that differ from framework defaults
 
@@ -267,6 +292,7 @@ Before implementing a submodule, read `resources/specs/README.md` (conventions) 
 qualification, assignment, lifecycle, company/contact, lead→client conversion and client lifecycle;
 module 02 (Opportunity Pipeline Visualization) covers the deal book, the Kanban board, stage
 moves/won-lost and the board forecast. **Module 03** (Communication History) is specified with five
-declared slices — S1 is next. The remaining CRM modules — 04 follow-up reminders, 05 client satisfaction
+declared slices — S1 (log & history) is built, **S2 (email) is next**. The remaining CRM modules — 04
+follow-up reminders, 05 client satisfaction
 — are in **ADR-0014** (specs `12`–`13`). Dedup/merge and advanced tiers are module-01 deferrals
 (ADR-0006). Other departments are consumed via **mocked integrations** (ADR-0005), not built here.

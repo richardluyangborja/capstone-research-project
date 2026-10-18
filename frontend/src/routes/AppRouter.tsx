@@ -7,6 +7,8 @@ import Assignment from '../pages/Assignment'
 import Clients from '../pages/Clients'
 import Companies from '../pages/Companies'
 import CompanyDetail from '../pages/CompanyDetail'
+import CommunicationDetail from '../pages/CommunicationDetail'
+import Communications from '../pages/Communications'
 import Contacts from '../pages/Contacts'
 import Conversion from '../pages/Conversion'
 import DashboardHome from '../pages/DashboardHome'
@@ -15,6 +17,7 @@ import LeadDetail from '../pages/LeadDetail'
 import LeadsList from '../pages/LeadsList'
 import Lifecycle from '../pages/Lifecycle'
 import Login from '../pages/Login'
+import NewCommunication from '../pages/NewCommunication'
 import NewCompany from '../pages/NewCompany'
 import NewLead from '../pages/NewLead'
 import NewOpportunity from '../pages/NewOpportunity'
@@ -55,6 +58,9 @@ export default function AppRouter() {
           <Route path="/opportunities" element={<Opportunities />} />
           <Route path="/opportunities/new" element={<NewOpportunity />} />
           <Route path="/opportunities/:id" element={<OpportunityDetail />} />
+          <Route path="/communications" element={<Communications />} />
+          <Route path="/communications/new" element={<NewCommunication />} />
+          <Route path="/communications/:id" element={<CommunicationDetail />} />
         </Route>
       </Route>
 

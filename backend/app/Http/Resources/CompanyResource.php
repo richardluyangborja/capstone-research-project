@@ -53,7 +53,8 @@ class CompanyResource extends JsonResource
                 'name' => $this->owner->name,
             ]),
             'owner_id' => $this->owner_id,
-            // Roll-up counts (spec 06 §API). Contracts join in submodule 09.
+            // Roll-up counts (spec 06 §API). Contracts join in submodule 09, the communication
+            // history in module 03.
             'counts' => [
                 'sites' => (int) ($this->sites_count ?? 0),
                 'branches' => (int) ($this->children_count ?? 0),
@@ -61,6 +62,7 @@ class CompanyResource extends JsonResource
                 'opportunities' => (int) ($this->opportunities_count ?? 0),
                 'contracts' => (int) ($this->contracts_count ?? 0),
                 'activities' => (int) ($this->activities_count ?? 0),
+                'communications' => (int) ($this->communications_count ?? 0),
             ],
             // The lifecycle stepper offers only legal moves (spec 09 §UI).
             'allowed_status_transitions' => array_map(

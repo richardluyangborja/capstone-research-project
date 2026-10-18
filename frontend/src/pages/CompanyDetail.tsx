@@ -7,6 +7,7 @@ import StatusBadge from '../components/common/StatusBadge'
 import AlertItem from '../components/common/AlertItem'
 import EmptyState from '../components/common/EmptyState'
 import DataTable, { type DataTableColumn } from '../components/common/DataTable'
+import CommunicationList from '../components/common/CommunicationList'
 import {
   createCompanySite,
   deleteCompany,
@@ -65,7 +66,14 @@ import type {
   Opportunity,
 } from '../types'
 
-type TabKey = 'overview' | 'contacts' | 'sites' | 'opportunities' | 'contracts' | 'activities'
+type TabKey =
+  | 'overview'
+  | 'contacts'
+  | 'sites'
+  | 'opportunities'
+  | 'contracts'
+  | 'communications'
+  | 'activities'
 
 const tabKeys: TabKey[] = [
   'overview',
@@ -73,6 +81,7 @@ const tabKeys: TabKey[] = [
   'sites',
   'opportunities',
   'contracts',
+  'communications',
   'activities',
 ]
 
@@ -745,6 +754,7 @@ export default function CompanyDetail() {
     { key: 'sites', label: 'Sites', count: company.counts.sites },
     { key: 'opportunities', label: 'Opportunities', count: company.counts.opportunities },
     { key: 'contracts', label: 'Contracts', count: company.counts.contracts },
+    { key: 'communications', label: 'Communications', count: company.counts.communications },
     { key: 'activities', label: 'Activities', count: company.counts.activities },
   ]
 
@@ -825,6 +835,13 @@ export default function CompanyDetail() {
       className: 'text-right',
       render: (contract) => (
         <div className="flex items-center justify-end gap-2">
+          <Link
+            to={`/communications/new?subject_type=contract&subject_id=${contract.id}&subject_label=${encodeURIComponent(contract.title)}`}
+            title="Log a communication against this contract"
+            className="rounded-md border border-border px-2.5 py-1 text-xs font-medium text-foreground hover:bg-muted"
+          >
+            Log
+          </Link>
           {contract.can_mark_signed && ['draft', 'sent'].includes(contract.status) && (
             <button
               type="button"
@@ -2312,6 +2329,19 @@ export default function CompanyDetail() {
             </FormCard>
           </div>
         </div>
+      )}
+
+      {tab === 'communications' && (
+        <FormCard
+          title="Communication history"
+          description="Every call, email, meeting and letter logged against this account. A logged entry also lands on the Activities timeline."
+        >
+          <CommunicationList
+            subjectType="company"
+            subjectId={company.id}
+            canLog={company.can_update}
+          />
+        </FormCard>
       )}
 
       {tab === 'activities' && (

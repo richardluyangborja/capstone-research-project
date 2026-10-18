@@ -26,6 +26,7 @@ class Activity extends Model
         'owner_id',
         'subject_type',
         'subject_id',
+        'communication_id',
     ];
 
     /**

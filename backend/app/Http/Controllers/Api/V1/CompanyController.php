@@ -26,7 +26,7 @@ class CompanyController extends Controller
 
         $companies = Company::query()
             ->with(['owner', 'parent'])
-            ->withCount(['sites', 'children', 'contacts', 'opportunities', 'contracts', 'activities'])
+            ->withCount(['sites', 'children', 'contacts', 'opportunities', 'contracts', 'activities', 'communications'])
             ->visibleTo($request->user())
             ->search($request->string('search')->toString() ?: null)
             ->when($filters['status'] ?? null, fn ($query, $status) => $query->whereIn('status', explode(',', (string) $status)))
@@ -130,6 +130,6 @@ class CompanyController extends Controller
 
     private function withRelations(Company $company): Company
     {
-        return $company->load(['owner', 'parent'])->loadCount(['sites', 'children', 'contacts', 'opportunities', 'contracts', 'activities']);
+        return $company->load(['owner', 'parent'])->loadCount(['sites', 'children', 'contacts', 'opportunities', 'contracts', 'activities', 'communications']);
     }
 }

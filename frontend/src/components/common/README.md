@@ -18,6 +18,7 @@ check this list first:
 - `LeadAgingBadge` — stale / at-risk / archive-due flag from the API's computed aging — **done**
 - `StageMoveControl` — accessible "Move to…" stage menu driven by the API's `allowed_transitions` (module 02) — **done**
 - `LostReasonDialog` — reason prompt before a deal is marked lost (module 02) — **done**
+- `CommunicationList` — one record's communication history + the log entry point (module 03, shared by the account tab and the lead/deal sections) — **done**
 - `ChartCard` — line + donut chart wrapper — pending
 - `DataTable` — list/tables with filters slot, pagination, bulk actions — **done**
 

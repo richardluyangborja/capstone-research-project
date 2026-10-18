@@ -118,6 +118,14 @@ class Opportunity extends Model
         return $this->morphMany(Activity::class, 'subjectable', 'subject_type', 'subject_id');
     }
 
+    /**
+     * The detailed communication history for this deal (module 03, spec 11).
+     */
+    public function communications(): MorphMany
+    {
+        return $this->morphMany(Communication::class, 'subjectable', 'subject_type', 'subject_id');
+    }
+
     public function contracts(): HasMany
     {
         return $this->hasMany(Contract::class);

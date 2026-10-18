@@ -153,6 +153,14 @@ class Company extends Model
         return $this->morphMany(Activity::class, 'subjectable', 'subject_type', 'subject_id');
     }
 
+    /**
+     * The detailed communication history for this account (module 03, spec 11).
+     */
+    public function communications(): MorphMany
+    {
+        return $this->morphMany(Communication::class, 'subjectable', 'subject_type', 'subject_id');
+    }
+
     public function sourceLead(): BelongsTo
     {
         return $this->belongsTo(Lead::class, 'source_lead_id');
