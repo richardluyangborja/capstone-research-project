@@ -10,7 +10,7 @@ import {
   communicationOutcomeMeta,
   defaultCommunicationStatus,
   isConversationalChannel,
-  loggableCommunicationStatuses,
+  settableCommunicationStatuses,
   communicationStatusMeta,
   communicationSubjectLabels,
 } from '../lib/communicationMeta'
@@ -125,10 +125,14 @@ export default function NewCommunication() {
     })()
   }, [selected?.companyId])
 
-  // The status follows the channel and direction until the user overrides it.
+  // The status follows the channel and direction until the user overrides it — and a status the
+  // pair cannot have (a draft on a call) always falls back, so the select never goes blank.
   useEffect(() => {
-    if (!statusTouched) setStatus(defaultCommunicationStatus(channel, direction))
-  }, [channel, direction, statusTouched])
+    const available = settableCommunicationStatuses(channel, direction)
+    if (!statusTouched || !available.includes(status)) {
+      setStatus(defaultCommunicationStatus(channel, direction))
+    }
+  }, [channel, direction, status, statusTouched])
 
   const conversational = isConversationalChannel(channel)
 
@@ -190,9 +194,13 @@ export default function NewCommunication() {
   }
 
   const statusNote =
-    status === 'logged' || status === 'draft'
-      ? 'A logged entry can still be corrected by its author.'
-      : 'A sent or received message is a record of what was said — it cannot be edited later.'
+    status === 'draft'
+      ? 'A draft is saved but not sent — you can send it from its own page.'
+      : status === 'logged'
+        ? 'A logged entry can still be corrected by its author.'
+        : 'A sent or received message is a record of what was said — it cannot be edited later.'
+
+  const isDraft = status === 'draft'
 
   return (
     <div>
@@ -200,7 +208,6 @@ export default function NewCommunication() {
         title="Log communication"
         description="Record a call, email, meeting or letter against a lead, account, contact or deal."
       />
-
       {message && (
         <div className="mb-4">
           <AlertItem variant="danger">
@@ -324,7 +331,7 @@ export default function NewCommunication() {
                   }}
                   className={inputClass}
                 >
-                  {loggableCommunicationStatuses.map((value) => (
+                  {settableCommunicationStatuses(channel, direction).map((value) => (
                     <option key={value} value={value}>
                       {communicationStatusMeta[value].label}
                     </option>
@@ -454,7 +461,7 @@ export default function NewCommunication() {
             disabled={saving}
             className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60"
           >
-            {saving ? 'Logging…' : 'Log communication'}
+            {saving ? 'Saving…' : isDraft ? 'Save draft' : 'Log communication'}
           </button>
           <button
             type="button"

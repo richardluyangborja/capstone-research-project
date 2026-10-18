@@ -64,13 +64,17 @@ export const communicationDirections = Object.keys(
 
 export const communicationOutcomes = Object.keys(communicationOutcomeMeta) as CommunicationOutcome[]
 
-/** Statuses the log form may submit in slice S1 — a draft arrives with the S2 composer. */
-export const loggableCommunicationStatuses: CommunicationStatus[] = [
-  'sent',
-  'received',
-  'failed',
-  'logged',
-]
+/** Statuses the log form may submit, per channel and direction — mirrors
+ * `CommunicationStatus::settableFor()`. Only an outbound email is written first and sent
+ * later, so only it gets a `draft` (slices S1–S2). */
+export const settableCommunicationStatuses = (
+  channel: CommunicationChannel,
+  direction: CommunicationDirection,
+): CommunicationStatus[] => {
+  const statuses: CommunicationStatus[] = ['sent', 'received', 'failed', 'logged']
+
+  return channel === 'email' && direction === 'outbound' ? ['draft', ...statuses] : statuses
+}
 
 /** Duration and outcome only mean something for a conversation (spec 11 §Channels). */
 export const isConversationalChannel = (channel: CommunicationChannel): boolean =>

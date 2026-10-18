@@ -660,6 +660,7 @@ export interface Communication {
   owner_id: number
   owner: { id: number; name: string } | null
   is_editable: boolean
+  can_send: boolean
   can_update: boolean
   can_delete: boolean
   can_restore: boolean
@@ -682,6 +683,12 @@ export type CommunicationsPage = Paginated<Communication> & { summary: Communica
 export interface CommunicationHistory {
   data: Communication[]
   meta: { total: number }
+}
+
+/** What a pull of the mocked mailbox recorded (`POST /communications/sync-inbound`). */
+export interface CommunicationSyncResult {
+  recorded: number
+  source: string
 }
 
 export interface CommunicationInput {
