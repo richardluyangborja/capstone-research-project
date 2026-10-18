@@ -6,6 +6,7 @@ import {
   ArrowUpRight,
   Download,
   FileUp,
+  MessageSquareReply,
   Paperclip,
   Pencil,
   RotateCcw,
@@ -284,6 +285,15 @@ export default function CommunicationDetail() {
                 <Pencil className="h-4 w-4" aria-hidden="true" />
                 {editing ? 'Close editor' : 'Edit'}
               </button>
+            )}
+            {!retired && communication.can_reply && (
+              <Link
+                to={`/communications/new?reply_to=${communication.id}`}
+                className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
+              >
+                <MessageSquareReply className="h-4 w-4" aria-hidden="true" />
+                Reply
+              </Link>
             )}
             {!retired && communication.can_send && (
               <button
@@ -637,6 +647,37 @@ export default function CommunicationDetail() {
                 <dt className="text-xs font-medium text-muted-foreground">Reference</dt>
                 <dd className="font-mono text-xs text-foreground">{communication.reference}</dd>
               </div>
+              {/* Threading (slice S4): what this message answers, and the conversation it sits
+                  in — both read-only links, because a message never changes hands. */}
+              {communication.in_reply_to && (
+                <div>
+                  <dt className="text-xs font-medium text-muted-foreground">In reply to</dt>
+                  <dd className="text-foreground">
+                    <Link
+                      to={`/communications/${communication.in_reply_to.id}`}
+                      className="font-medium text-counts"
+                    >
+                      {communication.in_reply_to.reference}
+                    </Link>{' '}
+                    <span className="text-xs text-muted-foreground">
+                      {communication.in_reply_to.subject}
+                    </span>
+                  </dd>
+                </div>
+              )}
+              {communication.thread_id && (
+                <div>
+                  <dt className="text-xs font-medium text-muted-foreground">Conversation</dt>
+                  <dd>
+                    <Link
+                      to={`/communications/threads/${communication.thread_id}`}
+                      className="font-medium text-counts"
+                    >
+                      Part of a conversation
+                    </Link>
+                  </dd>
+                </div>
+              )}
               {communication.external_id && (
                 <div>
                   <dt className="text-xs font-medium text-muted-foreground">Mailbox id</dt>

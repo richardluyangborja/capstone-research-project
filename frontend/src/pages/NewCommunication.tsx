@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import PageHeader from '../components/common/PageHeader'
 import FormCard from '../components/common/FormCard'
 import AlertItem from '../components/common/AlertItem'
-import { createCommunication } from '../lib/communications'
+import { createCommunication, getCommunication, replyToCommunication } from '../lib/communications'
 import {
   communicationChannelMeta,
   communicationOutcomes,
@@ -20,10 +20,12 @@ import { getContact, listCompanyContacts, listContacts } from '../lib/contacts'
 import { getOpportunity, listOpportunities } from '../lib/opportunities'
 import { toDateTimeLocal } from '../lib/format'
 import type {
+  Communication,
   CommunicationChannel,
   CommunicationDirection,
   CommunicationInput,
   CommunicationOutcome,
+  CommunicationReplyInput,
   CommunicationStatus,
   CommunicationSubjectType,
 } from '../types'
@@ -50,6 +52,12 @@ export default function NewCommunication() {
   const linkedType = (params.get('subject_type') as CommunicationSubjectType | null) ?? null
   const linkedId = params.get('subject_id') ?? ''
   const linkedLabel = params.get('subject_label') ?? ''
+  // A reply names the message it answers rather than the record: the record, the channel and
+  // the contact all come from that message (spec 11 §S4).
+  const replyTo = params.get('reply_to') ?? ''
+  const replying = replyTo !== ''
+
+  const [parent, setParent] = useState<Communication | null>(null)
 
   const [subjectType, setSubjectType] = useState<CommunicationSubjectType>(linkedType ?? 'company')
   const [selected, setSelected] = useState<RecordOption | null>(
@@ -92,6 +100,32 @@ export default function NewCommunication() {
       }
     })()
   }, [linkedId, subjectType, linkedLabel])
+
+  // A reply starts from the message it answers: its record, channel, title line and the person
+  // it was with. The record picker is not offered — a reply cannot change hands.
+  useEffect(() => {
+    if (!replying) return
+    void (async () => {
+      try {
+        const message = await getCommunication(replyTo)
+        setParent(message)
+        setSubjectType(message.subject_type)
+        setSelected({
+          id: message.subject_id,
+          label: message.record?.label ?? message.subject_id,
+          companyId: null,
+        })
+        setChannel(message.channel)
+        setContactId(message.contact_id ?? '')
+        setTitle(replyTitle(message))
+        const counterpart = parentCounterpart(message)
+        setToName(counterpart.name ?? '')
+        setToAddress(counterpart.address ?? '')
+      } catch {
+        setMessage('Could not load the message you are replying to.')
+      }
+    })()
+  }, [replying, replyTo])
 
   // Search the chosen record type as the user types.
   useEffect(() => {
@@ -153,32 +187,42 @@ export default function NewCommunication() {
     setMessage('')
     setErrors({})
 
+    if (replying && !parent) {
+      setMessage('The message you are replying to is still loading.')
+      return
+    }
+
     if (!selected) {
       setMessage('Pick the record this communication belongs to.')
       return
     }
 
+    const state = {
+      subjectType,
+      selected,
+      channel,
+      direction,
+      status,
+      contactId,
+      occurredAt,
+      duration,
+      outcome,
+      fromName,
+      fromAddress,
+      toName,
+      toAddress,
+      title,
+      body,
+    }
+
     setSaving(true)
     try {
-      const created = await createCommunication(
-        toInput({
-          subjectType,
-          selected,
-          channel,
-          direction,
-          status,
-          contactId,
-          occurredAt,
-          duration,
-          outcome,
-          fromName,
-          fromAddress,
-          toName,
-          toAddress,
-          title,
-          body,
-        }),
-      )
+      // A reply belongs to the conversation its parent opened, so it is written through the
+      // reply endpoint rather than logged as a message standing on its own (spec 11 §S4).
+      const created = replying
+        ? await replyToCommunication(replyTo, toReplyInput(state))
+        : await createCommunication(toInput(state))
+
       navigate(`/communications/${created.id}`)
     } catch (error) {
       const validation = parseValidationError(error)
@@ -205,8 +249,12 @@ export default function NewCommunication() {
   return (
     <div>
       <PageHeader
-        title="Log communication"
-        description="Record a call, email, meeting or letter against a lead, account, contact or deal."
+        title={replying ? 'Reply to a message' : 'Log communication'}
+        description={
+          replying
+            ? 'Answer a message — the reply joins its conversation and stays on the same record.'
+            : 'Record a call, email, meeting or letter against a lead, account, contact or deal.'
+        }
       />
       {message && (
         <div className="mb-4">
@@ -222,74 +270,93 @@ export default function NewCommunication() {
       )}
 
       <form onSubmit={onSubmit} className="max-w-3xl">
-        <FormCard title="Record">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <Field label="Record type" error={errors.subject_type}>
-              <select
-                value={subjectType}
-                onChange={(event) => {
-                  setSubjectType(event.target.value as CommunicationSubjectType)
-                  setSelected(null)
-                  setContactId('')
-                }}
-                disabled={Boolean(linkedId)}
-                className={inputClass}
-              >
-                {(Object.keys(communicationSubjectLabels) as CommunicationSubjectType[]).map(
-                  (type) => (
-                    <option key={type} value={type}>
-                      {communicationSubjectLabels[type]}
-                    </option>
-                  ),
-                )}
-              </select>
-            </Field>
-
-            <Field label="Record" error={errors.subject_id}>
-              {linkedId || selected ? (
-                <div className="mt-1 flex items-center justify-between gap-2 rounded-md border border-border bg-muted px-3 py-2 text-sm">
-                  <span className="text-foreground">{selected?.label ?? linkedId}</span>
-                  {!linkedId && (
-                    <button
-                      type="button"
-                      onClick={() => setSelected(null)}
-                      className="text-xs font-medium text-counts"
-                    >
-                      Change
-                    </button>
-                  )}
-                </div>
-              ) : !pickableTypes.includes(subjectType) ? (
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Open a contract from the account's Contracts tab to log against it.
+        <FormCard title={replying ? 'In reply to' : 'Record'}>
+          {replying ? (
+            parent ? (
+              <div className="flex flex-col gap-1 text-sm">
+                <Link to={`/communications/${parent.id}`} className="font-medium text-counts">
+                  {parent.reference} — {parent.subject}
+                </Link>
+                <p className="text-muted-foreground">
+                  {communicationSubjectLabels[parent.subject_type]}
+                  {parent.record ? ` · ${parent.record.label}` : ''} · a reply joins this
+                  conversation and stays on this record.
                 </p>
-              ) : (
-                <>
-                  <input
-                    value={recordQuery}
-                    onChange={(event) => setRecordQuery(event.target.value)}
-                    placeholder={`Search ${communicationSubjectLabels[subjectType].toLowerCase()}s…`}
-                    className={inputClass}
-                  />
-                  <select
-                    aria-label="Record"
-                    // Reaching this branch means nothing is chosen yet: either the user is
-                    // picking for the first time, or they cleared the earlier choice.
-                    value=""
-                    onChange={(event) => chooseRecord(event.target.value)}
-                    className={inputClass}
-                  >
-                    <option value="">Select a record…</option>
-                    {options.map((option) => (
-                      <option key={option.id} value={option.id}>
-                        {option.label}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Loading the message you are replying to…
+              </p>
+            )
+          ) : (
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <Field label="Record type" error={errors.subject_type}>
+                <select
+                  value={subjectType}
+                  onChange={(event) => {
+                    setSubjectType(event.target.value as CommunicationSubjectType)
+                    setSelected(null)
+                    setContactId('')
+                  }}
+                  disabled={Boolean(linkedId)}
+                  className={inputClass}
+                >
+                  {(Object.keys(communicationSubjectLabels) as CommunicationSubjectType[]).map(
+                    (type) => (
+                      <option key={type} value={type}>
+                        {communicationSubjectLabels[type]}
                       </option>
-                    ))}
-                  </select>
-                </>
-              )}
-            </Field>
-          </div>
+                    ),
+                  )}
+                </select>
+              </Field>
+
+              <Field label="Record" error={errors.subject_id}>
+                {linkedId || selected ? (
+                  <div className="mt-1 flex items-center justify-between gap-2 rounded-md border border-border bg-muted px-3 py-2 text-sm">
+                    <span className="text-foreground">{selected?.label ?? linkedId}</span>
+                    {!linkedId && (
+                      <button
+                        type="button"
+                        onClick={() => setSelected(null)}
+                        className="text-xs font-medium text-counts"
+                      >
+                        Change
+                      </button>
+                    )}
+                  </div>
+                ) : !pickableTypes.includes(subjectType) ? (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Open a contract from the account's Contracts tab to log against it.
+                  </p>
+                ) : (
+                  <>
+                    <input
+                      value={recordQuery}
+                      onChange={(event) => setRecordQuery(event.target.value)}
+                      placeholder={`Search ${communicationSubjectLabels[subjectType].toLowerCase()}s…`}
+                      className={inputClass}
+                    />
+                    <select
+                      aria-label="Record"
+                      // Reaching this branch means nothing is chosen yet: either the user is
+                      // picking for the first time, or they cleared the earlier choice.
+                      value=""
+                      onChange={(event) => chooseRecord(event.target.value)}
+                      className={inputClass}
+                    >
+                      <option value="">Select a record…</option>
+                      {options.map((option) => (
+                        <option key={option.id} value={option.id}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </>
+                )}
+              </Field>
+            </div>
+          )}
         </FormCard>
 
         <div className="mt-6">
@@ -461,7 +528,15 @@ export default function NewCommunication() {
             disabled={saving}
             className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60"
           >
-            {saving ? 'Saving…' : isDraft ? 'Save draft' : 'Log communication'}
+            {saving
+              ? 'Saving…'
+              : isDraft
+                ? replying
+                  ? 'Save draft reply'
+                  : 'Save draft'
+                : replying
+                  ? 'Log reply'
+                  : 'Log communication'}
           </button>
           <button
             type="button"
@@ -570,11 +645,28 @@ interface FormState {
 }
 
 function toInput(state: FormState): CommunicationInput {
-  const trimmed = (value: string) => (value.trim() === '' ? null : value.trim())
-
   return {
     subject_type: state.subjectType,
     subject_id: state.selected.id,
+    ...toFields(state),
+  }
+}
+
+/**
+ * A reply names no record — it inherits its parent's — and leaves the title line out when the
+ * caller clears it, so the API falls back to the parent's own (spec 11 §S4).
+ */
+function toReplyInput(state: FormState): CommunicationReplyInput {
+  const { subject, ...fields } = toFields(state)
+
+  return { ...fields, subject: subject === '' ? null : subject }
+}
+
+/** Everything the two forms send that is not the record itself. */
+function toFields(state: FormState) {
+  const trimmed = (value: string) => (value.trim() === '' ? null : value.trim())
+
+  return {
     channel: state.channel,
     direction: state.direction,
     status: state.status,
@@ -592,6 +684,26 @@ function toInput(state: FormState): CommunicationInput {
         : Number(state.duration),
     outcome: state.outcome === '' ? null : state.outcome,
   }
+}
+
+/**
+ * The title a reply opens with: an email threads under `Re:` when it does not already, and
+ * every other channel keeps the parent's wording as it is. The API's own default is the
+ * parent's title, so this is only what the field starts with.
+ */
+function replyTitle(parent: Communication): string {
+  const subject = parent.subject ?? ''
+
+  return parent.channel === 'email' && !subject.toLowerCase().startsWith('re:')
+    ? `Re: ${subject}`
+    : subject
+}
+
+/** Whoever the parent was with on the other side — the one this answer is going to. */
+function parentCounterpart(parent: Communication): { name: string | null; address: string | null } {
+  return parent.direction === 'inbound'
+    ? { name: parent.from_name, address: parent.from_address }
+    : { name: parent.to_name, address: parent.to_address }
 }
 
 function Field({

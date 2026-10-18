@@ -657,6 +657,9 @@ export interface Communication {
   external_id: string | null
   failed_reason: string | null
   thread_id: string | null
+  /** The message this one answers (slice S4), when it names one. */
+  in_reply_to_id: string | null
+  in_reply_to: CommunicationReplyRef | null
   /** Files that came with the message (slice S3) — on the detail, not in the book. */
   attachments?: Attachment[]
   /** How many files the message carries, on the rows that asked for the count. */
@@ -666,12 +669,20 @@ export interface Communication {
   is_editable: boolean
   can_send: boolean
   can_attach: boolean
+  can_reply: boolean
   can_update: boolean
   can_delete: boolean
   can_restore: boolean
   deleted_at: string | null
   created_at: string
   updated_at: string
+}
+
+/** The message a reply answers (module 03 slice S4) — enough to link through to it. */
+export interface CommunicationReplyRef {
+  id: string
+  reference: string
+  subject: string
 }
 
 /** A file on a record (module 03 slice S3, spec 11 §Payloads). The stored path is never sent. */
@@ -716,6 +727,66 @@ export interface CommunicationInput {
   status?: CommunicationStatus
   contact_id?: string | null
   subject: string
+  body?: string | null
+  from_name?: string | null
+  from_address?: string | null
+  to_name?: string | null
+  to_address?: string | null
+  occurred_at?: string | null
+  duration_minutes?: number | null
+  outcome?: CommunicationOutcome | null
+}
+
+/**
+ * One conversation (module 03 slice S4) — a group of messages that answer each other, as
+ * `GET /communications/threads` reads them.
+ */
+export interface CommunicationThread {
+  thread_id: string
+  title: string | null
+  record: CommunicationRecordRef | null
+  channel: CommunicationChannel | null
+  message_count: number
+  first_at: string | null
+  last_at: string | null
+  last_message: CommunicationThreadLast | null
+}
+
+export interface CommunicationThreadLast {
+  id: string
+  reference: string
+  direction: CommunicationDirection
+  status: CommunicationStatus
+  from_name: string | null
+  occurred_at: string | null
+}
+
+/** The conversations the caller may see — pagination only, no header summary. */
+export type CommunicationThreadsPage = Omit<Paginated<CommunicationThread>, 'links'>
+
+/** One conversation in full (`GET /communications/threads/{threadId}`), oldest message first. */
+export interface CommunicationThreadDetail {
+  thread_id: string
+  title: string | null
+  record: CommunicationRecordRef | null
+  channel: CommunicationChannel | null
+  message_count: number
+  first_at: string | null
+  last_at: string | null
+  messages: Communication[]
+}
+
+/**
+ * Answering a message (`POST /communications/{id}/reply`). The record is inherited from the
+ * parent, so it is not sent; whatever the parent does not settle — the channel, the title line,
+ * the status — is optional (slice S4).
+ */
+export interface CommunicationReplyInput {
+  channel?: CommunicationChannel
+  direction?: CommunicationDirection
+  status?: CommunicationStatus
+  contact_id?: string | null
+  subject?: string | null
   body?: string | null
   from_name?: string | null
   from_address?: string | null

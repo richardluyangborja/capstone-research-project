@@ -9,6 +9,8 @@ import Companies from '../pages/Companies'
 import CompanyDetail from '../pages/CompanyDetail'
 import CommunicationDetail from '../pages/CommunicationDetail'
 import Communications from '../pages/Communications'
+import CommunicationThreadDetail from '../pages/CommunicationThreadDetail'
+import CommunicationThreads from '../pages/CommunicationThreads'
 import Contacts from '../pages/Contacts'
 import Conversion from '../pages/Conversion'
 import DashboardHome from '../pages/DashboardHome'
@@ -60,6 +62,8 @@ export default function AppRouter() {
           <Route path="/opportunities/:id" element={<OpportunityDetail />} />
           <Route path="/communications" element={<Communications />} />
           <Route path="/communications/new" element={<NewCommunication />} />
+          <Route path="/communications/threads" element={<CommunicationThreads />} />
+          <Route path="/communications/threads/:threadId" element={<CommunicationThreadDetail />} />
           <Route path="/communications/:id" element={<CommunicationDetail />} />
         </Route>
       </Route>
