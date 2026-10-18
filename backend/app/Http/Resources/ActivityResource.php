@@ -28,6 +28,9 @@ class ActivityResource extends JsonResource
             'body' => $this->body,
             'status' => $this->status,
             'occurred_at' => $this->occurred_at,
+            // Set when this entry mirrors a detailed communication (module 03), so the
+            // timeline can link through to the record instead of duplicating it.
+            'communication_id' => $this->communication_id,
             'owner' => $this->owner
                 ? ['id' => $this->owner->id, 'name' => $this->owner->name]
                 : null,

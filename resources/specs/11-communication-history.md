@@ -104,11 +104,12 @@ restore without the right role; 404 — missing communication.
 
 ## Payloads
 
-**`Communication` resource:** `id`, `reference` (`COM-YYYY-NNNN`), `subject_type`/`subject_id` + a
-`subject` display block (`{ type, id, label, link }`), `contact`, `channel`, `direction`, `status`,
-`subject` (title line), `body`, `from_name`/`from_address`, `to_name`/`to_address`, `occurred_at`,
-`duration_minutes`, `outcome`, `external_id`, `failed_reason`, `thread_id` (S4),
-`attachments[]` (S3), `owner`, plus `can_update`, `can_delete`, `can_restore`, `can_send` (S2).
+**`Communication` resource:** `id`, `reference` (`COM-YYYY-NNNN`), `subject_type` (`lead`/`company`/
+`contact`/`opportunity`/`contract`) + `subject_id` and a `record` block (`{ type, id, label }` — the app
+builds the link from the type), `contact`, `channel`, `direction`, `status`, `subject` (title line),
+`body`, `from_name`/`from_address`, `to_name`/`to_address`, `occurred_at`, `duration_minutes`, `outcome`,
+`external_id`, `failed_reason`, `thread_id` (S4), `attachments[]` (S3), `owner`, plus `is_editable` and
+`can_update`, `can_delete`, `can_restore`, `can_send` (S2).
 
 **History book:** `{ data: Communication[], meta: { current_page, per_page, total, last_page }, links }`
 plus `summary` — `{ all, inbound, outbound, by_channel: { email, call, … }, last_contacted_at }` for the
@@ -133,7 +134,9 @@ busy, other`).
    contact / opportunity / contract). There is no standalone "unfiled" history.
 2. **Logging mirrors an activity and refreshes the subject.** The mirror activity is written by the
    `CommunicationLogged` listener, and `last_activity_at` is refreshed where the subject has one (leads,
-   deals) so aging and deal staleness keep tracking real touches (ADR-0009, ADR-0015 §6).
+   deals) so aging and deal staleness keep tracking real touches (ADR-0009, ADR-0015 §6). Deleting a
+   communication removes its mirror; restoring rewrites it. The mirror is a pointer — the body lives only
+   on the communication.
 3. **Contact history is a view, not a copy.** A message on a company or a deal belongs to that record;
    `filter[contact_id]` surfaces the ones addressed to a person. Nothing is duplicated per contact.
 4. **Sent and received are immutable.** Only `draft` and `logged` records are editable, and only by

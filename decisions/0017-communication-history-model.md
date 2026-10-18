@@ -47,9 +47,11 @@ communication, so the model has to leave room for that without building it.
    requires the same right as updating that subject. Contacts inherit their account's rights
    (ADR-0011 §2); deals are own/team/all (ADR-0012 §4). There is no separate communication-sharing
    model, because a message about a record must never outlive the record's own visibility.
-6. **Sent and received communications are immutable.** Only `draft`/`logged` records can be edited, and
-   only by their author; deletion is a soft delete by the author or manager+, with restore for
-   manager+. A record of what the company was told is not editable history.
+6. **Sent and received communications are immutable.** Only `draft`/`logged` records can be
+   edited — by their author, or by a manager+ within the record's scope, and an attempt to edit
+   a delivered one is a **422** (a state error, not a permission error). Deletion is a soft
+   delete scoped the same way, with restore for manager+. A record of what the company was told
+   is not editable history.
 7. **The overlap with quick-log is deliberate and is labelled in the UI.** Timelines stay the merged
    feed; the two entry points are named for what they are ("Quick log" writes an activity, "Log
    communication" writes a communication). Merging them would mean rewriting module 01/02 timeline

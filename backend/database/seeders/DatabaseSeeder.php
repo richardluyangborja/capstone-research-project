@@ -63,5 +63,6 @@ class DatabaseSeeder extends Seeder
         $this->call(DemoContactSeeder::class);
         $this->call(DemoOpportunitySeeder::class);
         $this->call(DemoContractSeeder::class);
+        $this->call(DemoCommunicationSeeder::class);
     }
 }

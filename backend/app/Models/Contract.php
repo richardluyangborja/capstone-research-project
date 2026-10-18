@@ -114,6 +114,14 @@ class Contract extends Model
     }
 
     /**
+     * The detailed communication history for this contract (module 03, spec 11).
+     */
+    public function communications(): MorphMany
+    {
+        return $this->morphMany(Communication::class, 'subjectable', 'subject_type', 'subject_id');
+    }
+
+    /**
      * A contract inherits its company's visibility (ADR-0004, ADR-0013): seeing the
      * account means seeing the contracts on it.
      */

@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\DB;
 
@@ -60,6 +61,15 @@ class Contact extends Model
     public function company(): BelongsTo
     {
         return $this->belongsTo(Company::class);
+    }
+
+    /**
+     * The detailed communication history for this person (module 03, spec 11). A message
+     * about a person is stored once, on whichever record it was logged against.
+     */
+    public function communications(): MorphMany
+    {
+        return $this->morphMany(Communication::class, 'subjectable', 'subject_type', 'subject_id');
     }
 
     /**
