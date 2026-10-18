@@ -19,6 +19,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Facades\DB;
@@ -92,6 +93,14 @@ class Communication extends Model
             $communication->activities()->delete();
         });
 
+        // A retired message keeps its files — it is still readable (S3) — but a message that is
+        // destroyed outright takes them with it, so no file outlives the row that justified it.
+        static::forceDeleting(function (Communication $communication): void {
+            $communication->attachments()->get()->each(
+                fn (Attachment $attachment) => $attachment->delete(),
+            );
+        });
+
         static::restored(function (Communication $communication): void {
             $communication->syncActivityMirror();
         });
@@ -140,6 +149,15 @@ class Communication extends Model
     public function activities(): HasMany
     {
         return $this->hasMany(Activity::class);
+    }
+
+    /**
+     * The files that came with this message (module 03 slice S3) — the polymorphic table
+     * `00-data-model.md` deferred, which communications are the first to use.
+     */
+    public function attachments(): MorphMany
+    {
+        return $this->morphMany(Attachment::class, 'attachable');
     }
 
     /**
@@ -227,6 +245,27 @@ class Communication extends Model
     public function isEditable(): bool
     {
         return $this->status->isEditable();
+    }
+
+    /**
+     * Whether the files on this message may still change (module 03 slice S3). Files are part
+     * of the record of what was said, so they freeze once the message has left or arrived —
+     * but a rejected send never went anywhere, so it is still the rep's to fix before retrying.
+     */
+    public function allowsAttachmentChanges(): bool
+    {
+        return $this->isEditable() || $this->status === CommunicationStatus::Failed;
+    }
+
+    /**
+     * Why this message keeps the files it carried, or `null` while they may still change. The
+     * upload and the removal both raise this as a 422 (spec 11 §S3).
+     */
+    public function attachmentLockReason(): ?string
+    {
+        return $this->allowsAttachmentChanges()
+            ? null
+            : sprintf('A %s message keeps the files it carried.', $this->status->value);
     }
 
     /**

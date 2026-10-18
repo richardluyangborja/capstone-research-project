@@ -43,6 +43,7 @@ class CommunicationController extends Controller
 
         $communications = Communication::query()
             ->with(['owner:id,name', 'contact:id,name,email,role_type', 'subjectable'])
+            ->withCount('attachments')
             ->visibleTo($user)
             ->search($request->string('search')->toString() ?: null)
             ->when($filters['channel'] ?? null, fn ($query, $value) => $query->whereIn('channel', explode(',', (string) $value)))
@@ -297,6 +298,7 @@ class CommunicationController extends Controller
 
         $communications = $subject->communications()
             ->with(['owner:id,name', 'contact:id,name,email,role_type'])
+            ->withCount('attachments')
             ->orderByDesc('occurred_at')
             ->orderByDesc('id')
             ->limit(100)
@@ -325,6 +327,6 @@ class CommunicationController extends Controller
      */
     private function relations(): array
     {
-        return ['owner:id,name', 'contact:id,name,email,role_type', 'subjectable'];
+        return ['owner:id,name', 'contact:id,name,email,role_type', 'subjectable', 'attachments.uploader:id,name'];
     }
 }

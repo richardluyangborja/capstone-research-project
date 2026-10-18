@@ -17,6 +17,7 @@ use App\Models\Opportunity;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * Fixed demo communication history (no faker — seeded for the proposal demo).
@@ -30,6 +31,12 @@ use Illuminate\Support\Carbon;
  */
 class DemoCommunicationSeeder extends Seeder
 {
+    /**
+     * A valid 1x1 PNG standing in for a scanned page — the same placeholder the contract
+     * seeder uses. It is a real file, so a demo download actually opens (slice S3).
+     */
+    private const PLACEHOLDER_PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+
     public function run(): void
     {
         $sam = User::where('email', 'salesrep@primepower.test')->firstOrFail();
@@ -53,7 +60,7 @@ class DemoCommunicationSeeder extends Seeder
                 'occurred_at' => Carbon::now()->subDays(10),
             ]);
 
-            $this->log($this->deal('Sunrise Foods Inc — warehouse staffing'), $sam, [
+            $rateSheet = $this->log($this->deal('Sunrise Foods Inc — warehouse staffing'), $sam, [
                 'channel' => CommunicationChannel::Email,
                 'direction' => CommunicationDirection::Outbound,
                 'contact_id' => $contact?->id,
@@ -66,7 +73,10 @@ class DemoCommunicationSeeder extends Seeder
                 'occurred_at' => Carbon::now()->subDays(2),
             ]);
 
-            $this->log($this->deal('Sunrise Foods Inc — commissary crew'), $sam, [
+            // Sent mail keeps what it carried, so this message shows the locked side of S3.
+            $this->attach($rateSheet, $sam, 'rate-card-scan.png');
+
+            $call = $this->log($this->deal('Sunrise Foods Inc — commissary crew'), $sam, [
                 'channel' => CommunicationChannel::Call,
                 'direction' => CommunicationDirection::Outbound,
                 'contact_id' => $contact?->id,
@@ -76,6 +86,9 @@ class DemoCommunicationSeeder extends Seeder
                 'outcome' => CommunicationOutcome::Connected,
                 'occurred_at' => Carbon::now()->subDay(),
             ]);
+
+            // A logged touch is still the rep's to work, so this one takes another file live.
+            $this->attach($call, $sam, 'site-walk-notes.png');
 
             $this->log($sunrise, $sam, [
                 'channel' => CommunicationChannel::Meeting,
@@ -205,6 +218,32 @@ class DemoCommunicationSeeder extends Seeder
     private function company(string $name): ?Company
     {
         return Company::where('name', $name)->first();
+    }
+
+    /**
+     * Hang a file off a message exactly as an upload does (module 03 slice S3): the bytes go
+     * to the private disk and the row points at them. The placeholder is a real file, so a
+     * demo download opens rather than handing back a broken document.
+     */
+    private function attach(?Communication $communication, User $uploader, string $name): void
+    {
+        if ($communication === null) {
+            return;
+        }
+
+        $disk = (string) config('crm.attachments.disk');
+        $path = 'attachments/'.$communication->id.'-'.$name;
+
+        Storage::disk($disk)->put($path, base64_decode(self::PLACEHOLDER_PNG, true));
+
+        $communication->attachments()->create([
+            'disk' => $disk,
+            'path' => $path,
+            'original_name' => $name,
+            'mime_type' => 'image/png',
+            'size' => strlen((string) base64_decode(self::PLACEHOLDER_PNG, true)),
+            'uploaded_by' => $uploader->id,
+        ]);
     }
 
     private function deal(string $name): ?Opportunity

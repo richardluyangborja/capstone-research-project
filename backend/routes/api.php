@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\V1\AttachmentController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\CommunicationController;
 use App\Http\Controllers\Api\V1\CompanyActivityController;
@@ -127,16 +128,21 @@ Route::prefix('v1')->group(function (): void {
         // Module 03 — communication history. The per-record history endpoint sits beside each
         // record's timeline; the flat book is the resource route below. Slice S2 adds the
         // outbound email path: send a draft, retry a rejected one, pull the mocked replies.
+        // Slice S3 hangs files off a message: upload under the message, download and remove
+        // through the attachment's own route.
         Route::get('leads/{lead}/communications', [CommunicationController::class, 'forLead']);
         Route::get('companies/{company}/communications', [CommunicationController::class, 'forCompany']);
         Route::get('contacts/{contact}/communications', [CommunicationController::class, 'forContact']);
         Route::get('opportunities/{opportunity}/communications', [CommunicationController::class, 'forOpportunity']);
         Route::get('contracts/{contract}/communications', [CommunicationController::class, 'forContract']);
         Route::post('communications/sync-inbound', [CommunicationController::class, 'syncInbound']);
+        Route::post('communications/{communication}/attachments', [AttachmentController::class, 'store']);
         Route::post('communications/{communication}/send', [CommunicationController::class, 'send']);
         Route::post('communications/{communication}/retry', [CommunicationController::class, 'retry']);
         Route::post('communications/{id}/restore', [CommunicationController::class, 'restore']);
         Route::apiResource('communications', CommunicationController::class)
             ->only(['index', 'store', 'show', 'update', 'destroy']);
+        Route::get('attachments/{attachment}/file', [AttachmentController::class, 'download']);
+        Route::delete('attachments/{attachment}', [AttachmentController::class, 'destroy']);
     });
 });
