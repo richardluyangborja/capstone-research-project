@@ -84,4 +84,18 @@ return [
         'max_files' => (int) env('CRM_ATTACHMENT_MAX_FILES', 5),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Templates (module 03 slice S5, spec 11)
+    |--------------------------------------------------------------------------
+    |
+    | Reusable wording for the composer. Merge fields are rendered server-side; `today`
+    | resolves in the PH calendar the rest of the app reads and displays in (ADR-0007).
+    |
+    */
+
+    'templates' => [
+        'timezone' => env('CRM_TEMPLATE_TIMEZONE', 'Asia/Manila'),
+    ],
+
 ];
