@@ -6,6 +6,7 @@ import Communications from './Communications'
 import NewCommunication from './NewCommunication'
 import CommunicationList from '../components/common/CommunicationList'
 import * as communicationApi from '../lib/communications'
+import * as attachmentApi from '../lib/attachments'
 import type { Communication, CommunicationsPage } from '../types'
 
 // `vi.mock` factories are hoisted above the imports, so fixtures must come from `vi.hoisted`.
@@ -37,6 +38,7 @@ const { sentMessage, loggedCall, draftMessage, failedMessage, book } = vi.hoiste
     owner: { id: 1, name: 'Sam Salesrep' },
     is_editable: false,
     can_send: false,
+    can_attach: false,
     can_update: true,
     can_delete: true,
     can_restore: false,
@@ -59,7 +61,22 @@ const { sentMessage, loggedCall, draftMessage, failedMessage, book } = vi.hoiste
     duration_minutes: 12,
     outcome: 'connected',
     is_editable: true,
+    can_attach: true,
     can_update: true,
+    // Slice S3: a logged touch still takes files, and this one already carries a scan.
+    attachments: [
+      {
+        id: 'att-1',
+        name: 'site-walk-notes.png',
+        mime_type: 'image/png',
+        size: 70,
+        uploaded_by: 1,
+        uploader: { id: 1, name: 'Sam Salesrep' },
+        can_delete: true,
+        created_at: '2026-10-17T02:30:00.000000Z',
+      },
+    ],
+    attachments_count: 1,
   }
 
   const book: CommunicationsPage = {
@@ -110,6 +127,13 @@ vi.mock('../lib/communications', () => ({
   sendCommunication: vi.fn(),
   retryCommunication: vi.fn(),
   syncInboundCommunications: vi.fn(),
+}))
+
+// Slice S3 — the detail page uploads, downloads and removes files through these.
+vi.mock('../lib/attachments', () => ({
+  uploadAttachment: vi.fn(),
+  deleteAttachment: vi.fn(),
+  downloadAttachment: vi.fn(),
 }))
 
 vi.mock('../lib/auth-context', () => ({
@@ -215,6 +239,20 @@ describe('Communication history book', () => {
     expect(
       await screen.findByText('2 replies pulled in from the simulated mailbox.'),
     ).toBeInTheDocument()
+  })
+
+  // Slice S3 — the book only needs to say that a message carries files.
+  it('marks a message that carries files', async () => {
+    render(
+      <MemoryRouter>
+        <Communications />
+      </MemoryRouter>,
+    )
+
+    const entry = await screen.findByRole('link', { name: 'Call — commissary site walk arranged' })
+    const row = entry.closest('tr') as HTMLElement
+
+    expect(within(row).getByText('1 file')).toBeInTheDocument()
   })
 })
 
@@ -428,6 +466,84 @@ describe('Communication detail', () => {
 
     expect(await screen.findByText('Simulated mailbox')).toBeInTheDocument()
     expect(screen.getByText(/Sent through the mocked email gateway/)).toBeInTheDocument()
+  })
+
+  // Slice S3 — a logged touch is still the rep's to work, so it takes files and shows them.
+  it('attaches a file to a message and lists it', async () => {
+    vi.mocked(communicationApi.getCommunication).mockResolvedValue(loggedCall)
+    vi.mocked(attachmentApi.uploadAttachment).mockResolvedValue({
+      id: 'att-2',
+      name: 'rate-card.pdf',
+      mime_type: 'application/pdf',
+      size: 120 * 1024,
+      uploaded_by: 1,
+      uploader: { id: 1, name: 'Sam Salesrep' },
+      can_delete: true,
+      created_at: '2026-10-18T02:30:00.000000Z',
+    })
+
+    const { container } = renderDetail('com-2')
+
+    // The file the message already carries comes back from the API.
+    expect(await screen.findByText('site-walk-notes.png')).toBeInTheDocument()
+    expect(screen.getByText(/^70 B/)).toBeInTheDocument()
+
+    const file = new File(['%PDF-1.4'], 'rate-card.pdf', { type: 'application/pdf' })
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement
+    fireEvent.change(input, { target: { files: [file] } })
+    fireEvent.click(screen.getByRole('button', { name: 'Attach file' }))
+
+    await waitFor(() => expect(attachmentApi.uploadAttachment).toHaveBeenCalledWith('com-2', file))
+    expect(await screen.findByText('rate-card.pdf')).toBeInTheDocument()
+    expect(screen.getByText(/^120 KB/)).toBeInTheDocument()
+  })
+
+  it('downloads a file through the authorized endpoint', async () => {
+    vi.mocked(communicationApi.getCommunication).mockResolvedValue(loggedCall)
+
+    renderDetail('com-2')
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Download site-walk-notes.png' }))
+
+    await waitFor(() => expect(attachmentApi.downloadAttachment).toHaveBeenCalled())
+  })
+
+  it('removes a file the message still allows', async () => {
+    vi.mocked(communicationApi.getCommunication).mockResolvedValue(loggedCall)
+
+    renderDetail('com-2')
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Remove site-walk-notes.png' }))
+
+    await waitFor(() => expect(attachmentApi.deleteAttachment).toHaveBeenCalledWith('att-1'))
+    await waitFor(() => expect(screen.queryByText('site-walk-notes.png')).not.toBeInTheDocument())
+  })
+
+  // Slice S3 — files are part of the record of what was said, so a sent message keeps them.
+  it('keeps the files a sent message carried and offers no upload', async () => {
+    vi.mocked(communicationApi.getCommunication).mockResolvedValue({
+      ...sentMessage,
+      attachments: [
+        {
+          id: 'att-9',
+          name: 'rate-card-scan.png',
+          mime_type: 'image/png',
+          size: 70,
+          uploaded_by: 1,
+          uploader: { id: 1, name: 'Sam Salesrep' },
+          can_delete: false,
+          created_at: '2026-10-16T02:30:00.000000Z',
+        },
+      ],
+      attachments_count: 1,
+    })
+
+    const { container } = renderDetail()
+
+    expect(await screen.findByText('rate-card-scan.png')).toBeInTheDocument()
+    expect(screen.getByText('A sent message keeps the files it carried.')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Attach file' })).not.toBeInTheDocument()
+    expect(container.querySelector('input[type="file"]')).toBeNull()
   })
 })
 

@@ -657,16 +657,33 @@ export interface Communication {
   external_id: string | null
   failed_reason: string | null
   thread_id: string | null
+  /** Files that came with the message (slice S3) — on the detail, not in the book. */
+  attachments?: Attachment[]
+  /** How many files the message carries, on the rows that asked for the count. */
+  attachments_count?: number
   owner_id: number
   owner: { id: number; name: string } | null
   is_editable: boolean
   can_send: boolean
+  can_attach: boolean
   can_update: boolean
   can_delete: boolean
   can_restore: boolean
   deleted_at: string | null
   created_at: string
   updated_at: string
+}
+
+/** A file on a record (module 03 slice S3, spec 11 §Payloads). The stored path is never sent. */
+export interface Attachment {
+  id: string
+  name: string
+  mime_type: string
+  size: number
+  uploaded_by: number
+  uploader?: { id: number; name: string }
+  can_delete: boolean
+  created_at: string
 }
 
 export interface CommunicationSummary {
