@@ -165,7 +165,7 @@ contract is created from the deal and the mocked Service handoff still fires on 
 `Activity` is the **lightweight quick log** (a touch or a task). Detailed, channel-aware history is the
 `Communication` record below — a logged communication also writes an activity (ADR-0017 §2).
 
-## Communication (module 03, spec 11 — planned)
+## Communication (module 03, spec 11)
 
 | Field | Type | Req | Notes |
 | --- | --- | --- | --- |
@@ -191,6 +191,22 @@ Soft deletes. Indexes: `subject_type+subject_id`, `channel`, `direction`, `statu
 `contact_id`, `owner_id`, `thread_id`. Attachments use the polymorphic `attachments` table (below) —
 slice S3. Email is a **mocked** integration: no SMTP, no IMAP, inbound is pulled by a command
 (ADR-0017 §4).
+
+## CommunicationTemplate (module 03 slice S5, spec 11)
+
+| Field | Type | Req | Notes |
+| --- | --- | --- | --- |
+| `name` | string | ✓ | how it is picked; unique among **live** rows (a retired one frees its name) |
+| `channel` | `CommunicationChannel` | ✓ | default `email`; what it is written for |
+| `subject` | string | ✓ | the title line, may hold merge fields |
+| `body` | text | ✓ | the content, may hold merge fields |
+| `is_active` | bool | ✓ | default true; inactive stays out of the composer's picker |
+| `created_by` | FK users | | who authored it |
+
+Soft deletes. Indexes: `name`, `channel`, `is_active`. A template is only ever a **prefill** for the
+composer (slice S5, ADR-0017 §10) — a saved communication never references one, so editing or retiring a
+template cannot rewrite history. Merge fields are `{{token}}` and are resolved at render time from the
+record (and the caller); anything that cannot be filled is left verbatim and reported, never invented.
 
 ## Contract (spec 09)
 

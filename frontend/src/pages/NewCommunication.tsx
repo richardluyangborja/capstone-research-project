@@ -1,9 +1,14 @@
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Sparkles } from 'lucide-react'
 import PageHeader from '../components/common/PageHeader'
 import FormCard from '../components/common/FormCard'
 import AlertItem from '../components/common/AlertItem'
 import { createCommunication, getCommunication, replyToCommunication } from '../lib/communications'
+import {
+  listCommunicationTemplates,
+  renderCommunicationTemplate,
+} from '../lib/communicationTemplates'
 import {
   communicationChannelMeta,
   communicationOutcomes,
@@ -28,6 +33,7 @@ import type {
   CommunicationReplyInput,
   CommunicationStatus,
   CommunicationSubjectType,
+  CommunicationTemplate,
 } from '../types'
 
 interface RecordOption {
@@ -83,6 +89,12 @@ export default function NewCommunication() {
   const [toAddress, setToAddress] = useState('')
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
+
+  // Slice S5 — the house's wording, offered as a starting point for whatever is being written.
+  const [templates, setTemplates] = useState<CommunicationTemplate[]>([])
+  const [templateId, setTemplateId] = useState('')
+  const [templateNote, setTemplateNote] = useState('')
+  const [applying, setApplying] = useState(false)
 
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
@@ -168,7 +180,54 @@ export default function NewCommunication() {
     }
   }, [channel, direction, status, statusTouched])
 
+  // The active templates — the composer's starting points (slice S5). An inactive or retired
+  // one is deliberately not offered here.
+  useEffect(() => {
+    void (async () => {
+      try {
+        const response = await listCommunicationTemplates({ state: 'active' })
+        setTemplates(response.data)
+      } catch {
+        setTemplates([])
+      }
+    })()
+  }, [])
+
   const conversational = isConversationalChannel(channel)
+
+  /**
+   * Fill the form from a template (slice S5). The API renders it against the chosen record, so
+   * the wording arrives already carrying that record's own details — and anything it could not
+   * fill is named rather than left as a silent blank.
+   */
+  const applyTemplate = async (template: string) => {
+    if (!selected || template === '') return
+
+    setApplying(true)
+    setTemplateNote('')
+    try {
+      const rendered = await renderCommunicationTemplate(template, {
+        subject_type: subjectType,
+        subject_id: selected.id,
+        contact_id: contactId === '' ? null : contactId,
+      })
+
+      setChannel(rendered.channel)
+      setTitle(rendered.subject)
+      setBody(rendered.body)
+      setTemplateNote(
+        rendered.unresolved.length === 0
+          ? 'Filled from the record. Edit it as you like — the message keeps no link to the template.'
+          : `Could not fill ${rendered.unresolved
+              .map((token) => `{{${token}}}`)
+              .join(', ')} for this record — fill those in before sending.`,
+      )
+    } catch {
+      setTemplateNote('Could not render that template against this record.')
+    } finally {
+      setApplying(false)
+    }
+  }
 
   const chooseRecord = useCallback(
     (id: string) => {
@@ -498,9 +557,63 @@ export default function NewCommunication() {
           </FormCard>
         </div>
 
+        {templates.length > 0 && (
+          <div className="mt-6">
+            <FormCard
+              title="Start from a template"
+              description="Fills the channel, the title line and the body with the house's wording, rendered with this record's own details."
+            >
+              <div className="flex flex-wrap items-end gap-2">
+                <Field label="Template" className="w-full max-w-sm">
+                  <select
+                    aria-label="Template"
+                    value={templateId}
+                    onChange={(event) => setTemplateId(event.target.value)}
+                    disabled={!selected || applying}
+                    className={inputClass}
+                  >
+                    <option value="">Choose a template…</option>
+                    {templates.map((template) => (
+                      <option key={template.id} value={template.id}>
+                        {template.name} — {communicationChannelMeta[template.channel].label}
+                      </option>
+                    ))}
+                  </select>
+                </Field>
+                <button
+                  type="button"
+                  onClick={() => void applyTemplate(templateId)}
+                  disabled={templateId === '' || !selected || applying}
+                  className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-60"
+                >
+                  <Sparkles className="h-4 w-4" aria-hidden="true" />
+                  {applying ? 'Rendering…' : 'Use template'}
+                </button>
+              </div>
+
+              {!selected && (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Pick the record first — a template is rendered with its details.
+                </p>
+              )}
+
+              {templateNote && <p className="mt-2 text-xs text-cost">{templateNote}</p>}
+
+              <p className="mt-2 text-xs text-muted-foreground">
+                The house's wording lives in the{' '}
+                <Link to="/communications/templates" className="font-medium text-counts">
+                  template book
+                </Link>
+                .
+              </p>
+            </FormCard>
+          </div>
+        )}
+
         <div className="mt-6">
           <FormCard title="What was said">
             <Field label="Subject" error={errors.subject}>
+              {' '}
               <input
                 value={title}
                 onChange={(event) => setTitle(event.target.value)}

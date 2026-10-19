@@ -1,13 +1,13 @@
 # 11 — Communication History Management
 
-Module 3 (ADR-0014). Entities: `Communication` (new), `Attachment` (new, S3), `Activity`, `Lead`,
-`Company`, `Contact`, `Opportunity`, `Contract`, `User`. ADRs: 0004, 0005, 0007, 0011, 0013, 0016, 0017.
+Module 3 (ADR-0014). Entities: `Communication` (new), `Attachment` (new, S3),
+`CommunicationTemplate` (new, S5), `Activity`, `Lead`, `Company`, `Contact`, `Opportunity`, `Contract`,
+`User`. ADRs: 0004, 0005, 0007, 0011, 0013, 0016, 0017.
 
-> **S1–S4 built, S5 planned.** This is the contract for module 03; the slices land one PR at a time
-> (ADR-0016 §2), so the parts a slice has not reached yet are marked where the text says so. It adds
-> the `communications` table that `00-data-model.md` reserved, implements its deferred polymorphic
-> `attachments` table (S3), groups messages into conversations (S4), and keeps `Activity` as the
-> lightweight quick-log (ADR-0017 §1). Email is a
+> **S1–S5 built.** This is the contract for module 03, which is complete; the slices landed one PR at a
+> time (ADR-0016 §2). It adds the `communications` table that `00-data-model.md` reserved, implements its
+> deferred polymorphic `attachments` table (S3), groups messages into conversations (S4), adds reusable
+> templates (S5), and keeps `Activity` as the lightweight quick-log (ADR-0017 §1). Email is a
 > **mocked** integration (ADR-0017 §4) — nothing leaves the machine.
 
 ## Purpose
@@ -15,7 +15,8 @@ Module 3 (ADR-0014). Entities: `Communication` (new), `Attachment` (new, S3), `A
 Give every record a truthful, channel-aware history of what was said: log and read emails, calls,
 messages and meetings against a lead, account, contact, deal or contract; search and filter the
 history; (from slice 2) compose, send and retry an email through the mocked gateway; (from slice 3)
-attach the documents that went with it; and (from slice 4) read an exchange as one conversation —
+attach the documents that went with it; (from slice 4) read an exchange as one conversation; and (from
+slice 5) start from a reusable template rendered with the record's own details —
 so a rep can see "what did we last tell BPO Solutions?", a
 manager can read the trail behind a deal, and the rate sheet or signed page is where the conversation
 is.
@@ -47,12 +48,12 @@ spec declares five slices (ADR-0016 §2); each is demoable end to end and leaves
 | **S2** *(built)* | `feature/communication-email` | Email compose, send & retry (mocked gateway) | compose → send → status `sent` with the mocked source, force a failure → retry |
 | **S3** *(built)* | `feature/communication-attachments` | Attachments on a communication | attach a PDF to an email, download it through the authorized endpoint |
 | **S4** *(built)* | `feature/communication-threads` | Threading (conversations) | reply into a thread, see the conversation grouped |
-| **S5** *(candidate)* | `feature/communication-templates` | Reusable templates + merge fields | quick-log from a template rendered with the contact's details |
+| **S5** *(built)* | `feature/communication-templates` | Reusable templates + merge fields | quick-log from a template rendered with the contact's details |
 
 S1 is the foundation everything else attaches to. S2 before S3/S4 because sending is what makes a
 history worth reading; S3 implements the polymorphic `attachments` table `00-data-model.md` had already
 reserved; S4 groups what S1/S2 write into conversations and files a pulled reply into the one it
-answers; S5 only if the two write paths prove tedious in the demo.
+answers; S5 keeps the two write paths and gives them the house's wording to start from.
 
 **Not built here:** real mail transport/inbound sync, open/click tracking, VoIP/CTI and call recording,
 campaigns, satisfaction surveys (module 05), reminder scheduling (module 04) and analytics (the AI
@@ -135,14 +136,37 @@ as a logged message can, and then sent (S2) or replied to (S4) from its own page
 Despite the table above reading `{id}`, the send/retry/upload/reply routes bind the model as `{communication}`
 (project convention) — the path is what the client sees, the parameter name is internal.
 
+**S5 — templates**
+
+| Method | Path | Description |
+| --- | --- | --- |
+| `GET` | `/api/v1/communication-templates` | Templates — `filter[channel\|active\|retired]` + `search`, paginated |
+| `POST` | `/api/v1/communication-templates` | Author one (manager+) |
+| `GET` | `/api/v1/communication-templates/{id}` | One template |
+| `PATCH` | `/api/v1/communication-templates/{id}` | Edit it (manager+) |
+| `DELETE` | `/api/v1/communication-templates/{id}` | Retire it (manager+, soft) |
+| `POST` | `/api/v1/communication-templates/{id}/restore` | Bring it back (manager+) |
+| `POST` | `/api/v1/communication-templates/{template}/render` | Render it against a record |
+| `GET` | `/api/v1/communication-templates/fields` | The merge-field vocabulary |
+
+`fields` is a static segment, declared before the resource route for the same reason `threads` is:
+otherwise `{template}` would swallow it as an id.
+
+**Render request:** `{ subject_type, subject_id, contact_id? }` — the record it is being written about,
+and (optionally) the person it is being written to. Rendering reads the record's own details, so it needs
+the subject's `view` right. **Render response:** `{ data: { template_id, channel, subject, body,
+unresolved: [...] } }` — what the composer should hold, plus every placeholder that could not be filled.
+
 **Errors:** 422 — missing/invalid subject, unknown channel or direction, editing a sent message, sending
 a message that is not a draft (or retrying one that is not `failed`), sending with no recipient,
 uploading a wrong-typed/oversized file or more than the per-record cap, changing the files on a message
 that has left or arrived, answering a message that never happened (`draft`/`scheduled`/`failed`) or a
-reply that names another record; 403 — subject outside scope, editing someone else's record, reading or
-removing a file outside scope, restore or a mailbox pull without the right role, answering a record the
-caller cannot work; 404 — missing communication, a conversation outside scope or unknown, or a
-file missing from the disk.
+reply that names another record, a template whose name a live one already uses, restoring a retired
+template whose name has since been taken; 403 — subject outside scope, editing someone else's record,
+reading or removing a file outside scope, restore or a mailbox pull without the right role, answering a
+record the caller cannot work, authoring/editing/retiring/restoring a template without manager+, rendering
+against a record outside scope; 404 — missing communication, a conversation outside scope or unknown, a
+retired or unknown template, or a file missing from the disk.
 
 ## Payloads
 
@@ -166,6 +190,24 @@ whom. The thread detail adds `messages: Communication[]`, oldest first.
 stored path are deliberately **absent**: the only handle is the attachment's own id, and the bytes come
 from `GET /attachments/{id}/file`.
 
+**`CommunicationTemplate` resource (S5):** `id`, `name`, `channel`, `subject`, `body`, `is_active`,
+`created_by` + an `author` block (`{ id, name }`), `updated_at`, plus `can_update`, `can_delete`,
+`can_restore` — so the book offers only the actions the caller actually has.
+
+**Merge fields (S5):** `{{token}}`, doubled braces with optional spaces. The vocabulary (also served by
+`/communication-templates/fields`, so the UI and the renderer cannot drift):
+
+| Token | Resolves to |
+| --- | --- |
+| `contact.name`, `contact.first_name`, `contact.position`, `contact.email` | the person the message is with — the linked contact, or the lead's own `contact_name`/`contact_position`/`contact_email` when the record is a lead |
+| `company.name` | the account behind the record: a lead's `company_name`, a contact's account, a deal's or contract's account, or the account itself |
+| `opportunity.name`, `contract.title`, `contract.reference` | only when the record is that deal or contract |
+| `user.name`, `user.email` | the caller (whoever is writing) |
+| `today` | today, PH-formatted (`DD MMM YYYY`, `Asia/Manila`) |
+
+A token that is unknown, or known but empty for this record, is **left verbatim** and listed in
+`unresolved` — the rep sees the gap instead of sending a silently blank line.
+
 **History book:** `{ data: Communication[], meta: { current_page, per_page, total, last_page }, links }`
 plus `summary` — `{ all, inbound, outbound, by_channel: { email, call, … }, last_contacted_at }` for the
 header. Gateway-backed payloads carry `meta.source: "Email (mocked)"` so a mocked send is never
@@ -184,6 +226,12 @@ Indexes: `subject_type+subject_id`, `channel`, `direction`, `status`, `occurred_
 `uploaded_by` (FK), timestamps. No `deleted_at`: a file exists for its row and for nothing else, so
 removing the row removes the file (there is no "retired but kept" state for a file). Communications are
 its first user; the single contract document can move onto it later without a second table.
+
+**`communication_templates` table (S5):** `name`, `channel` (default `email`), `subject`, `body`,
+`is_active` (default true), `created_by` (FK users, nullable), timestamps, `deleted_at`. Indexes: `name`,
+`channel`, `is_active`. The name is **unique among live rows only**, and because a soft-deleted template
+frees its name that uniqueness is a validation rule rather than a database constraint (`restore` re-checks
+it, so bringing back an old template can never shadow a live one).
 
 Enums (added to `00-data-model.md`): `CommunicationChannel` (`email, call, sms, whatsapp, meeting,
 letter, other`), `CommunicationDirection` (`inbound, outbound`), `CommunicationStatus` (`draft,
@@ -240,6 +288,11 @@ busy, other`).
     in it is: one message on a record the caller may not see hides the whole exchange (in practice the
     rule follows from the record being shared, since every reply inherits it — the check keeps that an
     enforced invariant rather than an assumption).
+12. **A template is a starting point, not a third write path** (S5). Rendering one fills the composer's
+    fields; what is saved is an ordinary communication that never references the template again, so
+    editing or retiring a template changes nothing already logged. Only **active** templates are offered
+    in the composer — a retired one is out of the picker, not out of the database — and only manager+
+    author them, because a template is the house's wording rather than one rep's note.
 
 ## Permissions
 
@@ -254,6 +307,8 @@ busy, other`).
 | Pull the mocked mailbox (S2) | — | — | ✓ |
 | Upload / remove an attachment (S3) | Own record | Team | All |
 | Read a conversation / answer a message (S4) | Own record | Team | All |
+| Read a template / render it into the composer (S5) | ✓ | ✓ | ✓ |
+| Author, edit, retire or restore a template (S5) | — | ✓ | ✓ |
 
 "Subject visible / updatable" reuses the subject's own policy: a salesrep's lead, account, contact
 (ADR-0011 §2) or deal (ADR-0012 §4) is theirs; a manager covers the team; an admin sees everything.
@@ -328,7 +383,20 @@ busy, other`).
 - Sidebar: the module 03 group gains `Threaded Conversations` (`/communications/threads`); the S1 entry
   is now matched **exactly**, so it no longer stays lit on the child.
 
-**S5** adds the template picker.
+**S5 — templates**
+
+- `/communications/templates` — the template book: name, channel badge, title line, active state and
+  author, narrowed by channel/state (`All` / `Active` / `Inactive` / `Retired`) + `search`, with
+  **New template** for manager+ and **Edit** / **Retire** / **Restore** on the rows the API allows
+  (a retired row is found under the `Retired` state, and only offers **Restore** — the API does not
+  serve a retired template by id, so there is nothing to open).
+- `/communications/templates/new` and `/communications/templates/:id` — the form (name, channel, title
+  line, body, active) with the merge-field vocabulary as chips that insert at the caret of the field last
+  used.
+- The log/reply form gains **Start from a template**: choosing an active template renders its channel,
+  title line and body against the chosen record and fills the form. A placeholder the record could not
+  fill is named in an inline note rather than left as a silent blank.
+- Sidebar: the module 03 group gains `Communication Templates`.
 
 Channel/direction/status colors reuse `StatusBadge` tones (email = activity/purple, call = people/green,
 inbound = counts/blue, failed = danger) — tokens only, no hardcoded hex.
@@ -365,6 +433,12 @@ and Sam's answer — three messages, `in_reply_to_id` chained from each to the o
 view, the count and the "last word" all demo without answering anything first. The pulled replies keep the
 id the mock would assign them, so a demo **Pull replies** still adds only what is genuinely new — and now
 files what it does pull *into* the conversation it answers.
+
+Slice S5 seeds the house's own wording: a rate-sheet follow-up and a site-visit confirmation (email), a
+cold-call script (call) and a meeting agenda (meeting) — each written with `{{contact.first_name}}` and
+`{{company.name}}` so the render demo fills them from the record it is pointed at — plus an **inactive**
+`Holiday greeting` (kept, hidden from the picker) and a **retired** `Q3 rate increase notice`
+(soft-deleted), so the book's three states demo without touching a live row first.
 
 ## Acceptance criteria
 
@@ -442,8 +516,22 @@ files what it does pull *into* the conversation it answers.
       Reply only where the API allows it, and answers through the reply endpoint with the record locked.
 - [x] The demo seed shows two real conversations with chained replies.
 
-**S5** — a template renders with the subject record's merge fields and prefills the composer; templates
-are manager+ to manage.
+**S5**
+
+- [x] A template carries a name, channel, title line, body and active flag; only **active** ones are
+      offered in the composer, while the book can filter on either state.
+- [x] Manager+ author, edit, retire and restore templates; a salesrep may read and use them but not change
+      them (403), and force-deleting stays admin.
+- [x] A live duplicate name is 422; a retired template frees its name, and restoring the old one when the
+      name has since been taken is refused rather than silently shadowing the live template.
+- [x] A retired template leaves the book but stays findable (`filter[retired]=true`) so a manager can
+      bring it back; it is not served by id, so it cannot be edited until it is restored.
+- [x] `POST /communication-templates/{id}/render` renders the title line and body against a record with
+      the caller's own details, and leaves any unknown or empty placeholder **verbatim** while listing it
+      in `unresolved`.
+- [x] The composer prefills from a rendered template (channel, title line, body) and never references the
+      template again, so editing or retiring it changes nothing already logged.
+- [x] The demo seed ships templates across channels, including one retired, so the active filter demos.
 
 ## Open questions
 
@@ -473,3 +561,10 @@ are manager+ to manage.
   email** (S4): the API never rewrites a title line, so `Re:` is a UI convention over a verbatim default,
   not a threaded-header parser. Matching on subject lines is deliberately not how conversations are
   grouped.
+- How are merge fields written, and what happens to one that does not fit? — **`{{token}}`** (S5), with the
+  vocabulary served by the API so the composer's chips and the renderer cannot drift apart. A token that is
+  unknown, or known but empty for this record, is **left in the text and reported** in `unresolved`: the
+  server never invents a value, and the rep sees exactly what the template could not fill before sending.
+- Are templates shared, and what happens to a message that used one? — **Shared, and nothing** (S5). They
+  are the house's wording, so every role reads them and manager+ writes them; a rendered template is only
+  ever a prefill, so a message keeps no link back and later edits to the template cannot rewrite history.

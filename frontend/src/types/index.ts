@@ -796,3 +796,59 @@ export interface CommunicationReplyInput {
   duration_minutes?: number | null
   outcome?: CommunicationOutcome | null
 }
+
+// --- Module 03 slice S5: reusable templates ----------------------------------
+
+/**
+ * A reusable template (module 03 slice S5) — the house's wording, rendered into the composer.
+ * Nothing links back to it once a message is saved, so editing or retiring one is harmless.
+ */
+export interface CommunicationTemplate {
+  id: string
+  name: string
+  channel: CommunicationChannel
+  subject: string
+  body: string
+  /** Offered in the composer's picker. A retired (`deleted_at`) one is out of the book entirely. */
+  is_active: boolean
+  created_by: number | null
+  author: { id: number; name: string } | null
+  can_update: boolean
+  can_delete: boolean
+  can_restore: boolean
+  deleted_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type CommunicationTemplatesPage = Omit<Paginated<CommunicationTemplate>, 'links'>
+
+export interface CommunicationTemplateInput {
+  name: string
+  channel: CommunicationChannel
+  subject: string
+  body: string
+  is_active?: boolean
+}
+
+/** One merge field the renderer can fill (`GET /communication-templates/fields`). */
+export interface CommunicationMergeField {
+  token: string
+  label: string
+}
+
+/** A template rendered against a record — what the composer prefills from (slice S5). */
+export interface CommunicationTemplateRender {
+  template_id: string
+  channel: CommunicationChannel
+  subject: string
+  body: string
+  /** Placeholders that could not be filled. They stay verbatim in the text. */
+  unresolved: string[]
+}
+
+export interface CommunicationTemplateRenderInput {
+  subject_type: CommunicationSubjectType
+  subject_id: string
+  contact_id?: string | null
+}

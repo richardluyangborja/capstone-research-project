@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\V1\AttachmentController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\CommunicationController;
+use App\Http\Controllers\Api\V1\CommunicationTemplateController;
 use App\Http\Controllers\Api\V1\CompanyActivityController;
 use App\Http\Controllers\Api\V1\CompanyBillingController;
 use App\Http\Controllers\Api\V1\CompanyContactController;
@@ -150,5 +151,14 @@ Route::prefix('v1')->group(function (): void {
             ->only(['index', 'store', 'show', 'update', 'destroy']);
         Route::get('attachments/{attachment}/file', [AttachmentController::class, 'download']);
         Route::delete('attachments/{attachment}', [AttachmentController::class, 'destroy']);
+
+        // Module 03 slice S5 — reusable wording for the composer. `fields` is a static segment,
+        // declared before the resource route for the same reason `threads` is above.
+        Route::get('communication-templates/fields', [CommunicationTemplateController::class, 'fields']);
+        Route::post('communication-templates/{id}/restore', [CommunicationTemplateController::class, 'restore']);
+        Route::post('communication-templates/{template}/render', [CommunicationTemplateController::class, 'render']);
+        Route::apiResource('communication-templates', CommunicationTemplateController::class)
+            ->parameters(['communication-templates' => 'template'])
+            ->only(['index', 'store', 'show', 'update', 'destroy']);
     });
 });

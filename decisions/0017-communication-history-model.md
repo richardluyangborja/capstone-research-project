@@ -71,6 +71,16 @@ communication, so the model has to leave room for that without building it.
    the person using the app is the one answering. Whether a message *may* be answered is a state question
    (`draft`/`scheduled`/`failed` never happened → 422, the same split as sending) and a thread is visible
    only while every message in it is (ADR-0017 §5).
+10. **Templates are a prefill, not a record** (slice S5). The module keeps its two write paths — the
+   quick log and the detailed communication — and adds no third one: rendering a template fills the
+   composer's channel, title line and body, and what gets saved is an ordinary communication that never
+   references the template. That is what makes editing or retiring a template harmless to history, and it
+   keeps the merge-field work in one place (the renderer) instead of two (the renderer and a "which
+   template was this" join). The vocabulary is served by the API so the composer's chips and the renderer
+   cannot drift, and `{{token}}` follows a deliberate rule: a placeholder that is unknown, or known but
+   empty for the record it is rendered against, is **left verbatim and reported** in `unresolved`. The
+   server never invents a value, and the rep sees the gap before sending. Templates are shared — the
+   house's wording — so every role reads and uses them while manager+ authors them.
 
 ## Consequences
 
@@ -102,4 +112,6 @@ communication, so the model has to leave room for that without building it.
   is identified by its root's id rather than by matching subject lines, that the record (and the channel,
   contact and title line) is inherited from the parent while the caller's own side is the default, and
   that a pulled inbound reply is filed into the conversation it answers — so the S2 sync now closes the
-  loop the S4 view reads.
+  loop the S4 view reads. S5 settled that a template is only ever a prefill (so a message keeps no link
+  back to it) and that merge fields are `{{token}}`, resolved server-side from the record and the caller,
+  with anything unfillable left verbatim and reported rather than silently blanked.

@@ -143,8 +143,8 @@ Laravel's own and is separate from `frontend/`.
   (ADR-0013 §5). Events: `OpportunityStageChanged`, `OpportunityWon`, `OpportunityLost`
   (`OpportunityCreated` now also fires on manual creation). **Not built here:** the
   dashboard/management reports (the AI module).
-- **Module 03 — Communication History Management (slices S1–S4 — log & history, email, attachments,
-  threads):** the detailed,
+- **Module 03 — Communication History Management (slices S1–S5 — log & history, email, attachments,
+  threads, templates):** the detailed,
   channel-aware history record beside `Activity` (ADR-0017). Flat `/api/v1/communications`
   (index/store/show/update/destroy + `POST /{id}/restore`) with `filter[channel|direction|status|
   subject_type|subject_id|company|contact|owner|date_from|date_to]` + `search` and a `summary` block
@@ -188,7 +188,6 @@ Laravel's own and is separate from `frontend/`.
   while the message is `draft`/`logged` **or** `failed` (a rejected send never left), and a
   `sent`/`received` message keeps what it carried. `CommunicationResource` carries `attachments[]`
   (when loaded), `attachments_count` (when counted, on the book and nested rows) and `can_attach`.
-  **Not built here (later slices):** templates (S5).
 - **Module 03 slice S4 — threading (conversations):** `GET /communications/threads` (groups the caller may
   see, newest first: title, record, channel, `message_count`, `first_at`/`last_at` and a `last_message`
   block) and `GET /communications/threads/{threadId}` (the conversation, oldest first), plus
@@ -207,7 +206,23 @@ Laravel's own and is separate from `frontend/`.
   parent's record, so this equals the record's own visibility) and an unknown thread is 404. The S2 sync
   now files a pulled inbound reply **into** its original's conversation. `CommunicationResource` gains
   `in_reply_to_id` + an `in_reply_to` block and `can_reply`; the book/detail mark a threaded message.
-  **Not built here (later slices):** templates (S5).
+- **Module 03 slice S5 — reusable templates + merge fields:** `/api/v1/communication-templates`
+  (index/store/show/update/destroy + `POST /{id}/restore`), `POST /{template}/render` and
+  `GET /communication-templates/fields` (the static segment declared before the resource route).
+  A template carries `name`, `channel` (default `email`), `subject`, `body`, `is_active` and `created_by`;
+  the name is unique among **live** rows — a validation rule rather than a DB constraint, because a soft
+  delete frees it, and `restore` re-checks it (422) so an old template can never shadow a live one.
+  **Every role reads and renders them; manager+ author/edit/retire/restore** (force-delete stays admin),
+  the book exposing `can_update`/`can_delete`/`can_restore`. `render` takes
+  `{ subject_type, subject_id, contact_id? }`, needs the subject's `view` right, and returns
+  `{ channel, subject, body, unresolved[] }` — merge fields are `{{token}}` (`contact.name|first_name|
+  position|email`, `company.name`, `opportunity.name`, `contract.title|reference`, `user.name|email`,
+  `today`), resolved server-side from the record and the caller. A token that is **unknown or empty for
+  the record is left verbatim and listed in `unresolved`** — the server never invents a value. Rendering
+  is a **prefill only**: the saved message never references the template, so editing or retiring one
+  changes nothing already logged, and only active templates enter the composer's picker. Seeded templates
+  cover email/call/meeting plus one retired. **Not built here:** template categories, per-team libraries
+  and scheduled sending (module 04).
 
 Frontend routes: `/login`, `/leads` (views: All / My Leads / Unassigned / Team / Archived, inline
 owner control, bulk assign, status/rating/aging columns, "Stale only" filter), `/leads/new`,
@@ -241,7 +256,13 @@ message count and the last word, narrowed by channel/record/owner + search) and
 `/communications/threads/:threadId` (the exchange read back in order, each message a card naming the
 message it answers, with **Reply** where the API allows it and **Open message** through to the record);
 `/communications/new?reply_to=…` starts the log form from a message (record/channel/contact/title
-inherited, picker locked, **Log reply** / **Save draft reply**); the message detail carries **Reply**,
+inherited, picker locked, **Log reply** / **Save draft reply**); the composer (log and reply alike)
+carries **Start from a template**, which renders an active template's channel, title line and body
+against the chosen record and names anything it could not fill; `/communications/templates` is the
+template book (name, channel, title line, active state, author; search + channel/active filters) with
+**New template** / **Edit** for manager+, **Retire** on live rows and **Restore** on the retired ones, and
+`/communications/templates/new` + `/communications/templates/:id` the form, its merge-field chips
+inserting at the caret of the field last used; the message detail carries **Reply**,
 **In reply to** and **Part of a conversation** links; the book and the record history panel mark a message
 that carries
 files; the account detail gains a
@@ -252,11 +273,12 @@ under `Opportunity Pipeline Visualization`, module 03's slices under `Communicat
 Management`. Account + logout live in the sidebar footer; the brand is
 "Primepower Manpower Services / Customer Relationship Management".
 
-**Not implemented yet — next up is module 03, slice S5 (templates)** (spec
-`resources/specs/11-communication-history.md`, ADR-0017). Module 03 declares five slices: **S1 log &
-history (built)**, **S2 email compose/send/retry through a mocked gateway (built)**, **S3 attachments
-(built — the deferred polymorphic `attachments` table)**, **S4 threading (built — conversations, replies
-and the thread view)**, S5 templates (candidate).
+**Module 03 is complete — S1–S5 built — and the next work is module 04, Follow-up Reminders** (spec
+`resources/specs/12-*`, ADR-0014). Module 03's five slices: **S1 log &
+history**, **S2 email compose/send/retry through a mocked gateway**, **S3 attachments
+(the deferred polymorphic `attachments` table)**, **S4 threading (conversations, replies
+and the thread view)** and **S5 templates + merge fields (a prefill for the composer, never a link back
+from the message)**.
 `Activity` stays the
 lightweight quick log; `Communication` is the detailed record and every logged communication also writes
 an activity, so the existing timelines stay the merged feed. Still deferred: contract
@@ -284,7 +306,11 @@ and one on the Sunrise commissary call, which is `logged`, so another file can b
 **two real conversations** — the BPO "commercial terms" email with the procurement answer that came back,
 and the Sunrise rate-sheet email with the client's approval and Sam's reply (three messages, each pointing
 at the message it answers) — so the conversation list, the thread view and the "last word" demo without
-answering anything first.
+answering anything first. S5 seeds the **house's wording** — a rate-sheet follow-up and a site-visit
+confirmation (email), a cold-call script (call) and a meeting agenda (meeting), written with
+`{{contact.first_name}}`/`{{company.name}}` — plus an **inactive** `Holiday greeting` (kept but out of the
+picker) and a **retired** `Q3 rate increase notice` (soft-deleted), so the book's active / inactive /
+retired states and **Restore** all demo from real rows.
 
 ## Conventions that differ from framework defaults
 
@@ -361,9 +387,9 @@ Before implementing a submodule, read `resources/specs/README.md` (conventions) 
 **Modules 01 and 02** are built: module 01 (Lead & Client Tracking) covers lead capture,
 qualification, assignment, lifecycle, company/contact, lead→client conversion and client lifecycle;
 module 02 (Opportunity Pipeline Visualization) covers the deal book, the Kanban board, stage
-moves/won-lost and the board forecast. **Module 03** (Communication History) is specified with five
-declared slices — S1 (log & history), S2 (mocked email send/retry), S3 (attachments) and S4 (threading)
-are built, **S5 (templates) is next, and a candidate**. The remaining CRM modules — 04
+moves/won-lost and the board forecast. **Module 03** (Communication History) is **complete** — its five
+declared slices (S1 log & history, S2 mocked email send/retry, S3 attachments, S4 threading, S5 templates)
+are all built. The remaining CRM modules — 04
 follow-up reminders, 05 client satisfaction
 — are in **ADR-0014** (specs `12`–`13`). Dedup/merge and advanced tiers are module-01 deferrals
 (ADR-0006). Other departments are consumed via **mocked integrations** (ADR-0005), not built here.
