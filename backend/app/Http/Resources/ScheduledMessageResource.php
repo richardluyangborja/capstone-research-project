@@ -1,0 +1,61 @@
+<?php
+
+namespace App\Http\Resources;
+
+use App\Enums\FollowUpDueState;
+use App\Models\Communication;
+use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\JsonResource;
+
+/**
+ * A scheduled follow-up as a worklist row (module 04 slice S2, spec 12 §Payloads). A
+ * `Communication` with `status = scheduled` is the second shape a follow-up takes, so the row
+ * reads with the same keys a task row does — `subject`, `body`, `record`, `due` — and differs
+ * only in what a message genuinely has: a `channel`, a recipient and `kind: "message"`. The
+ * `due` block measures `scheduled_for`, not `occurred_at`, because it has not happened yet.
+ *
+ * @mixin Communication
+ */
+class ScheduledMessageResource extends JsonResource
+{
+    /**
+     * @return array<string, mixed>
+     */
+    public function toArray(Request $request): array
+    {
+        return [
+            'kind' => 'message',
+            'id' => $this->id,
+            'reference' => $this->reference,
+            'subject' => $this->subject,
+            'body' => $this->body,
+            'record' => $this->whenLoaded('subjectable', fn (): ?array => $this->recordBlock()),
+            'owner' => $this->whenLoaded('owner', fn (): ?array => $this->owner === null ? null : [
+                'id' => $this->owner->id,
+                'name' => $this->owner->name,
+            ]),
+            'owner_id' => $this->owner_id,
+            'due_at' => $this->scheduled_for,
+            'due' => FollowUpDueState::block($this->scheduled_for),
+            'status' => [
+                'value' => $this->status->value,
+                'label' => $this->status->label(),
+            ],
+            'channel' => $this->channel,
+            // Where it is going when it falls due — the row names the recipient, because a
+            // scheduled send is useless without knowing who it is for (spec 12 §S2).
+            'recipient' => $this->recipientLabel(),
+            'to_name' => $this->to_name,
+            'to_address' => $this->to_address,
+            'can_update' => $this->isEditable()
+                && (bool) $request->user()?->can('update', $this->resource),
+            // A message is not a task: it has no `done` to move to, it is sent or it is retired.
+            'can_transition' => false,
+            'can_send' => $this->isSendable()
+                && (bool) $request->user()?->can('send', $this->resource),
+            'can_delete' => (bool) $request->user()?->can('delete', $this->resource),
+            'created_at' => $this->created_at,
+            'updated_at' => $this->updated_at,
+        ];
+    }
+}

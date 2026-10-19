@@ -66,15 +66,21 @@ export const communicationOutcomes = Object.keys(communicationOutcomeMeta) as Co
 
 /** Statuses the log form may submit, per channel and direction — mirrors
  * `CommunicationStatus::settableFor()`. Only an outbound email is written first and sent
- * later, so only it gets a `draft` (slices S1–S2). */
+ * later, so only it gets a `draft` or a `scheduled` moment (slices S1–S2, module 04 §S2). */
 export const settableCommunicationStatuses = (
   channel: CommunicationChannel,
   direction: CommunicationDirection,
 ): CommunicationStatus[] => {
   const statuses: CommunicationStatus[] = ['sent', 'received', 'failed', 'logged']
 
-  return channel === 'email' && direction === 'outbound' ? ['draft', ...statuses] : statuses
+  return channel === 'email' && direction === 'outbound'
+    ? ['draft', 'scheduled', ...statuses]
+    : statuses
 }
+
+/** A status the composer must not offer: a reply is answered in its own conversation, so it is
+ * never put off to a later time (module 04 §S2). */
+export const isSchedulableStatus = (status: CommunicationStatus): boolean => status === 'scheduled'
 
 /** Duration and outcome only mean something for a conversation (spec 11 §Channels). */
 export const isConversationalChannel = (channel: CommunicationChannel): boolean =>

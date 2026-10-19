@@ -144,6 +144,9 @@ Route::prefix('v1')->group(function (): void {
         Route::get('communications/threads', [CommunicationController::class, 'threads']);
         Route::get('communications/threads/{threadId}', [CommunicationController::class, 'thread']);
         Route::post('communications/sync-inbound', [CommunicationController::class, 'syncInbound']);
+        // Module 04 slice S2: the in-app twin of `communication:send-due` — admin+ only, and it
+        // must sit above the resource route or `communications/{communication}` swallows it.
+        Route::post('communications/dispatch-due', [CommunicationController::class, 'dispatchDue']);
         Route::post('communications/{communication}/attachments', [AttachmentController::class, 'store']);
         Route::post('communications/{communication}/send', [CommunicationController::class, 'send']);
         Route::post('communications/{communication}/retry', [CommunicationController::class, 'retry']);

@@ -41,6 +41,7 @@ class TaskResource extends JsonResource
             // it is cancelled instead (spec 12 §9). The worklist row carries the same keys for
             // both shapes so the UI never has to guess.
             'channel' => null,
+            'recipient' => null,
             'can_update' => $request->user()?->can('update', $this->resource) ?? false,
             'can_transition' => $request->user()?->can('transition', $this->resource) ?? false,
             'can_send' => false,

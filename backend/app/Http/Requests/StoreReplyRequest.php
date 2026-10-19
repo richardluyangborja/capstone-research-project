@@ -77,7 +77,12 @@ class StoreReplyRequest extends FormRequest
             return CommunicationStatus::loggable();
         }
 
-        return CommunicationStatus::settableFor($channel, $this->replyDirection());
+        // Only the composer schedules a message for later (spec 12 §S2); a reply is answered in
+        // the conversation it belongs to, so it may be a draft but never a scheduled send.
+        return array_values(array_filter(
+            CommunicationStatus::settableFor($channel, $this->replyDirection()),
+            static fn (CommunicationStatus $status): bool => $status !== CommunicationStatus::Scheduled,
+        ));
     }
 
     /**

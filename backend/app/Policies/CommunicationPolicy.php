@@ -96,6 +96,15 @@ class CommunicationPolicy
         return $user->role->isAdmin();
     }
 
+    /**
+     * Dispatching the due sends is likewise a system action — one run sends across every team
+     * (spec 12 §S2) — so it stays admin+, exactly like the mailbox sync.
+     */
+    public function dispatch(User $user): bool
+    {
+        return $user->role->isAdmin();
+    }
+
     public function forceDelete(User $user, Communication $communication): bool
     {
         return $user->role->isAdmin();

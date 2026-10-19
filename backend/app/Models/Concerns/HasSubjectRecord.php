@@ -112,4 +112,19 @@ trait HasSubjectRecord
             }
         });
     }
+
+    /**
+     * Keep the subject's own follow-up stamp honest (module 04, spec 12 §12): a lead carries
+     * its earliest open follow-up in `next_follow_up_at`, so the lead list and the stale views
+     * read one column instead of joining the tasks and the scheduled messages. Shared by both
+     * shapes, because both can be the sooner one.
+     */
+    public function syncSubjectFollowUp(): void
+    {
+        $subject = $this->subjectable;
+
+        if ($subject instanceof Lead) {
+            $subject->syncNextFollowUpAt();
+        }
+    }
 }

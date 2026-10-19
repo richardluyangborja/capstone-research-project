@@ -154,9 +154,9 @@ Laravel's own and is separate from `frontend/`.
   communication writes exactly one mirror `Activity` (`communication_id` links it, channel → activity
   type) and refreshes the record's `last_activity_at`, so the module 01/02 timelines need no endpoint
   change. A `draft` is the exception — it has not happened yet, so it carries no mirror and moves no
-  clock. S1 accepts `sent|received|failed|logged`; S2 adds `draft` for an **outbound email only**
-  (`scheduled` is 422 — reserved for module 04); the default status is inbound → `received`, electronic
-  outbound → `sent`, else `logged`. Visibility is inherited from the subject, so the
+  clock. S1 accepts `sent|received|failed|logged`; S2 adds `draft` for an **outbound email only**, and
+  module 04 slice S2 adds `scheduled` on the same terms; the default status is inbound → `received`,
+  electronic outbound → `sent`, else `logged`. Visibility is inherited from the subject, so the
   `CommunicationPolicy` **only** delegates; editability is a state rule raised in the controller: a
   `sent`/`received` entry is immutable (422), a `draft`/`logged` one is the author's (or a manager+ in
   scope) to correct. Delete is soft by the author/manager+, restore is manager+. Each record's timeline
@@ -240,8 +240,27 @@ Laravel's own and is separate from `frontend/`.
   (`/leads|companies|opportunities/{id}/…`) order still-owed tasks ahead of what happened
   (`scopeTimelineOrder`) and `ActivityResource` marks each with `is_follow_up`/`due_at`/`due`. **Not
   built here:** the scheduled message (S2), the due dispatch + notifications (S3) and the generated
-  reminders (S4); `communications.scheduled_for` does not exist yet, so S1's worklist, `counts` and
-  `next_follow_up_at` read **tasks only**.
+  reminders (S4).
+- **Module 04 slice S2 — scheduled outbound messages:** a follow-up's second shape is a
+  `Communication` with `status = scheduled` (the status ADR-0017 §3 reserved) carrying a
+  `scheduled_for` — `occurred_at` became **nullable** and is stamped only when the message really
+  leaves, so a scheduled message writes **no** mirror `Activity`, moves no `last_activity_at` and is
+  excluded from `last_contacted_at`. Only an **outbound email** can be scheduled (422 otherwise) and
+  it needs a future `scheduled_for` (`after:now`), a subject and a recipient (typed address or a
+  contact with an email); a `draft` keeps its old stamp, only `scheduled` is left null. A **reply can
+  be a draft but never scheduled** (`StoreReplyRequest` filters it out — a conversation is answered,
+  not put off), and the composer offers the status only while not replying. `POST
+  /communications/{id}/send` now takes a scheduled message too (**Send now**, keeping
+  `scheduled_for`), `POST /communications/dispatch-due` (**admin+**, twin of
+  `php artisan communication:send-due`) sends what has fallen due through the mocked gateway once —
+  `Communication::dispatchDue()` returns `{attempted, sent, failed}` and a second run sends nothing —
+  and `GET /communications` gained `filter[due]=overdue|today|upcoming` plus a `summary.scheduled`
+  count. `GET /follow-ups` is now the **one read-only worklist over both shapes**: a SQL **union** of
+  open tasks and scheduled messages (`filter[kind]=task|message`, state per half, `counts` over the
+  open union), rows shaped by `FollowUpResource` (tasks via `TaskResource`, messages via the new
+  `ScheduledMessageResource`), and `Lead::syncNextFollowUpAt()` takes the **sooner** of the two.
+  Messages are sent or **soft-deleted** (cancel), never completed (`can_transition` is always false);
+  `CommunicationPolicy::dispatch` is admin+.
 
 Frontend routes: `/login`, `/leads` (views: All / My Leads / Unassigned / Team / Archived, inline
 owner control, bulk assign, status/rating/aging columns, "Stale only" filter), `/leads/new`,
@@ -265,10 +284,14 @@ filters, pagination, summary), `/opportunities/new` (deal created directly on an
 `/opportunities/:id` (edit form, stage control, deal timeline + log-activity, linked contracts and
 "Create contract from deal" when won). `/companies/:id?tab=contracts&opportunity_id=…` opens the
 contract upload prefilled from a won deal. `/communications` (history book: summary cards, channel/
-direction/status/record-type/owner/date filters, a `?subject_type=&subject_id=` deep link and an admin
+direction/status/**due**/record-type/owner/date filters — the status picker names the scheduled count
+— a `?subject_type=&subject_id=` deep link and an admin
 "Pull replies" action), `/communications/new` (log form — a **Draft** status for an outbound email,
-prefilled when a record links to it) and `/communications/:id` (detail, inline correction of what the
-author logged, **Send now** on a draft, **Retry send** on a rejected one, the simulated-mailbox note,
+prefilled when a record links to it, plus **Schedule for later** on an outbound email: the "When"
+becomes a **Goes out** moment and the button reads **Schedule message**) and `/communications/:id`
+(detail, inline correction of what the
+author logged — a scheduled message is rescheduled, not back-dated — **Send now** on a draft or a
+scheduled message, **Retry send** on a rejected one, the simulated-mailbox note,
 an **Attachments** panel — list, **Attach file**, download and remove, offered only while the API says
 `can_attach` — and retire/restore), `/communications/threads` (conversation book: title, record, channel,
 message count and the last word, narrowed by channel/record/owner + search) and
@@ -287,9 +310,13 @@ that carries
 files; the account detail gains a
 Communications tab with a per-contract "Log" action, and leads and deals carry a Communications
 section. `/follow-ups` (the worklist: four stat cards — Overdue / Due today / Upcoming / Completed —
-over a table of due state, subject, kind, record link, owner and status, with **Complete** /
-**Reschedule** / **Cancel** on an open row and **Reopen** on a finished one; Everyone / Mine / My team
-tabs, state + record-type + search filters and a `?subject_type=&subject_id=` deep link),
+over a table of due state, subject, **kind** (Task / Email), record link, owner and status, with
+**Complete** /
+**Reschedule** / **Cancel** on an open task row, **Reopen** on a finished one, and **Send now** /
+**Open** / **Cancel** on a scheduled message row (which names its recipient); Everyone / Mine / My
+team
+tabs, state + kind + record-type + search filters and a `?subject_type=&subject_id=` deep link; an
+admin header action **Dispatch due sends** with the no-timer note),
 `/follow-ups/new` (put something owed on a lead, account, contact or deal: record picker, title, notes,
 due moment defaulting to tomorrow 09:00, and an assignee picker for manager+) and `/follow-ups/:id`
 (the same form in edit mode — the record shown, not re-pointed — plus the status control). The lead
@@ -316,12 +343,14 @@ module-01 deferral, ADR-0006). `/leads/{id}/status` cannot reach `converted`; co
 path (ADR-0009). `Company::deletionBlockers()` carries both guards (open deal, signed contract) —
 ADR-0010 §6.
 
-**Module 04 is under way — S1 built.** `resources/specs/12-follow-up-reminders.md` declares four
-slices (S1–S4, ADR-0018) and **S1 (follow-up tasks + the worklist) has landed**; S2 (scheduled
-communications) is next. The module adds **no table**: a follow-up is an `Activity`
-(`type=task` + `due_at` + `open/done/cancelled`) or, from S2, a `Communication` with the reserved
-`scheduled` status (`scheduled_for`; `occurred_at` becomes nullable and is stamped when it really
-leaves), and `GET /follow-ups` is one read-only worklist over both — today it reads tasks only.
+**Module 04 is under way — S1 and S2 built.** `resources/specs/12-follow-up-reminders.md` declares four
+slices (S1–S4, ADR-0018) and **S1 (follow-up tasks + the worklist) and S2 (scheduled outbound
+messages + the due dispatch) have landed**; S3 (notifications & the due run) is next. The module adds
+**no table**: a follow-up is an `Activity`
+(`type=task` + `due_at` + `open/done/cancelled`) or a `Communication` with the reserved
+`scheduled` status (`scheduled_for`; `occurred_at` is nullable and is stamped when it really
+leaves), and `GET /follow-ups` is one read-only worklist over both — a union of the two, narrowed by
+`filter[kind]`.
 Nothing runs in the background — due sends and
 due reminders are dispatched on demand (`communication:send-due`, `follow-ups:notify-due`) exactly like
 the mocked inbound sync, and `reminded_at`/`source_key` keep repeated runs idempotent.
@@ -355,7 +384,11 @@ every state it can show — a Sunrise rate-sheet task overdue, a BPO 40-seat sta
 contract chase and a Harbor forklift-shortlist task upcoming (the latter on the lead, so the lead list's
 **Next follow-up** column and the lead timeline demo unseeded), plus one done and one cancelled task on
 Sunrise — so the worklist's counts, its overdue/today/upcoming tabs and the complete/cancel/reopen paths
-need no setup.
+need no setup. Module 04 **S2 seeds two scheduled emails** — a Sunrise rate-sheet follow-up due
+tomorrow 09:00 PH (Sam's) and a BPO contract chase **overdue** since yesterday (Liza's, on Sam's
+account, so the "visible with the record, owed by someone else" split shows too) — both with no mirror
+activity, so **Send now** demos on one and an admin **Dispatch due sends** sends the overdue one
+through the mocked gateway live.
 
 ## Conventions that differ from framework defaults
 
@@ -435,7 +468,8 @@ module 02 (Opportunity Pipeline Visualization) covers the deal book, the Kanban 
 moves/won-lost and the board forecast. **Module 03** (Communication History) is **complete** — its five
 declared slices (S1 log & history, S2 mocked email send/retry, S3 attachments, S4 threading, S5 templates)
 are all built. **Module 04** (Follow-up Reminders) is **under way** — `resources/specs/12-follow-up-reminders.md`
-declares four slices (ADR-0018) and **S1 (tasks + the worklist) is built**, with S2 next; its worklist
+declares four slices (ADR-0018) and **S1 (tasks + the worklist) and S2 (scheduled outbound messages +
+the due dispatch) are built**, with S3 next; its worklist
 reuses `Activity` and the reserved
 `CommunicationStatus.scheduled` rather than adding a table. Module 05 (client satisfaction, spec `13`)
 follows — both are in **ADR-0014**. Dedup/merge and advanced tiers are module-01 deferrals

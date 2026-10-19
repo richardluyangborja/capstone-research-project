@@ -69,6 +69,12 @@ class CommunicationController extends Controller
             })
             ->when($filters['date_from'] ?? null, fn ($query, $date) => $query->where('occurred_at', '>=', Carbon::parse((string) $date)->startOfDay()))
             ->when($filters['date_to'] ?? null, fn ($query, $date) => $query->where('occurred_at', '<=', Carbon::parse((string) $date)->endOfDay()))
+            // A scheduled message has no `occurred_at` yet, so narrowing by due state is what
+            // finds it in time order (spec 12 §S2).
+            ->when($filters['due'] ?? null, fn ($query, $due) => $query->scheduled()->due((string) $due))
+            // History reads newest first; a scheduled message has not happened, so it sorts
+            // after what did — spelled out because Postgres and SQLite disagree about NULLs.
+            ->orderByRaw('CASE WHEN occurred_at IS NULL THEN 1 ELSE 0 END')
             ->orderByDesc('occurred_at')
             ->orderByDesc('id')
             ->paginate(min((int) $request->integer('per_page', 25), 100))
@@ -79,6 +85,7 @@ class CommunicationController extends Controller
         return CommunicationResource::collection($communications)->additional([
             'summary' => [
                 'all' => $base()->count(),
+                'scheduled' => $base()->scheduled()->count(),
                 'by_direction' => $base()
                     ->selectRaw('direction, count(*) as total')
                     ->groupBy('direction')
@@ -257,7 +264,7 @@ class CommunicationController extends Controller
 
         $this->authorize('update', $subject);
 
-        $occurredAt = isset($data['occurred_at']) ? Carbon::parse($data['occurred_at']) : now();
+        $occurredAt = isset($data['occurred_at']) ? Carbon::parse($data['occurred_at']) : null;
 
         $communication = DB::transaction(function () use ($data, $subject, $user, $occurredAt): Communication {
             /** @var Communication $communication */
@@ -273,14 +280,15 @@ class CommunicationController extends Controller
                 'to_name' => $data['to_name'] ?? null,
                 'to_address' => $data['to_address'] ?? null,
                 'occurred_at' => $occurredAt,
+                'scheduled_for' => isset($data['scheduled_for']) ? Carbon::parse($data['scheduled_for']) : null,
                 'duration_minutes' => $data['duration_minutes'] ?? null,
                 'outcome' => $data['outcome'] ?? null,
                 'owner_id' => $user->id,
             ]);
 
-            // A draft has not happened yet: it gets no timeline mirror, and it must not move
-            // the record's aging clock (slice S2).
-            if ($communication->status !== CommunicationStatus::Draft) {
+            // A draft or a scheduled follow-up has not happened yet: neither gets a timeline
+            // mirror, and neither may move the record's aging clock (slice S2, spec 12 §4).
+            if (! in_array($communication->status, [CommunicationStatus::Draft, CommunicationStatus::Scheduled], true)) {
                 CommunicationLogged::dispatch($communication, $user);
             }
 
@@ -372,13 +380,19 @@ class CommunicationController extends Controller
     }
 
     /**
-     * Send a draft through the email gateway (spec 11 §S2). A rejected send is not an HTTP
-     * error: the record comes back as `failed` with the gateway's reason, so the rep can read
-     * it and retry — and `meta.source` says the gateway was a mock.
+     * Send a draft — or a scheduled follow-up ahead of its time — through the email gateway
+     * (spec 11 §S2, spec 12 §5). A rejected send is not an HTTP error: the record comes back
+     * as `failed` with the gateway's reason, so the rep can read it and retry — and
+     * `meta.source` says the gateway was a mock. This is the worklist's **Send now**.
      */
     public function send(EmailGateway $gateway, Communication $communication): JsonResponse
     {
-        return $this->handToGateway($gateway, $communication, CommunicationStatus::Draft);
+        return $this->handToGateway(
+            $gateway,
+            $communication,
+            [CommunicationStatus::Draft, CommunicationStatus::Scheduled],
+            'a draft or a scheduled message',
+        );
     }
 
     /**
@@ -386,7 +400,27 @@ class CommunicationController extends Controller
      */
     public function retry(EmailGateway $gateway, Communication $communication): JsonResponse
     {
-        return $this->handToGateway($gateway, $communication, CommunicationStatus::Failed);
+        return $this->handToGateway(
+            $gateway,
+            $communication,
+            [CommunicationStatus::Failed],
+            'a message the gateway rejected',
+        );
+    }
+
+    /**
+     * Send every scheduled email that has fallen due (module 04 slice S2, spec 12 §5, §6).
+     * Admin-only because one run writes across every team — the same reason the mailbox sync
+     * is — and it is the in-app twin of `communication:send-due`.
+     */
+    public function dispatchDue(EmailGateway $gateway): JsonResponse
+    {
+        $this->authorize('dispatch', Communication::class);
+
+        return response()->json([
+            'data' => Communication::dispatchDue($gateway),
+            'meta' => ['source' => $gateway->source()],
+        ]);
     }
 
     /**
@@ -425,21 +459,20 @@ class CommunicationController extends Controller
 
     /**
      * The shared send/retry flow. Both are the same act — hand an outbound email to the
-     * gateway — differing only in the state they are legal from, which is a state error
+     * gateway — differing only in the states they are legal from, which is a state error
      * (422), not a permission one (spec 11 §Errors).
+     *
+     * @param  array<int, CommunicationStatus>  $from
      */
     private function handToGateway(
         EmailGateway $gateway,
         Communication $communication,
-        CommunicationStatus $from,
+        array $from,
+        string $expected,
     ): JsonResponse {
         $this->authorize('send', $communication);
 
-        $expected = $from === CommunicationStatus::Draft
-            ? 'a draft'
-            : 'a message the gateway rejected';
-
-        if ($communication->status !== $from || ! $communication->isSendable()) {
+        if (! in_array($communication->status, $from, true) || ! $communication->isSendable()) {
             throw ValidationException::withMessages([
                 'status' => [sprintf('Only %s can go to the mail gateway.', $expected)],
             ]);

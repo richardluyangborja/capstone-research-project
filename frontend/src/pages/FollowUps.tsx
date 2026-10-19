@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { CalendarPlus, Search } from 'lucide-react'
+import { CalendarPlus, MailCheck, Search } from 'lucide-react'
 import PageHeader from '../components/common/PageHeader'
 import StatusBadge from '../components/common/StatusBadge'
 import EmptyState from '../components/common/EmptyState'
@@ -8,13 +8,20 @@ import AlertItem from '../components/common/AlertItem'
 import StatCard from '../components/common/StatCard'
 import RescheduleDialog from '../components/common/RescheduleDialog'
 import DataTable, { type DataTableColumn } from '../components/common/DataTable'
+import { useAuth } from '../lib/auth-context'
 import { listFollowUps, updateTask, updateTaskStatus, type FollowUpFilters } from '../lib/followUps'
+import {
+  deleteCommunication,
+  dispatchDueCommunications,
+  sendCommunication,
+} from '../lib/communications'
 import { communicationRecordPath, communicationSubjectLabels } from '../lib/communicationMeta'
 import {
   followUpDueMeta,
   followUpKindMeta,
+  followUpKindOptions,
+  followUpRowStatusMeta,
   followUpStateOptions,
-  taskStatusMeta,
 } from '../lib/followUpMeta'
 import { formatDateTime } from '../lib/format'
 import { parseValidationError } from '../lib/leads'
@@ -34,9 +41,11 @@ const emptyCounts: FollowUpCounts = { overdue: 0, today: 0, upcoming: 0, open: 0
 // records that hold a promise (spec 12 §S1), so a row is actioned here but lives on its record.
 export default function FollowUps() {
   const [searchParams] = useSearchParams()
+  const { user } = useAuth()
   const [search, setSearch] = useState('')
   const [owner, setOwner] = useState<OwnerTab>('all')
   const [state, setState] = useState('open')
+  const [kind, setKind] = useState('')
   const [recordType, setRecordType] = useState<CommunicationSubjectType | ''>(
     (searchParams.get('subject_type') as CommunicationSubjectType | null) ?? '',
   )
@@ -50,6 +59,12 @@ export default function FollowUps() {
   const [error, setError] = useState('')
   const [busyId, setBusyId] = useState('')
   const [rescheduling, setRescheduling] = useState<FollowUp | null>(null)
+  const [dispatching, setDispatching] = useState(false)
+  const [dispatchNote, setDispatchNote] = useState('')
+
+  // Sending every due message writes across every team, so it is an admin action — the
+  // salesrep's own demo runs `php artisan communication:send-due` meanwhile (spec 12 §S2).
+  const canDispatch = user?.role === 'admin' || user?.role === 'superadmin'
 
   const load = useCallback(
     async (targetPage: number) => {
@@ -60,6 +75,7 @@ export default function FollowUps() {
           search: search || undefined,
           owner: owner === 'all' ? undefined : owner,
           state: state || undefined,
+          kind: kind || undefined,
           record_type: recordType || undefined,
           record_id: recordType ? recordId || undefined : undefined,
           page: targetPage,
@@ -76,7 +92,7 @@ export default function FollowUps() {
         setLoading(false)
       }
     },
-    [search, owner, state, recordType, recordId],
+    [search, owner, state, kind, recordType, recordId],
   )
 
   useEffect(() => {
@@ -95,6 +111,34 @@ export default function FollowUps() {
       setError(validation?.message ?? fallback)
     } finally {
       setBusyId('')
+    }
+  }
+
+  /**
+   * An admin sends everything that has fallen due (spec 12 §S2, §6). Nothing runs on a timer in
+   * this phase, so the demo clicks this — and the note says so, because the message really does
+   * leave the mocked gateway immediately rather than at its scheduled minute.
+   */
+  const onDispatchDue = async () => {
+    setDispatching(true)
+    setError('')
+    setDispatchNote('')
+    try {
+      const result = await dispatchDueCommunications()
+      setDispatchNote(
+        result.attempted === 0
+          ? 'Nothing was due — no scheduled message has come due since the last run.'
+          : `${result.sent} of ${result.attempted} due ${
+              result.attempted === 1 ? 'message' : 'messages'
+            } sent through the simulated mailbox${
+              result.failed > 0 ? `, ${result.failed} failed` : ''
+            }.`,
+      )
+      await load(page)
+    } catch {
+      setError('Could not dispatch the due messages.')
+    } finally {
+      setDispatching(false)
     }
   }
 
@@ -118,11 +162,18 @@ export default function FollowUps() {
       header: 'Follow-up',
       render: (row) => (
         <>
-          <Link to={`/follow-ups/${row.id}`} className="font-medium text-foreground">
+          {/* A task lives in this worklist; a message lives in the history book. */}
+          <Link
+            to={row.kind === 'message' ? `/communications/${row.id}` : `/follow-ups/${row.id}`}
+            className="font-medium text-foreground"
+          >
             {row.subject}
           </Link>
           {row.body && (
             <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">{row.body}</p>
+          )}
+          {row.kind === 'message' && row.recipient && (
+            <p className="mt-0.5 text-xs text-muted-foreground">To {row.recipient}</p>
           )}
         </>
       ),
@@ -160,7 +211,7 @@ export default function FollowUps() {
       key: 'status',
       header: 'Status',
       render: (row) => {
-        const status = taskStatusMeta[row.status.value]
+        const status = followUpRowStatusMeta[row.status.value]
         return <StatusBadge tone={status.tone}>{status.label}</StatusBadge>
       },
     },
@@ -169,6 +220,46 @@ export default function FollowUps() {
       header: 'Actions',
       render: (row) => {
         const busy = busyId === row.id
+
+        // A scheduled message is not a task: it is sent or retired, never completed or moved
+        // (spec 12 §S2). Its Cancel is the soft delete the history book already has.
+        if (row.kind === 'message') {
+          return (
+            <div className="flex flex-wrap items-center gap-2 text-xs font-medium">
+              {row.can_send && (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() =>
+                    void act(row, () => sendCommunication(row.id), 'Could not send it.')
+                  }
+                  className="rounded-md border border-border px-2 py-1 text-foreground hover:bg-muted disabled:opacity-60"
+                >
+                  Send now
+                </button>
+              )}
+              <Link
+                to={`/communications/${row.id}`}
+                className="rounded-md border border-border px-2 py-1 text-foreground hover:bg-muted"
+              >
+                Open
+              </Link>
+              {row.can_delete && (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() =>
+                    void act(row, () => deleteCommunication(row.id), 'Could not cancel it.')
+                  }
+                  className="rounded-md border border-border px-2 py-1 text-muted-foreground hover:bg-muted disabled:opacity-60"
+                >
+                  Cancel
+                </button>
+              )}
+            </div>
+          )
+        }
+
         return (
           <div className="flex flex-wrap items-center gap-2 text-xs font-medium">
             {row.can_transition && row.status.value === 'open' && (
@@ -231,17 +322,30 @@ export default function FollowUps() {
         title="Follow-up reminders"
         description="What is owed, by when and by whom — across leads, accounts, contacts and deals."
         actions={
-          <Link
-            to={
-              narrowedToRecord
-                ? `/follow-ups/new?subject_type=${recordType}&subject_id=${recordId}`
-                : '/follow-ups/new'
-            }
-            className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground"
-          >
-            <CalendarPlus className="h-4 w-4" aria-hidden="true" />
-            New follow-up
-          </Link>
+          <>
+            {canDispatch && (
+              <button
+                type="button"
+                onClick={() => void onDispatchDue()}
+                disabled={dispatching}
+                className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-60"
+              >
+                <MailCheck className="h-4 w-4" aria-hidden="true" />
+                {dispatching ? 'Dispatching…' : 'Dispatch due sends'}
+              </button>
+            )}
+            <Link
+              to={
+                narrowedToRecord
+                  ? `/follow-ups/new?subject_type=${recordType}&subject_id=${recordId}`
+                  : '/follow-ups/new'
+              }
+              className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground"
+            >
+              <CalendarPlus className="h-4 w-4" aria-hidden="true" />
+              New follow-up
+            </Link>
+          </>
         }
       />
 
@@ -251,6 +355,20 @@ export default function FollowUps() {
         <StatCard label="Upcoming" value={counts.upcoming} />
         <StatCard label="Completed" value={counts.done} domain="people" />
       </div>
+
+      {dispatchNote && (
+        <div className="mb-4">
+          <AlertItem variant="success">{dispatchNote}</AlertItem>
+        </div>
+      )}
+
+      {canDispatch && (
+        <p className="mb-4 text-xs text-muted-foreground">
+          Nothing runs on a timer in this phase: <strong>Dispatch due sends</strong> takes the
+          scheduled emails whose moment has passed through the simulated mailbox, right now. A
+          second run finds nothing, because what went out is no longer scheduled.
+        </p>
+      )}
 
       {narrowedToRecord && (
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm">
@@ -320,6 +438,19 @@ export default function FollowUps() {
           className="rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground outline-none focus:ring-2 focus:ring-ring"
         >
           {followUpStateOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+
+        <select
+          aria-label="Kind filter"
+          value={kind}
+          onChange={(event) => setKind(event.target.value)}
+          className="rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground outline-none focus:ring-2 focus:ring-ring"
+        >
+          {followUpKindOptions.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
             </option>

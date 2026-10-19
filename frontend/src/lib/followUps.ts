@@ -7,6 +7,8 @@ export interface FollowUpFilters {
   owner?: string
   /** `open` (the default), `overdue`, `today`, `upcoming`, `done`, `cancelled` or `all`. */
   state?: string
+  /** `task` or `message` — the worklist's two shapes (spec 12 §S2). */
+  kind?: string
   record_type?: string
   record_id?: string
   due_from?: string
@@ -19,6 +21,7 @@ const buildParams = (filters: FollowUpFilters): Record<string, string> => {
   if (filters.search) params.search = filters.search
   if (filters.owner) params['filter[owner]'] = filters.owner
   if (filters.state) params['filter[state]'] = filters.state
+  if (filters.kind) params['filter[kind]'] = filters.kind
   if (filters.record_type) params['filter[record_type]'] = filters.record_type
   if (filters.record_id) params['filter[record_id]'] = filters.record_id
   if (filters.due_from) params['filter[due_from]'] = filters.due_from

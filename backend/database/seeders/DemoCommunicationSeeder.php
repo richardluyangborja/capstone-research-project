@@ -250,6 +250,47 @@ class DemoCommunicationSeeder extends Seeder
                 'occurred_at' => Carbon::now()->subDay(),
             ]);
         }
+
+        // --- Module 04 slice S2: two scheduled follow-up emails, so the worklist's second
+        // shape, **Send now** and an admin **Dispatch due** all demo from real rows. One is
+        // still ahead (Sunrise) and one has fallen due (BPO Solutions) — the latter is what an
+        // admin's dispatch actually sends through the mocked gateway during a demo.
+        $timezone = (string) config('crm.timezone');
+
+        $sunrise = $this->company('Sunrise Foods Inc');
+        $sunriseContact = $sunrise === null ? null : $this->primaryContact($sunrise);
+
+        $this->log($this->deal('Sunrise Foods Inc — warehouse staffing'), $sam, [
+            'channel' => CommunicationChannel::Email,
+            'direction' => CommunicationDirection::Outbound,
+            'status' => CommunicationStatus::Scheduled,
+            'contact_id' => $sunriseContact?->id,
+            'subject' => 'Rate sheet follow-up — confirm the night shift',
+            'body' => "Hi Rosa,\n\nFollowing up on the revised rate sheet: could you confirm whether you want the night shift covered from the first week?\n\nBest,\nSam",
+            'from_name' => $sam->name,
+            'from_address' => 'sales@primepower.test',
+            'to_name' => $sunriseContact?->name,
+            'to_address' => $sunriseContact?->email,
+            'scheduled_for' => Carbon::parse('tomorrow 09:00', $timezone)->utc(),
+        ]);
+
+        $bpo = $this->company('BPO Solutions PH');
+        $bpoContact = $bpo === null ? null : $this->primaryContact($bpo);
+
+        $this->log($bpo, $liza, [
+            'channel' => CommunicationChannel::Email,
+            'direction' => CommunicationDirection::Outbound,
+            'status' => CommunicationStatus::Scheduled,
+            'contact_id' => $bpoContact?->id,
+            'subject' => 'Contract chase — countersigned copy still awaited',
+            'body' => "Hi,\n\nWe are still waiting on the countersigned copy of the contract. Could you send it back today so we can book the handover?\n\nThanks,\nLiza",
+            'from_name' => $liza->name,
+            'from_address' => 'liza@primepower.test',
+            'to_name' => $bpoContact?->name,
+            'to_address' => $bpoContact?->email,
+            // Already past: this is the one the dispatch sends.
+            'scheduled_for' => Carbon::parse('yesterday 14:00', $timezone)->utc(),
+        ]);
     }
 
     private function company(string $name): ?Company
@@ -337,7 +378,8 @@ class DemoCommunicationSeeder extends Seeder
             'from_address' => $attributes['from_address'] ?? null,
             'to_name' => $attributes['to_name'] ?? null,
             'to_address' => $attributes['to_address'] ?? null,
-            'occurred_at' => $attributes['occurred_at'],
+            'occurred_at' => $attributes['occurred_at'] ?? null,
+            'scheduled_for' => $attributes['scheduled_for'] ?? null,
             'duration_minutes' => $attributes['duration_minutes'] ?? null,
             'outcome' => $attributes['outcome'] ?? null,
             'external_id' => $attributes['external_id'] ?? null,
@@ -354,7 +396,11 @@ class DemoCommunicationSeeder extends Seeder
             $communication->update(['external_id' => MockEmailGateway::externalIdFor($communication->reference)]);
         }
 
-        CommunicationLogged::dispatch($communication, $owner);
+        // A draft or a scheduled follow-up has not happened yet, so it writes no mirror and
+        // moves no clock — the same rule the API applies (module 04 slice S2, spec 12 §4).
+        if (! in_array($communication->status, [CommunicationStatus::Draft, CommunicationStatus::Scheduled], true)) {
+            CommunicationLogged::dispatch($communication, $owner);
+        }
 
         return $communication;
     }

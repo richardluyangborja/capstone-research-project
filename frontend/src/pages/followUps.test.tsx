@@ -4,10 +4,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import FollowUpForm from './FollowUpForm'
 import FollowUps from './FollowUps'
 import * as followUpApi from '../lib/followUps'
-import type { FollowUp, FollowUpsPage, Task } from '../types'
+import * as communicationApi from '../lib/communications'
+import type { FollowUp, FollowUpMessage, FollowUpsPage, Task } from '../types'
 
 // `vi.mock` factories are hoisted above the imports, so fixtures must come from `vi.hoisted`.
-const { overdueTask, page, task, session } = vi.hoisted(() => {
+const { overdueTask, page, messagePage, task, session } = vi.hoisted(() => {
   const base = {
     subject: 'Send the revised rate sheet',
     body: 'Cover the two supervisor roles we discussed.',
@@ -18,6 +19,7 @@ const { overdueTask, page, task, session } = vi.hoisted(() => {
     due: { state: 'overdue' as const, label: 'Overdue', days: -2, overdue: true },
     status: { value: 'open' as const, label: 'Open' },
     channel: null,
+    recipient: null,
     can_update: true,
     can_transition: true,
     can_send: false,
@@ -51,12 +53,43 @@ const { overdueTask, page, task, session } = vi.hoisted(() => {
     counts: { overdue: 3, today: 1, upcoming: 4, open: 8, done: 2 },
   }
 
+  // Slice S2: a scheduled message joins the same worklist, read as the second shape.
+  const scheduledMessage: FollowUpMessage = {
+    kind: 'message',
+    id: 'com-9',
+    reference: 'COM-2026-0014',
+    subject: 'Rate sheet follow-up for the night shift',
+    body: 'Just checking the rates reach you before Friday.',
+    record: { type: 'company', id: 'company-1', label: 'Sunrise Foods Inc' },
+    owner: { id: 2, name: 'Sam Salesrep' },
+    owner_id: 2,
+    due_at: '2026-10-20T01:00:00.000000Z',
+    due: { state: 'upcoming', label: 'Upcoming', days: 1, overdue: false },
+    status: { value: 'scheduled', label: 'Scheduled' },
+    channel: 'email',
+    recipient: 'Rosa Dela Cruz <rosa@sunrise.test>',
+    to_name: 'Rosa Dela Cruz',
+    to_address: 'rosa@sunrise.test',
+    can_update: true,
+    can_transition: false,
+    can_send: true,
+    can_delete: true,
+    created_at: '2026-10-18T01:00:00.000000Z',
+    updated_at: '2026-10-18T01:00:00.000000Z',
+  }
+
+  const messagePage: FollowUpsPage = {
+    data: [scheduledMessage],
+    meta: { current_page: 1, per_page: 25, total: 1, last_page: 1 },
+    counts: { overdue: 3, today: 1, upcoming: 5, open: 9, done: 2 },
+  }
+
   const task: Task = { id: 'task-1', ...base }
 
-  // Mutated by a test that needs a salesrep's narrower rights (ADR-0004).
-  const session = { role: 'manager' as 'manager' | 'salesrep' }
+  // Mutated by a test that needs a salesrep's narrower rights (ADR-0004), or an admin's dispatch.
+  const session = { role: 'manager' as 'manager' | 'salesrep' | 'admin' }
 
-  return { overdueTask, page, task, session }
+  return { overdueTask, scheduledMessage, page, messagePage, task, session }
 })
 
 vi.mock('../lib/followUps', () => ({
@@ -65,6 +98,13 @@ vi.mock('../lib/followUps', () => ({
   createTask: vi.fn(),
   updateTask: vi.fn(),
   updateTaskStatus: vi.fn(),
+}))
+
+// The worklist's message actions are the history book's own calls (slice S2).
+vi.mock('../lib/communications', () => ({
+  sendCommunication: vi.fn(),
+  deleteCommunication: vi.fn(),
+  dispatchDueCommunications: vi.fn(),
 }))
 
 vi.mock('../lib/auth-context', () => ({
@@ -107,6 +147,12 @@ beforeEach(() => {
   vi.mocked(followUpApi.createTask).mockResolvedValue(task)
   vi.mocked(followUpApi.updateTask).mockResolvedValue(task)
   vi.mocked(followUpApi.updateTaskStatus).mockResolvedValue(task)
+  vi.mocked(communicationApi.dispatchDueCommunications).mockResolvedValue({
+    attempted: 2,
+    sent: 1,
+    failed: 1,
+    source: 'Email (mocked)',
+  })
 })
 
 const renderWorklist = () =>
@@ -252,6 +298,81 @@ describe('the follow-up worklist', () => {
     fireEvent.click(screen.getAllByRole('button', { name: 'Complete' })[0])
 
     expect(await screen.findByText('A done follow-up cannot move to done.')).toBeInTheDocument()
+  })
+
+  it('lists a scheduled message as the second shape, with what only a message has', async () => {
+    vi.mocked(followUpApi.listFollowUps).mockResolvedValue(messagePage)
+
+    renderWorklist()
+
+    expect(await screen.findByText('Rate sheet follow-up for the night shift')).toBeInTheDocument()
+    const table = screen.getByRole('table')
+    // The kind, the state and the recipient are the message's own.
+    expect(within(table).getByText('Email')).toBeInTheDocument()
+    expect(within(table).getByText('Scheduled')).toBeInTheDocument()
+    expect(within(table).getByText('To Rosa Dela Cruz <rosa@sunrise.test>')).toBeInTheDocument()
+    // It opens in the history book, not in the task form, and it is sent rather than completed.
+    expect(
+      screen.getByRole('link', { name: 'Rate sheet follow-up for the night shift' }),
+    ).toHaveAttribute('href', '/communications/com-9')
+    expect(within(table).getByRole('button', { name: 'Send now' })).toBeInTheDocument()
+    expect(within(table).queryByRole('button', { name: 'Complete' })).not.toBeInTheDocument()
+  })
+
+  it('sends a scheduled message from the row, and re-reads the worklist', async () => {
+    vi.mocked(followUpApi.listFollowUps).mockResolvedValue(messagePage)
+
+    renderWorklist()
+    await screen.findByText('Rate sheet follow-up for the night shift')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Send now' }))
+
+    await waitFor(() => expect(communicationApi.sendCommunication).toHaveBeenCalledWith('com-9'))
+    await waitFor(() => expect(followUpApi.listFollowUps).toHaveBeenCalledTimes(2))
+  })
+
+  it('cancels a scheduled message with the book\u2019s soft delete', async () => {
+    vi.mocked(followUpApi.listFollowUps).mockResolvedValue(messagePage)
+
+    renderWorklist()
+    await screen.findByText('Rate sheet follow-up for the night shift')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+
+    await waitFor(() => expect(communicationApi.deleteCommunication).toHaveBeenCalledWith('com-9'))
+  })
+
+  it('narrows the worklist to one shape at a time', async () => {
+    renderWorklist()
+    await screen.findByText('Send the revised rate sheet')
+
+    fireEvent.change(screen.getByLabelText('Kind filter'), { target: { value: 'message' } })
+
+    await waitFor(() =>
+      expect(followUpApi.listFollowUps).toHaveBeenLastCalledWith(
+        expect.objectContaining({ kind: 'message' }),
+      ),
+    )
+  })
+
+  it('lets an admin dispatch what has fallen due, and reports it', async () => {
+    session.role = 'admin'
+    renderWorklist()
+    await screen.findByText('Send the revised rate sheet')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Dispatch due sends' }))
+
+    await waitFor(() => expect(communicationApi.dispatchDueCommunications).toHaveBeenCalledTimes(1))
+    expect(
+      await screen.findByText('1 of 2 due messages sent through the simulated mailbox, 1 failed.'),
+    ).toBeInTheDocument()
+  })
+
+  it('offers a manager no dispatch: one run writes across every team', async () => {
+    renderWorklist()
+    await screen.findByText('Send the revised rate sheet')
+
+    expect(screen.queryByRole('button', { name: 'Dispatch due sends' })).not.toBeInTheDocument()
   })
 })
 

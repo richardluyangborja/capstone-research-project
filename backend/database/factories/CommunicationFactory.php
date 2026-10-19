@@ -13,6 +13,7 @@ use App\Models\Contract;
 use App\Models\Lead;
 use App\Models\Opportunity;
 use App\Models\User;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -82,6 +83,19 @@ class CommunicationFactory extends Factory
     public function status(CommunicationStatus $status): static
     {
         return $this->state(fn (array $attributes): array => ['status' => $status]);
+    }
+
+    /**
+     * A scheduled follow-up (module 04 slice S2): an outbound email that has not gone out yet,
+     * so it carries a due moment and no `occurred_at` — the model leaves that one null.
+     */
+    public function scheduled(?CarbonInterface $due = null): static
+    {
+        return $this->state(fn (array $attributes): array => [
+            'status' => CommunicationStatus::Scheduled,
+            'scheduled_for' => $due ?? now()->addDay(),
+            'occurred_at' => null,
+        ]);
     }
 
     /**
