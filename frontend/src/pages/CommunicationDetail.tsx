@@ -36,6 +36,7 @@ import {
   communicationSubjectLabels,
 } from '../lib/communicationMeta'
 import { formatDateTime, formatFileSize, toDateTimeLocal } from '../lib/format'
+import { defaultDueAt } from '../lib/followUpMeta'
 import { parseValidationError } from '../lib/leads'
 import type { Attachment, Communication, CommunicationOutcome } from '../types'
 
@@ -59,6 +60,7 @@ export default function CommunicationDetail() {
   const [title, setTitle] = useState('')
   const [body, setBody] = useState('')
   const [occurredAt, setOccurredAt] = useState('')
+  const [scheduledFor, setScheduledFor] = useState('')
   const [duration, setDuration] = useState('')
   const [outcome, setOutcome] = useState<CommunicationOutcome | ''>('')
 
@@ -75,6 +77,13 @@ export default function CommunicationDetail() {
       setTitle(record.subject)
       setBody(record.body ?? '')
       setOccurredAt(toDateTimeLocal(record.occurred_at))
+      // A scheduled message is rescheduled, not back-dated: its own moment is what the form
+      // edits (module 04 slice S2).
+      setScheduledFor(
+        record.status === 'scheduled'
+          ? toDateTimeLocal(record.scheduled_for) || defaultDueAt()
+          : '',
+      )
       setDuration(record.duration_minutes === null ? '' : String(record.duration_minutes))
       setOutcome(record.outcome ?? '')
     } catch {
@@ -105,11 +114,14 @@ export default function CommunicationDetail() {
     setSaving(true)
     setMessage('')
     setErrors({})
+    const scheduled = communication?.status === 'scheduled'
     try {
       const updated = await updateCommunication(id, {
         subject: title.trim(),
         body: body.trim() === '' ? null : body,
-        occurred_at: occurredAt ? new Date(occurredAt).toISOString() : undefined,
+        // A scheduled message carries its due moment; everything else carries when it happened.
+        occurred_at: !scheduled && occurredAt ? new Date(occurredAt).toISOString() : undefined,
+        scheduled_for: scheduled && scheduledFor ? new Date(scheduledFor).toISOString() : undefined,
         duration_minutes: duration.trim() === '' ? null : Number(duration),
         outcome: outcome === '' ? null : outcome,
       })
@@ -124,7 +136,8 @@ export default function CommunicationDetail() {
     }
   }
 
-  /** Sending (or retrying) is the one action that leaves the app (spec 11 §S2). */
+  /** Sending (or retrying) is the one action that leaves the app (spec 11 §S2). A scheduled
+   * message is sent the same way a draft is — early, when the caller is ready (module 04 §S2). */
   const onGateway = async () => {
     if (!communication) return
     setSaving(true)
@@ -132,7 +145,7 @@ export default function CommunicationDetail() {
     setErrors({})
     try {
       const updated =
-        communication.status === 'draft'
+        communication.status === 'draft' || communication.status === 'scheduled'
           ? await sendCommunication(id)
           : await retryCommunication(id)
       setCommunication(updated)
@@ -370,6 +383,17 @@ export default function CommunicationDetail() {
         </div>
       )}
 
+      {!retired && communication.status === 'scheduled' && (
+        <div className="mb-4">
+          <AlertItem variant="info" title="Scheduled — not sent yet">
+            Written now, going out {formatDateTime(communication.scheduled_for)}
+            {communication.due ? ` (${communication.due.label.toLowerCase()})` : ''}. Send it now,
+            or leave it for an admin to dispatch when the moment comes — until then it stays off the
+            record's timeline.
+          </AlertItem>
+        </div>
+      )}
+
       {!retired && gatewayEmail && communication.status !== 'failed' && (
         <div className="mb-4">
           <AlertItem variant="info" title="Simulated mailbox">
@@ -421,16 +445,30 @@ export default function CommunicationDetail() {
 
                 <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
                   <label className="block text-sm font-medium text-foreground">
-                    When
-                    <input
-                      type="datetime-local"
-                      value={occurredAt}
-                      onChange={(event) => setOccurredAt(event.target.value)}
-                      className={inputClass}
-                    />
+                    {communication.status === 'scheduled' ? 'Goes out' : 'When'}
+                    {communication.status === 'scheduled' ? (
+                      <input
+                        type="datetime-local"
+                        value={scheduledFor}
+                        onChange={(event) => setScheduledFor(event.target.value)}
+                        className={inputClass}
+                      />
+                    ) : (
+                      <input
+                        type="datetime-local"
+                        value={occurredAt}
+                        onChange={(event) => setOccurredAt(event.target.value)}
+                        className={inputClass}
+                      />
+                    )}
                     {errors.occurred_at && (
                       <span className="mt-1 block text-xs text-destructive">
                         {errors.occurred_at[0]}
+                      </span>
+                    )}
+                    {errors.scheduled_for && (
+                      <span className="mt-1 block text-xs text-destructive">
+                        {errors.scheduled_for[0]}
                       </span>
                     )}
                   </label>

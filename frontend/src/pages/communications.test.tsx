@@ -29,6 +29,9 @@ const { sentMessage, loggedCall, draftMessage, failedMessage, book } = vi.hoiste
     to_name: 'Rosa Dela Cruz',
     to_address: 'rosa@sunrise.test',
     occurred_at: '2026-10-16T02:30:00.000000Z',
+    // Slice S2: only a scheduled message carries a due moment; everything else has happened.
+    scheduled_for: null,
+    due: null,
     duration_minutes: null,
     outcome: null,
     external_id: null,
@@ -88,6 +91,7 @@ const { sentMessage, loggedCall, draftMessage, failedMessage, book } = vi.hoiste
     links: {},
     summary: {
       all: 2,
+      scheduled: 0,
       by_direction: { outbound: 2 },
       by_channel: { email: 1, call: 1 },
       last_contacted_at: '2026-10-16T02:30:00.000000Z',
@@ -121,6 +125,21 @@ const { sentMessage, loggedCall, draftMessage, failedMessage, book } = vi.hoiste
 
   return { sentMessage, loggedCall, draftMessage, failedMessage, book }
 })
+
+// Module 04 slice S2: an outbound email written now, due tomorrow morning.
+const scheduledMessage: Communication = {
+  ...sentMessage,
+  id: 'com-5',
+  reference: 'COM-2026-0005',
+  status: 'scheduled',
+  subject: 'Rate sheet follow-up for the night shift',
+  occurred_at: null,
+  scheduled_for: '2026-10-20T01:00:00.000000Z',
+  due: { state: 'upcoming', label: 'Upcoming', days: 1, overdue: false },
+  is_editable: true,
+  can_send: true,
+  can_reply: false,
+}
 
 vi.mock('../lib/communications', () => ({
   listCommunications: vi.fn(),
@@ -280,9 +299,10 @@ describe('Log communication', () => {
     // The label comes from the record itself, not the URL.
     expect(await screen.findByText('Sunrise Foods Inc')).toBeInTheDocument()
 
-    // `scheduled` belongs to the follow-up module and is never offered (spec 11 §Business rules).
+    // `scheduled` belongs to the follow-up module, and an outbound email is what may be put off
+    // (module 04 §S2, spec 11 §Business rules).
     const status = screen.getByLabelText('Status')
-    expect(within(status).queryByRole('option', { name: 'Scheduled' })).not.toBeInTheDocument()
+    expect(within(status).getByRole('option', { name: 'Scheduled' })).toBeInTheDocument()
     // An outbound email defaults to Sent.
     expect(status).toHaveValue('sent')
 
@@ -379,6 +399,49 @@ describe('Log communication', () => {
     expect(
       within(screen.getByLabelText('Status')).queryByRole('option', { name: 'Draft' }),
     ).not.toBeInTheDocument()
+    // Nor is a message that has not gone out: a call is not put off to a later moment (S2).
+    expect(
+      within(screen.getByLabelText('Status')).queryByRole('option', { name: 'Scheduled' }),
+    ).not.toBeInTheDocument()
+  })
+
+  // Module 04 slice S2 — an outbound email may be written now and sent when it falls due.
+  it('schedules an outbound email for later, with the moment it owes', async () => {
+    vi.mocked(communicationApi.createCommunication).mockResolvedValue(scheduledMessage)
+
+    render(
+      <MemoryRouter
+        initialEntries={['/communications/new?subject_type=company&subject_id=company-1']}
+      >
+        <Routes>
+          <Route path="/communications/new" element={<NewCommunication />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    const status = await screen.findByLabelText('Status')
+    fireEvent.change(status, { target: { value: 'scheduled' } })
+
+    // The form asks when it goes out rather than when it happened, and names the default.
+    const goesOut = screen.getByLabelText('Goes out')
+    expect((goesOut as HTMLInputElement).value).toMatch(/^\d{4}-\d{2}-\d{2}T09:00$/)
+
+    fireEvent.change(screen.getByLabelText('Subject'), {
+      target: { value: 'Rate sheet follow-up for the night shift' },
+    })
+    fireEvent.change(goesOut, { target: { value: '2026-10-20T09:00' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Schedule message' }))
+
+    await waitFor(() =>
+      expect(communicationApi.createCommunication).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: 'scheduled',
+          // It has not happened, so it carries no `occurred_at`, only when it is owed.
+          occurred_at: null,
+          scheduled_for: new Date('2026-10-20T09:00').toISOString(),
+        }),
+      ),
+    )
   })
 })
 
@@ -443,6 +506,33 @@ describe('Communication detail', () => {
     // The page reports where it went: the simulated mailbox, not a mail provider.
     await waitFor(() =>
       expect(screen.getAllByText(/EMAIL-COM-2026-0003/).length).toBeGreaterThan(0),
+    )
+  })
+
+  // Module 04 slice S2 — a message written now and sent when it falls due.
+  it('shows a scheduled message as not yet gone out, and sends it early', async () => {
+    vi.mocked(communicationApi.getCommunication).mockResolvedValue(scheduledMessage)
+    vi.mocked(communicationApi.sendCommunication).mockResolvedValue({
+      ...scheduledMessage,
+      status: 'sent',
+      external_id: 'EMAIL-COM-2026-0005',
+      occurred_at: '2026-10-19T06:00:00.000000Z',
+      is_editable: false,
+      can_send: false,
+      due: null,
+    })
+
+    renderDetail('com-5')
+
+    expect(await screen.findByText('Scheduled — not sent yet')).toBeInTheDocument()
+    // The banner names when it is owed and how due it is, so the reader need not work it out.
+    expect(screen.getByText(/Written now, going out .* \(upcoming\)/)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Send now' }))
+
+    await waitFor(() => expect(communicationApi.sendCommunication).toHaveBeenCalledWith('com-5'))
+    await waitFor(() =>
+      expect(screen.getAllByText(/EMAIL-COM-2026-0005/).length).toBeGreaterThan(0),
     )
   })
 

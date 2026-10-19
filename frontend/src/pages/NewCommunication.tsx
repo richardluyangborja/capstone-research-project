@@ -14,11 +14,13 @@ import {
   communicationOutcomes,
   communicationOutcomeMeta,
   defaultCommunicationStatus,
+  isSchedulableStatus,
   isConversationalChannel,
   settableCommunicationStatuses,
   communicationStatusMeta,
   communicationSubjectLabels,
 } from '../lib/communicationMeta'
+import { defaultDueAt } from '../lib/followUpMeta'
 import { getLead, listLeads, parseValidationError } from '../lib/leads'
 import { getCompany, listCompanies } from '../lib/companies'
 import { getContact, listCompanyContacts, listContacts } from '../lib/contacts'
@@ -81,6 +83,9 @@ export default function NewCommunication() {
   const [statusTouched, setStatusTouched] = useState(false)
   const [contactId, setContactId] = useState('')
   const [occurredAt, setOccurredAt] = useState(toDateTimeLocal(new Date()))
+  // Slice S2 (module 04): an outbound email may be written now and sent later, so the composer
+  // gains a due moment instead of a "when it happened".
+  const [scheduledFor, setScheduledFor] = useState(defaultDueAt())
   const [duration, setDuration] = useState('')
   const [outcome, setOutcome] = useState<CommunicationOutcome | ''>('')
   const [fromName, setFromName] = useState('')
@@ -171,14 +176,23 @@ export default function NewCommunication() {
     })()
   }, [selected?.companyId])
 
+  // A reply is answered in the conversation it belongs to, so it is never put off to a later
+  // moment — only the composer schedules a message (module 04 §S2).
+  const statusOptions = settableCommunicationStatuses(channel, direction).filter(
+    (value) => !replying || !isSchedulableStatus(value),
+  )
+
   // The status follows the channel and direction until the user overrides it — and a status the
   // pair cannot have (a draft on a call) always falls back, so the select never goes blank.
   useEffect(() => {
-    const available = settableCommunicationStatuses(channel, direction)
+    const available = settableCommunicationStatuses(channel, direction).filter(
+      (value) => !replying || !isSchedulableStatus(value),
+    )
+
     if (!statusTouched || !available.includes(status)) {
       setStatus(defaultCommunicationStatus(channel, direction))
     }
-  }, [channel, direction, status, statusTouched])
+  }, [channel, direction, replying, status, statusTouched])
 
   // The active templates — the composer's starting points (slice S5). An inactive or retired
   // one is deliberately not offered here.
@@ -264,6 +278,7 @@ export default function NewCommunication() {
       status,
       contactId,
       occurredAt,
+      scheduledFor,
       duration,
       outcome,
       fromName,
@@ -299,11 +314,14 @@ export default function NewCommunication() {
   const statusNote =
     status === 'draft'
       ? 'A draft is saved but not sent — you can send it from its own page.'
-      : status === 'logged'
-        ? 'A logged entry can still be corrected by its author.'
-        : 'A sent or received message is a record of what was said — it cannot be edited later.'
+      : status === 'scheduled'
+        ? 'A scheduled message is written now and sent when it falls due — from the follow-ups worklist or by an admin dispatching what is due.'
+        : status === 'logged'
+          ? 'A logged entry can still be corrected by its author.'
+          : 'A sent or received message is a record of what was said — it cannot be edited later.'
 
   const isDraft = status === 'draft'
+  const isScheduled = status === 'scheduled'
 
   return (
     <div>
@@ -457,7 +475,7 @@ export default function NewCommunication() {
                   }}
                   className={inputClass}
                 >
-                  {settableCommunicationStatuses(channel, direction).map((value) => (
+                  {statusOptions.map((value) => (
                     <option key={value} value={value}>
                       {communicationStatusMeta[value].label}
                     </option>
@@ -465,14 +483,25 @@ export default function NewCommunication() {
                 </select>
               </Field>
 
-              <Field label="When" error={errors.occurred_at}>
-                <input
-                  type="datetime-local"
-                  value={occurredAt}
-                  onChange={(event) => setOccurredAt(event.target.value)}
-                  className={inputClass}
-                />
-              </Field>
+              {isScheduled ? (
+                <Field label="Goes out" error={errors.scheduled_for}>
+                  <input
+                    type="datetime-local"
+                    value={scheduledFor}
+                    onChange={(event) => setScheduledFor(event.target.value)}
+                    className={inputClass}
+                  />
+                </Field>
+              ) : (
+                <Field label="When" error={errors.occurred_at}>
+                  <input
+                    type="datetime-local"
+                    value={occurredAt}
+                    onChange={(event) => setOccurredAt(event.target.value)}
+                    className={inputClass}
+                  />
+                </Field>
+              )}
 
               {contacts.length > 0 && (
                 <Field label="Contact" error={errors.contact_id}>
@@ -643,13 +672,15 @@ export default function NewCommunication() {
           >
             {saving
               ? 'Saving…'
-              : isDraft
-                ? replying
-                  ? 'Save draft reply'
-                  : 'Save draft'
-                : replying
-                  ? 'Log reply'
-                  : 'Log communication'}
+              : isScheduled
+                ? 'Schedule message'
+                : isDraft
+                  ? replying
+                    ? 'Save draft reply'
+                    : 'Save draft'
+                  : replying
+                    ? 'Log reply'
+                    : 'Log communication'}
           </button>
           <button
             type="button"
@@ -747,6 +778,7 @@ interface FormState {
   status: CommunicationStatus
   contactId: string
   occurredAt: string
+  scheduledFor: string
   duration: string
   outcome: CommunicationOutcome | ''
   fromName: string
@@ -762,6 +794,11 @@ function toInput(state: FormState): CommunicationInput {
     subject_type: state.subjectType,
     subject_id: state.selected.id,
     ...toFields(state),
+    // A scheduled message has not happened: it carries when it will instead (module 04 §S2).
+    scheduled_for:
+      state.status === 'scheduled' && state.scheduledFor
+        ? new Date(state.scheduledFor).toISOString()
+        : null,
   }
 }
 
@@ -790,7 +827,12 @@ function toFields(state: FormState) {
     from_address: trimmed(state.fromAddress),
     to_name: trimmed(state.toName),
     to_address: trimmed(state.toAddress),
-    occurred_at: state.occurredAt ? new Date(state.occurredAt).toISOString() : null,
+    // A scheduled message has not happened yet, so it carries no `occurred_at` — that is stamped
+    // when it really leaves (module 04 §S2).
+    occurred_at:
+      state.status === 'scheduled' || !state.occurredAt
+        ? null
+        : new Date(state.occurredAt).toISOString(),
     duration_minutes:
       state.duration.trim() === '' || !isConversationalChannel(state.channel)
         ? null

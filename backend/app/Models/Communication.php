@@ -7,12 +7,14 @@ use App\Enums\CommunicationChannel;
 use App\Enums\CommunicationDirection;
 use App\Enums\CommunicationOutcome;
 use App\Enums\CommunicationStatus;
+use App\Enums\FollowUpDueState;
 use App\Events\CommunicationFailed;
 use App\Events\CommunicationLogged;
 use App\Events\CommunicationSent;
 use App\Integrations\EmailGateway;
 use App\Integrations\OutboundEmail;
 use App\Models\Concerns\HasSubjectRecord;
+use Carbon\CarbonInterface;
 use Database\Factories\CommunicationFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
@@ -51,6 +53,7 @@ class Communication extends Model
         'to_name',
         'to_address',
         'occurred_at',
+        'scheduled_for',
         'duration_minutes',
         'outcome',
         'external_id',
@@ -71,6 +74,7 @@ class Communication extends Model
             'status' => CommunicationStatus::class,
             'outcome' => CommunicationOutcome::class,
             'occurred_at' => 'datetime',
+            'scheduled_for' => 'datetime',
             'duration_minutes' => 'integer',
         ];
     }
@@ -79,12 +83,18 @@ class Communication extends Model
     {
         static::creating(function (Communication $communication): void {
             $communication->reference ??= static::nextReference();
-            $communication->occurred_at ??= now();
 
             // An inbound message has been received; an electronic outbound one sent; a call
             // or a meeting is simply logged (spec 11 §Business rules).
             if ($communication->status === null && $communication->channel !== null && $communication->direction !== null) {
                 $communication->status = CommunicationStatus::defaultFor($communication->channel, $communication->direction);
+            }
+
+            // A scheduled follow-up has not happened yet, so it keeps a null `occurred_at`
+            // until the gateway takes it — that is what keeps it out of `last_contacted_at`
+            // and off the record's clock (spec 12 §S2 rule 4).
+            if ($communication->status !== CommunicationStatus::Scheduled) {
+                $communication->occurred_at ??= now();
             }
         });
 
@@ -104,6 +114,18 @@ class Communication extends Model
 
         static::restored(function (Communication $communication): void {
             $communication->syncActivityMirror();
+        });
+
+        // A scheduled message is one of the two shapes a follow-up takes (spec 12 §1), so any
+        // write — scheduling it, sending it, retiring it — leaves the lead's own
+        // `next_follow_up_at` current (rule 12). The hook is here rather than in the controller
+        // so the mocked sync and the seeders keep the same promise.
+        static::saved(function (Communication $communication): void {
+            $communication->syncSubjectFollowUp();
+        });
+
+        static::deleted(function (Communication $communication): void {
+            $communication->syncSubjectFollowUp();
         });
     }
 
@@ -178,8 +200,9 @@ class Communication extends Model
      */
     public function syncActivityMirror(): void
     {
-        // A draft has not happened yet, so it has no place on the record's timeline (S2).
-        if ($this->status === CommunicationStatus::Draft) {
+        // A draft or a scheduled follow-up has not happened yet, so it has no place on the
+        // record's timeline (spec 11 §2, spec 12 §4).
+        if (in_array($this->status, [CommunicationStatus::Draft, CommunicationStatus::Scheduled], true)) {
             $this->activities()->delete();
 
             return;
@@ -321,7 +344,44 @@ class Communication extends Model
     {
         return $this->channel === CommunicationChannel::Email
             && $this->direction === CommunicationDirection::Outbound
-            && in_array($this->status, [CommunicationStatus::Draft, CommunicationStatus::Failed], true);
+            && in_array($this->status, [CommunicationStatus::Draft, CommunicationStatus::Scheduled, CommunicationStatus::Failed], true);
+    }
+
+    /**
+     * Whether the due moment for a scheduled message has arrived (spec 12 §S2). Derived from
+     * the clock, never stored — the worklist and the dispatch ask the same question.
+     */
+    public function isDue(?CarbonInterface $now = null): bool
+    {
+        return $this->status === CommunicationStatus::Scheduled
+            && $this->scheduled_for !== null
+            && $this->scheduled_for->lessThanOrEqualTo($now ?? now());
+    }
+
+    /**
+     * The scheduled messages only (spec 12 §S2): what the worklist adds beside the tasks and
+     * what the dispatch runs over.
+     */
+    public function scopeScheduled(Builder $query): Builder
+    {
+        return $query->where('status', CommunicationStatus::Scheduled);
+    }
+
+    /**
+     * Narrow scheduled messages by when they are due, against the business calendar — the
+     * book's `filter[due]`, the same three states the worklist computes (spec 12 §7).
+     */
+    public function scopeDue(Builder $query, string $due): Builder
+    {
+        $now = now();
+        $endOfDay = FollowUpDueState::endOfBusinessDay($now);
+
+        return match ($due) {
+            'overdue' => $query->where('scheduled_for', '<', $now),
+            'today' => $query->where('scheduled_for', '>=', $now)->where('scheduled_for', '<=', $endOfDay),
+            'upcoming' => $query->where('scheduled_for', '>', $endOfDay),
+            default => $query,
+        };
     }
 
     /**
@@ -366,6 +426,69 @@ class Communication extends Model
 
         $this->to_address = $this->contact?->email;
         $this->to_name ??= $this->contact?->name;
+    }
+
+    /**
+     * Who the message is going to, as one line a person reads on the worklist: the typed
+     * address/name, falling back to the linked contact. Null when there is nobody to name.
+     */
+    public function recipientLabel(): ?string
+    {
+        $address = $this->to_address ?? $this->contact?->email;
+        $name = $this->to_name ?? $this->contact?->name;
+
+        return match (true) {
+            $name === null => $address,
+            $address === null => $name,
+            default => sprintf('%s <%s>', $name, $address),
+        };
+    }
+
+    /**
+     * Send every scheduled email whose moment has come (module 04 slice S2, spec 12 §5). It is
+     * the same `sendThrough()` the **Send now** button uses, so a failure parks the record as
+     * `failed` with the gateway's reason and takes it out of the worklist. Nothing runs on a
+     * timer: an admin runs this in-app or through `communication:send-due`, and a second run
+     * finds nothing because what went out is no longer `scheduled`.
+     *
+     * @return array{attempted: int, sent: int, failed: int}
+     */
+    public static function dispatchDue(EmailGateway $gateway): array
+    {
+        $due = static::query()
+            ->scheduled()
+            ->whereNotNull('scheduled_for')
+            ->where('scheduled_for', '<=', now())
+            ->orderBy('scheduled_for')
+            ->get();
+
+        $sent = 0;
+        $failed = 0;
+
+        foreach ($due as $communication) {
+            $communication->fillRecipientFromContact();
+
+            // A promise to send needs somewhere to go: rather than throw mid-run, park it as a
+            // failed send the author can read and fix — the same outcome a rejected send has.
+            if (($communication->to_address ?? '') === '') {
+                $communication->forceFill([
+                    'status' => CommunicationStatus::Failed,
+                    'occurred_at' => now(),
+                    'failed_reason' => 'No recipient — nothing was sent.',
+                ])->save();
+
+                CommunicationFailed::dispatch($communication);
+                $failed++;
+
+                continue;
+            }
+
+            $communication->sendThrough($gateway);
+
+            $communication->status === CommunicationStatus::Sent ? $sent++ : $failed++;
+        }
+
+        return ['attempted' => $due->count(), 'sent' => $sent, 'failed' => $failed];
     }
 
     /**

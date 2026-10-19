@@ -154,11 +154,12 @@ class CommunicationTest extends TestCase
             ->assertJsonValidationErrors('subject_id');
     }
 
-    public function test_a_scheduled_status_belongs_to_the_follow_up_module(): void
+    public function test_scheduling_is_offered_only_to_a_complete_outbound_email(): void
     {
         $rep = User::factory()->salesrep()->create();
         $deal = $this->dealFor($rep);
 
+        // A scheduled follow-up needs a due moment and somewhere to go (spec 12 §S2).
         $this->actingAs($rep, 'api')
             ->postJson('/api/v1/communications', [
                 'subject_type' => 'opportunity',
@@ -167,6 +168,21 @@ class CommunicationTest extends TestCase
                 'direction' => 'outbound',
                 'status' => 'scheduled',
                 'subject' => 'Tomorrow follow-up',
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['scheduled_for', 'to_address']);
+
+        // And only electronic mail can be put off — a call has no draft state (spec 11 §Channels).
+        $this->actingAs($rep, 'api')
+            ->postJson('/api/v1/communications', [
+                'subject_type' => 'opportunity',
+                'subject_id' => $deal->id,
+                'channel' => 'call',
+                'direction' => 'outbound',
+                'status' => 'scheduled',
+                'subject' => 'Tomorrow call',
+                'scheduled_for' => now()->addDay()->toIso8601String(),
+                'to_address' => 'rosa@sunrise.test',
             ])
             ->assertStatus(422)
             ->assertJsonValidationErrors('status');

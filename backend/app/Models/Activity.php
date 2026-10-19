@@ -132,17 +132,4 @@ class Activity extends Model
                 ->orWhereRaw('LOWER(body) LIKE ?', [$like]);
         });
     }
-
-    /**
-     * Keep the record's own "next follow-up" honest after the task moved (spec 12 §12). Only a
-     * lead denormalises this; other records read the tasks themselves.
-     */
-    public function syncSubjectFollowUp(): void
-    {
-        $subject = $this->subjectable;
-
-        if ($subject instanceof Lead) {
-            $subject->syncNextFollowUpAt();
-        }
-    }
 }

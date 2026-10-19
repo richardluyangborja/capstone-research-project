@@ -22,6 +22,9 @@ const { root, conversation, thread } = vi.hoisted(() => {
     from_address: null,
     to_name: null,
     to_address: null,
+    // Slice S2: a scheduled message is the only shape with a due moment; these have happened.
+    scheduled_for: null,
+    due: null,
     duration_minutes: null,
     outcome: null,
     external_id: null,

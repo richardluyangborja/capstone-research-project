@@ -2,6 +2,7 @@ import { api } from './api'
 import { communicationSubjectPath } from './communicationMeta'
 import type {
   Communication,
+  CommunicationDispatchResult,
   CommunicationHistory,
   CommunicationInput,
   CommunicationReplyInput,
@@ -17,6 +18,9 @@ export interface CommunicationFilters {
   channel?: string
   direction?: string
   status?: string
+  /** `overdue`, `today` or `upcoming` — narrows to scheduled messages by when they are owed
+   * (module 04 slice S2). */
+  due?: string
   subject_type?: string
   subject_id?: string
   company?: string
@@ -47,6 +51,7 @@ const buildParams = (filters: CommunicationFilters): Record<string, string> => {
   if (filters.channel) params['filter[channel]'] = filters.channel
   if (filters.direction) params['filter[direction]'] = filters.direction
   if (filters.status) params['filter[status]'] = filters.status
+  if (filters.due) params['filter[due]'] = filters.due
   if (filters.subject_type) params['filter[subject_type]'] = filters.subject_type
   if (filters.subject_id) params['filter[subject_id]'] = filters.subject_id
   if (filters.company) params['filter[company]'] = filters.company
@@ -124,6 +129,20 @@ export const syncInboundCommunications = async (): Promise<CommunicationSyncResu
 export const restoreCommunication = async (id: string): Promise<Communication> => {
   const { data } = await api.post<{ data: Communication }>(`/communications/${id}/restore`)
   return data.data
+}
+
+/**
+ * Send everything that has fallen due (module 04 slice S2, spec 12 §5). Admin-only, because one
+ * run writes history across every team — the in-app twin of `communication:send-due`. A second
+ * run reports nothing, because what went out is no longer scheduled.
+ */
+export const dispatchDueCommunications = async (): Promise<CommunicationDispatchResult> => {
+  const { data } = await api.post<{
+    data: { attempted: number; sent: number; failed: number }
+    meta: { source: string }
+  }>('/communications/dispatch-due')
+
+  return { ...data.data, source: data.meta.source }
 }
 
 /**

@@ -2,6 +2,8 @@
 
 namespace App\Http\Resources;
 
+use App\Enums\CommunicationStatus;
+use App\Enums\FollowUpDueState;
 use App\Models\Attachment;
 use App\Models\Communication;
 use Illuminate\Http\Request;
@@ -43,6 +45,12 @@ class CommunicationResource extends JsonResource
             'to_name' => $this->to_name,
             'to_address' => $this->to_address,
             'occurred_at' => $this->occurred_at?->toIso8601String(),
+            // A scheduled follow-up has no `occurred_at` yet; when it is due is its due block,
+            // derived on read exactly like a task's (spec 12 §S2).
+            'scheduled_for' => $this->scheduled_for?->toIso8601String(),
+            'due' => $this->status === CommunicationStatus::Scheduled
+                ? FollowUpDueState::block($this->scheduled_for)
+                : null,
             'duration_minutes' => $this->duration_minutes,
             'outcome' => $this->outcome,
             'external_id' => $this->external_id,

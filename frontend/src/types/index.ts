@@ -659,6 +659,10 @@ export interface Communication {
   to_name: string | null
   to_address: string | null
   occurred_at: string | null
+  /** When a scheduled follow-up is owed (slice S2) — null for everything that happened. */
+  scheduled_for: string | null
+  /** How due a scheduled message is, derived on read like a task's (spec 12 §7). */
+  due: FollowUpDue | null
   duration_minutes: number | null
   outcome: CommunicationOutcome | null
   external_id: string | null
@@ -706,6 +710,8 @@ export interface Attachment {
 
 export interface CommunicationSummary {
   all: number
+  /** Messages written but not sent yet (module 04 slice S2). */
+  scheduled: number
   by_direction: Partial<Record<CommunicationDirection, number>>
   by_channel: Partial<Record<CommunicationChannel, number>>
   last_contacted_at: string | null
@@ -726,6 +732,18 @@ export interface CommunicationSyncResult {
   source: string
 }
 
+/**
+ * What an admin's dispatch of the due sends did (`POST /communications/dispatch-due`, slice S2):
+ * how many were due, and how they ended up. A second run reports nothing, because what went out
+ * is no longer scheduled.
+ */
+export interface CommunicationDispatchResult {
+  attempted: number
+  sent: number
+  failed: number
+  source: string
+}
+
 export interface CommunicationInput {
   subject_type: CommunicationSubjectType
   subject_id: string
@@ -740,6 +758,8 @@ export interface CommunicationInput {
   to_name?: string | null
   to_address?: string | null
   occurred_at?: string | null
+  /** Required when the status is `scheduled`: when the message should go out (slice S2). */
+  scheduled_for?: string | null
   duration_minutes?: number | null
   outcome?: CommunicationOutcome | null
 }
@@ -862,8 +882,8 @@ export interface CommunicationTemplateRenderInput {
 
 // --- Module 04: follow-up reminders ----------------------------------------
 
-/** The two shapes a follow-up comes in. Slice S1 ships the task; S2 adds the message. */
-export type FollowUpKind = 'task'
+/** The two shapes a follow-up comes in: a task, and a scheduled message (slice S2). */
+export type FollowUpKind = 'task' | 'message'
 
 /** The due state, derived on read against the PH business day (spec 12 §7) — never stored. */
 export type FollowUpDueStateName = 'overdue' | 'today' | 'upcoming'
@@ -888,6 +908,8 @@ export interface Task {
   status: { value: ActivityStatus; label: string }
   /** Always null for a task: it has no channel to send on (rule 13). */
   channel: CommunicationChannel | null
+  /** Always null for a task: it is nobody's message (slice S2). */
+  recipient: string | null
   can_update: boolean
   can_transition: boolean
   can_send: boolean
@@ -896,10 +918,28 @@ export interface Task {
   updated_at: string
 }
 
-/** A worklist row — a task today; a scheduled message joins it in slice S2. */
-export interface FollowUp extends Task {
-  kind: FollowUpKind
+/** A worklist row that is a task. */
+export interface FollowUpTask extends Task {
+  kind: 'task'
 }
+
+/**
+ * A worklist row that is a scheduled message (slice S2): a task's keys, plus what only a
+ * message has — its reference, its channel and who it is going to. It is sent or retired, never
+ * completed, so `can_transition` is always false and its state is always `scheduled`.
+ */
+export interface FollowUpMessage extends Omit<Task, 'status'> {
+  kind: 'message'
+  status: { value: 'scheduled'; label: string }
+  reference: string
+  channel: CommunicationChannel
+  recipient: string | null
+  to_name: string | null
+  to_address: string | null
+}
+
+/** A worklist row, whichever shape it is. Both read alike on purpose (spec 12 §Payloads). */
+export type FollowUp = FollowUpTask | FollowUpMessage
 
 export interface FollowUpCounts {
   overdue: number

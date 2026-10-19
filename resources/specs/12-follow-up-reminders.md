@@ -5,7 +5,7 @@ Module 4 (ADR-0014). Entities: `Activity` (extended — `due_at`/`status` finall
 `scheduled_for` in S2), `Lead` (`next_follow_up_at` finally maintained), `Company`, `Contact`,
 `Opportunity`, `Contract`, `User`. ADRs: 0004, 0005, 0007, 0013, 0014, 0016, 0017, **0018**.
 
-> **Slice S1 built; S2–S4 planned.** This is the contract for module 04, shipped one slice per PR
+> **Slices S1–S2 built; S3–S4 planned.** This is the contract for module 04, shipped one slice per PR
 > (ADR-0016 §2). Its central choice is that **a follow-up is not a new table**: `00-data-model.md`
 > already reserved `Activity.due_at`/`status` and `Lead.next_follow_up_at`, ADR-0017 §3 reserved
 > `CommunicationStatus.scheduled` for exactly this module, and ADR-0018 §1 settles the pair. Nothing
@@ -80,7 +80,7 @@ Base `/api/v1`; JSON; `Authorization: Bearer <jwt>` (ADR-0008). Standard convent
 
 | Method | Path | Slice | Description |
 | --- | --- | --- | --- |
-| `GET` | `/follow-ups` | S1 | The worklist — what is owed, ordered by due time (slice S1 lists the tasks; scheduled messages join them in S2) |
+| `GET` | `/follow-ups` | S1 | The worklist — tasks and scheduled messages, ordered by due time |
 | `POST` | `/tasks` | S1 | Create a follow-up task on a record |
 | `GET` | `/tasks/{id}` | S1 | One task |
 | `PATCH` | `/tasks/{id}` | S1 | Edit it (title, notes, due time, assignee) — a reschedule re-arms the reminder |
@@ -150,10 +150,32 @@ or `done → cancelled` is **422** (the same shape as every other lifecycle in t
 ```
 
 The row keeps the record's own field names (`subject`, `body`), so a task and a scheduled
-message read the same in the feed. When the second shape lands (S2) a message row differs by
-`kind: "message"`, a `channel`, a `due` measuring its `scheduled_for` and `status.value:
-"scheduled"`; S4 adds `generated`. The `can_*` flags are what the row's actions are gated on —
-`can_send`/`can_delete` are false for a task, which is cancelled rather than deleted (rule 9).
+message read the same in the feed. A message row differs by what only a message has:
+
+```json
+{
+  "kind": "message",
+  "id": "01J…",
+  "reference": "COM-2026-0014",
+  "subject": "Rate sheet follow-up for the night shift",
+  "record": { "type": "company", "id": "01J…", "label": "Sunrise Foods Inc" },
+  "owner": { "id": 4, "name": "Sam Salesrep" },
+  "due_at": "2026-10-20T01:00:00.000000Z",
+  "due": { "state": "upcoming", "label": "Upcoming", "days": 1, "overdue": false },
+  "status": { "value": "scheduled", "label": "Scheduled" },
+  "channel": "email",
+  "recipient": "Rosa Dela Cruz <rosa@sunrise.test>",
+  "can_update": true,
+  "can_transition": false,
+  "can_send": true,
+  "can_delete": true
+}
+```
+
+Its `due` measures `scheduled_for` and its `status.value` is `scheduled`; S4 adds `generated`.
+The `can_*` flags are what the row's actions are gated on — `can_send`/`can_delete` are false for
+a task, which is cancelled rather than deleted (rule 9), while a message is sent or retired and
+never completed, so `can_transition` is always false for it.
 
 A `state` filter of `overdue`/`today`/`upcoming` implies `open`; `done`/`cancelled` list
 finished tasks, and `all` shows everything.
@@ -163,7 +185,8 @@ counts: { overdue, today, upcoming, open, done } }` with
 `filter[owner|state|record_type|record_id|due_from|due_to]` + `search` (subject/body).
 `filter[owner]=me` is the shorthand the UI's **Mine** tab uses, `filter[owner]=team` narrows to
 one team, and `filter[record_type]=&filter[record_id]=` is the deep link a record's **Follow-up**
-action uses (`kind` joins the filter list in S2, when there are two kinds to choose between).
+action uses; `filter[kind]=task|message` picks one of the two shapes, which is what the worklist's
+kind filter does.
 The feed is ordered by `due_at` ascending, then oldest first — what is most owed, first.
 
 **`POST /follow-ups/generate`** returns the run's summary: the tasks it created (as
@@ -252,10 +275,11 @@ a salesrep's lead, account, contact or deal is theirs; a manager covers the team
 
 - `/follow-ups` — the worklist: four `StatCard`s (Overdue, Due today, Upcoming, Completed)
   over a `DataTable` whose rows carry a state badge (Overdue / Due today / Upcoming / Done /
-  Cancelled), a kind badge (Task / Email — one kind until S2 adds the other), the subject with its
+  Cancelled / Scheduled), a kind badge (Task / Email), the subject with its
   record as a deep link, the owner and the due moment in PH time. Filters: **Everyone / Mine / My
-  team**, state, record type and `search`; a `?subject_type=&subject_id=` deep link narrows it to one
-  record. The **Dispatch due** action joins the header in S3, with the simulated-clock note.
+  team**, state, kind, record type and `search`; a `?subject_type=&subject_id=` deep link narrows it to one
+  record. The **Dispatch due sends** action joins the header in S2 and **Dispatch due reminders** in
+  S3, both with the simulated-clock note.
 - Row actions per the API's `can_*`: **Complete**, **Reschedule** (a small due-date dialog →
   `PATCH due_at`), **Cancel**, **Reopen**. Inline, no page reload.
 - `/follow-ups/new` — the create form: record picker (prefilled from the deep link), title, notes,
@@ -273,21 +297,26 @@ a salesrep's lead, account, contact or deal is theirs; a manager covers the team
 
 - The composer (`/communications/new`) gains **Schedule for later**: offered only for an outbound
   email, revealing a due date + time; saving posts `status = scheduled` (the channel select keeps the
-  draft/logged options unchanged for everything else).
-- The worklist lists scheduled messages as its `message` rows with **Send now**, **Edit** and
-  **Cancel** (soft delete — spec 11 §4), and the row names the recipient.
-- The message detail shows a **Scheduled for …** banner with **Send now**, and after a send the
-  banner adds when it actually left if that was later.
-- The communications book's status filter carries the `scheduled` state, and a **Due** filter
-  (`overdue`/`today`/`upcoming`) narrows it — the book stays the place a scheduled message is found
-  by record, the worklist the place it is actioned.
+  draft/logged options unchanged for everything else). A **reply** may be saved as a draft but never
+  scheduled — it is answered inside its conversation, and `POST /communications/{id}/reply` filters
+  the status out.
+- The worklist lists scheduled messages as its `message` rows with **Send now**, **Open** and
+  **Cancel** (soft delete — spec 11 §4), and the row names the recipient under the title.
+- The message detail shows a **Scheduled for …** banner with **Send now**; while scheduled the edit
+  form reschedules it (a due moment, not a back-dated "when").
+- The communications book's status filter carries the `scheduled` state (with the count), and a
+  **Due** filter (`overdue`/`today`/`upcoming`) narrows it — the book stays the place a scheduled
+  message is found by record, the worklist the place it is actioned.
+- The worklist header carries **Dispatch due sends** (admin+), which sends every scheduled email
+  whose moment has passed and reports how many went out, failed or were left; the note beside it says
+  nothing runs on a timer, so the dispatch is the demo of the due run.
 
 **S3 — notifications & the due run**
 
 - The topbar bell lists **follow-up assigned** ("Liza asked you to …" / "Assigned to you: …") and
   **follow-up due** ("Overdue: Send the revised rate sheet") notifications, each linking to the item,
   using the existing notification component.
-- The worklist header carries **Dispatch due** (admin+) which runs the same work as
+- The worklist header carries **Dispatch due reminders** (admin+) which runs the same work as
   `follow-ups:notify-due` and reports how many owners were notified; a failed **scheduled** send
   notifies its author in the same list.
 
@@ -335,38 +364,41 @@ creates, so a generated reminder reaches its owner exactly like a hand-written o
 
 **S1**
 
-- [ ] A task can be created on any of the five subject types with a required due time; an unknown
+- [x] A task can be created on any of the five subject types with a required due time; an unknown
       subject, a missing due time or a subject outside the caller's scope is 422/403.
-- [ ] `PATCH /tasks/{id}/status` follows `ActivityStatus::allowedTransitions()` — `open → done`,
+- [x] `PATCH /tasks/{id}/status` follows `ActivityStatus::allowedTransitions()` — `open → done`,
       `open → cancelled`, `done`/`cancelled → open`; a self-move, `done → cancelled` and an unknown
       status are 422.
-- [ ] A salesrep may create and complete only their own; a manager the team's; an admin anyone's, and
+- [x] A salesrep may create and complete only their own; a manager the team's; an admin anyone's, and
       a salesrep cannot assign a task to another user (422/403).
-- [ ] `GET /follow-ups` lists what is owed, ordered by due time, honours
+- [x] `GET /follow-ups` lists what is owed, ordered by due time, honours
       `filter[owner|state|record_type|record_id|due_from|due_to]` + `search`, and reports the
-      counts block. (S2 adds the second shape and with it `filter[kind]`.)
-- [ ] `overdue` / `today` / `upcoming` are computed from the PH day boundary and change with the
+      counts block; `filter[kind]` picks one of the two shapes.
+- [x] `overdue` / `today` / `upcoming` are computed from the PH day boundary and change with the
       clock, not with a stored column.
-- [ ] A task appears in its record's timeline with its due state, and `ActivityResource` marks it.
-- [ ] `Lead.next_follow_up_at` tracks the earliest open follow-up on a lead — from the tasks in S1,
-      the sooner of tasks and scheduled messages once S2 lands — and is null once none is open.
-- [ ] No delete endpoint exists; a task is cancelled and can be reopened.
+- [x] A task appears in its record's timeline with its due state, and `ActivityResource` marks it.
+- [x] `Lead.next_follow_up_at` tracks the earliest open follow-up on a lead — the sooner of its open
+      tasks and its scheduled messages — and is null once none is open.
+- [x] No delete endpoint exists; a task is cancelled and can be reopened.
 
 **S2**
 
-- [ ] Creating a communication with `status = scheduled` requires an outbound email, a
+- [x] Creating a communication with `status = scheduled` requires an outbound email, a
       `scheduled_for`, a subject and a recipient; another channel, an inbound direction or a missing
       `scheduled_for` is 422.
-- [ ] A scheduled message writes no mirror activity and leaves `last_activity_at` /
-      `last_contacted_at` untouched, and it is editable while scheduled.
-- [ ] `POST /communications/{id}/send` sends a scheduled message immediately, stamping `occurred_at`
+- [x] A scheduled message writes no mirror activity and leaves `last_activity_at` /
+      `last_contacted_at` untouched, and it is editable while scheduled (though a reply is never
+      scheduled).
+- [x] A reply cannot be put off: `POST /communications/{id}/reply` rejects `status = scheduled` (422),
+      and the composer offers no such status while answering a message.
+- [x] `POST /communications/{id}/send` sends a scheduled message immediately, stamping `occurred_at`
       and keeping `scheduled_for`; a gateway failure parks it as `failed` with the reason.
-- [ ] `POST /communications/dispatch-due` (admin+) and `communication:send-due` send every scheduled
+- [x] `POST /communications/dispatch-due` (admin+) and `communication:send-due` send every scheduled
       email that is due, once: a second run sends nothing, and a scheduled message not yet due is left
       alone.
-- [ ] `filter[due]=overdue|today|upcoming` narrows the book to scheduled messages by when they are due,
+- [x] `filter[due]=overdue|today|upcoming` narrows the book to scheduled messages by when they are due,
       and the worklist lists them with **Send now**.
-- [ ] A salesrep cannot dispatch due sends (403); sending a message follows the subject's own rights.
+- [x] A salesrep cannot dispatch due sends (403); sending a message follows the subject's own rights.
 
 **S3**
 

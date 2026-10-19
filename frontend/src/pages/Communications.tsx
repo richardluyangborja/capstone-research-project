@@ -35,7 +35,10 @@ const columns: DataTableColumn<Communication>[] = [
     key: 'occurred_at',
     header: 'When',
     className: 'whitespace-nowrap text-muted-foreground',
-    render: (communication) => formatDateTime(communication.occurred_at),
+    render: (communication) =>
+      communication.status === 'scheduled'
+        ? `Goes out ${formatDateTime(communication.scheduled_for)}`
+        : formatDateTime(communication.occurred_at),
   },
   {
     key: 'channel',
@@ -130,6 +133,7 @@ export default function Communications() {
   const [channel, setChannel] = useState('')
   const [direction, setDirection] = useState('')
   const [status, setStatus] = useState('')
+  const [due, setDue] = useState('')
   const [subjectType, setSubjectType] = useState<CommunicationSubjectType | ''>(
     (searchParams.get('subject_type') as CommunicationSubjectType | null) ?? '',
   )
@@ -156,6 +160,7 @@ export default function Communications() {
       channel: channel || undefined,
       direction: direction || undefined,
       status: status || undefined,
+      due: due || undefined,
       subject_type: subjectType || undefined,
       subject_id: subjectType ? subjectId || undefined : undefined,
       company: company || undefined,
@@ -164,7 +169,19 @@ export default function Communications() {
       date_to: dateTo || undefined,
       page: targetPage,
     }),
-    [search, channel, direction, status, subjectType, subjectId, company, owner, dateFrom, dateTo],
+    [
+      search,
+      channel,
+      direction,
+      status,
+      due,
+      subjectType,
+      subjectId,
+      company,
+      owner,
+      dateFrom,
+      dateTo,
+    ],
   )
 
   const load = useCallback(
@@ -329,9 +346,24 @@ export default function Communications() {
           <option value="">Any status</option>
           {(Object.keys(communicationStatusMeta) as CommunicationStatus[]).map((value) => (
             <option key={value} value={value}>
+              {/* What is scheduled has not happened yet, so the book names how many at the one
+                  place a reader looks for them (module 04 slice S2). */}
               {communicationStatusMeta[value].label}
+              {value === 'scheduled' && summary ? ` (${summary.scheduled})` : ''}
             </option>
           ))}
+        </select>
+
+        <select
+          aria-label="Due filter"
+          value={due}
+          onChange={(event) => setDue(event.target.value)}
+          className="rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground outline-none focus:ring-2 focus:ring-ring"
+        >
+          <option value="">Any due moment</option>
+          <option value="overdue">Scheduled — overdue</option>
+          <option value="today">Scheduled — due today</option>
+          <option value="upcoming">Scheduled — upcoming</option>
         </select>
 
         <select
