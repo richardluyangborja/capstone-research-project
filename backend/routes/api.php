@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\V1\CompanyOpportunityController;
 use App\Http\Controllers\Api\V1\CompanySiteController;
 use App\Http\Controllers\Api\V1\ContactController;
 use App\Http\Controllers\Api\V1\ContractController;
+use App\Http\Controllers\Api\V1\FollowUpController;
 use App\Http\Controllers\Api\V1\LeadAssignmentController;
 use App\Http\Controllers\Api\V1\LeadController;
 use App\Http\Controllers\Api\V1\LeadConversionController;
@@ -24,6 +25,7 @@ use App\Http\Controllers\Api\V1\OpportunityActivityController;
 use App\Http\Controllers\Api\V1\OpportunityController;
 use App\Http\Controllers\Api\V1\OpportunityStageController;
 use App\Http\Controllers\Api\V1\PipelineController;
+use App\Http\Controllers\Api\V1\TaskController;
 use App\Http\Controllers\Api\V1\UserController;
 use Illuminate\Support\Facades\Route;
 
@@ -160,5 +162,12 @@ Route::prefix('v1')->group(function (): void {
         Route::apiResource('communication-templates', CommunicationTemplateController::class)
             ->parameters(['communication-templates' => 'template'])
             ->only(['index', 'store', 'show', 'update', 'destroy']);
+
+        // Module 04 — follow-up reminders. The worklist is a read model over what is owed (slice
+        // S1 lists tasks; slice S2 adds scheduled messages beside them). A task is cancelled
+        // rather than deleted, so there is no destroy route.
+        Route::get('follow-ups', [FollowUpController::class, 'index']);
+        Route::patch('tasks/{task}/status', [TaskController::class, 'updateStatus']);
+        Route::apiResource('tasks', TaskController::class)->only(['store', 'show', 'update']);
     });
 });

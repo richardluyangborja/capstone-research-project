@@ -55,6 +55,9 @@ export interface Lead {
   status: LeadStatus
   status_changed_at: string | null
   last_activity_at: string | null
+  /** The earliest open follow-up on this lead (module 04, rule 12). */
+  next_follow_up_at: string | null
+  next_follow_up: FollowUpDue | null
   notes: string | null
   owner: { id: number; name: string } | null
   owner_id: number | null
@@ -91,6 +94,10 @@ export interface Activity {
   subject: string
   body: string | null
   status: ActivityStatus
+  /** Since module 04 a task is owed rather than done, so the timeline carries its due moment. */
+  is_follow_up: boolean
+  due_at: string | null
+  due: FollowUpDue | null
   occurred_at: string | null
   owner: { id: number; name: string } | null
   created_at: string
@@ -851,4 +858,72 @@ export interface CommunicationTemplateRenderInput {
   subject_type: CommunicationSubjectType
   subject_id: string
   contact_id?: string | null
+}
+
+// --- Module 04: follow-up reminders ----------------------------------------
+
+/** The two shapes a follow-up comes in. Slice S1 ships the task; S2 adds the message. */
+export type FollowUpKind = 'task'
+
+/** The due state, derived on read against the PH business day (spec 12 §7) — never stored. */
+export type FollowUpDueStateName = 'overdue' | 'today' | 'upcoming'
+
+export interface FollowUpDue {
+  state: FollowUpDueStateName
+  label: string
+  days: number
+  overdue: boolean
+}
+
+/** A follow-up task as its own resource (`/tasks`, spec 12 §Payloads). */
+export interface Task {
+  id: string
+  subject: string
+  body: string | null
+  record: CommunicationRecordRef | null
+  owner: { id: number; name: string } | null
+  owner_id: number
+  due_at: string
+  due: FollowUpDue
+  status: { value: ActivityStatus; label: string }
+  /** Always null for a task: it has no channel to send on (rule 13). */
+  channel: CommunicationChannel | null
+  can_update: boolean
+  can_transition: boolean
+  can_send: boolean
+  can_delete: boolean
+  created_at: string
+  updated_at: string
+}
+
+/** A worklist row — a task today; a scheduled message joins it in slice S2. */
+export interface FollowUp extends Task {
+  kind: FollowUpKind
+}
+
+export interface FollowUpCounts {
+  overdue: number
+  today: number
+  upcoming: number
+  open: number
+  done: number
+}
+
+export type FollowUpsPage = Omit<Paginated<FollowUp>, 'links'> & { counts: FollowUpCounts }
+
+export interface TaskInput {
+  subject_type: CommunicationSubjectType
+  subject_id: string
+  subject: string
+  body?: string | null
+  /** A reminder without a time is not a reminder (rule S1). */
+  due_at: string
+  owner_id?: number
+}
+
+export interface TaskUpdateInput {
+  subject?: string
+  body?: string | null
+  due_at?: string
+  owner_id?: number
 }

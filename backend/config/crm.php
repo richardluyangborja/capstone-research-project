@@ -4,6 +4,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Business calendar (ADR-0007)
+    |--------------------------------------------------------------------------
+    |
+    | Timestamps are stored in UTC and read back in the PH working day the business runs on.
+    | Anything that has to ask "is that today?" or render a date the way a person would —
+    | template merge fields (spec 11 §S5) and follow-up due state (spec 12) — resolves the
+    | day through this one timezone rather than assuming UTC.
+    |
+    */
+
+    'timezone' => env('CRM_TIMEZONE', 'Asia/Manila'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Lead aging thresholds (spec 04 §3)
     |--------------------------------------------------------------------------
     |
@@ -90,12 +104,8 @@ return [
     |--------------------------------------------------------------------------
     |
     | Reusable wording for the composer. Merge fields are rendered server-side; `today`
-    | resolves in the PH calendar the rest of the app reads and displays in (ADR-0007).
+    | resolves in the business calendar above.
     |
     */
-
-    'templates' => [
-        'timezone' => env('CRM_TEMPLATE_TIMEZONE', 'Asia/Manila'),
-    ],
 
 ];

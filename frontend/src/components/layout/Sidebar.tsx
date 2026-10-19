@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import {
   Building2,
+  CalendarClock,
   ChevronDown,
   ClipboardCheck,
   FileText,
@@ -76,6 +77,12 @@ const groups: NavGroup[] = [
       { to: '/communications/threads', label: 'Threaded Conversations', icon: MessagesSquare },
       { to: '/communications/templates', label: 'Communication Templates', icon: FileText },
     ],
+  },
+  {
+    // Module 04 (ADR-0014 §1, ADR-0018, ADR-0016). One entry per shipped slice: S1 is the task
+    // and the worklist; the scheduled-message and notification slices follow.
+    label: 'Follow-up Reminder System',
+    items: [{ to: '/follow-ups', label: 'Follow-up Reminders', icon: CalendarClock }],
   },
 ]
 

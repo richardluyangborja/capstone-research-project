@@ -17,7 +17,8 @@ import {
   listLeads,
 } from '../lib/leads'
 import { leadRatingMeta, leadSourceLabels, leadStatusMeta } from '../lib/leadMeta'
-import { formatDate } from '../lib/format'
+import { followUpDueMeta } from '../lib/followUpMeta'
+import { formatDate, formatDateTime } from '../lib/format'
 import { useAuth } from '../lib/auth-context'
 import type { AssignmentTarget, Lead, LeadStatus } from '../types'
 
@@ -222,6 +223,24 @@ export default function LeadsList() {
       render: (lead) =>
         lead.aging ? (
           <LeadAgingBadge aging={lead.aging} days={lead.days_since_activity} />
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        ),
+    },
+    {
+      key: 'next_follow_up',
+      header: 'Next follow-up',
+      className: 'whitespace-nowrap',
+      render: (lead) =>
+        lead.next_follow_up ? (
+          <div className="flex flex-col items-start gap-1">
+            <StatusBadge tone={followUpDueMeta[lead.next_follow_up.state].tone}>
+              {followUpDueMeta[lead.next_follow_up.state].label}
+            </StatusBadge>
+            <span className="text-xs text-muted-foreground">
+              {formatDateTime(lead.next_follow_up_at)}
+            </span>
+          </div>
         ) : (
           <span className="text-muted-foreground">—</span>
         ),

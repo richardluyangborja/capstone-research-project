@@ -12,6 +12,7 @@ use App\Events\CommunicationLogged;
 use App\Events\CommunicationSent;
 use App\Integrations\EmailGateway;
 use App\Integrations\OutboundEmail;
+use App\Models\Concerns\HasSubjectRecord;
 use Database\Factories\CommunicationFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
@@ -34,7 +35,7 @@ use Illuminate\Support\Facades\DB;
 class Communication extends Model
 {
     /** @use HasFactory<CommunicationFactory> */
-    use HasFactory, HasUlids, SoftDeletes;
+    use HasFactory, HasSubjectRecord, HasUlids, SoftDeletes;
 
     protected $fillable = [
         'subject_type',
@@ -206,29 +207,8 @@ class Communication extends Model
     }
 
     /**
-     * A message is visible if and only if its subject is visible (ADR-0017 §5) — a history
-     * entry never outlives the visibility of the record it belongs to.
+     * Free-text match over the fields a person would recognise a message by.
      */
-    public function scopeVisibleTo(Builder $query, User $user): Builder
-    {
-        $subjects = [
-            Lead::class => Lead::query()->visibleTo($user),
-            Company::class => Company::query()->visibleTo($user),
-            Contact::class => Contact::query()->visibleTo($user),
-            Opportunity::class => Opportunity::query()->visibleTo($user),
-            Contract::class => Contract::query()->visibleTo($user),
-        ];
-
-        return $query->where(function (Builder $query) use ($subjects): void {
-            foreach ($subjects as $type => $subjectQuery) {
-                $query->orWhere(function (Builder $query) use ($type, $subjectQuery): void {
-                    $query->where('subject_type', $type)
-                        ->whereIn('subject_id', $subjectQuery->select('id'));
-                });
-            }
-        });
-    }
-
     public function scopeSearch(Builder $query, ?string $term): Builder
     {
         if (! $term) {
@@ -463,49 +443,5 @@ class Communication extends Model
         }
 
         return $recorded;
-    }
-
-    /**
-     * The short record types a message can hang off, mapped to their model (spec 11 §Payloads).
-     * The type is what the API accepts and returns; the class is what the morph column stores.
-     *
-     * @return array<string, class-string<Model>>
-     */
-    public static function subjectTypes(): array
-    {
-        return [
-            'lead' => Lead::class,
-            'company' => Company::class,
-            'contact' => Contact::class,
-            'opportunity' => Opportunity::class,
-            'contract' => Contract::class,
-        ];
-    }
-
-    /**
-     * The short record type used by the UI to build a link (`lead`, `company`, …).
-     */
-    public function recordType(): ?string
-    {
-        $type = array_search($this->subject_type, self::subjectTypes(), true);
-
-        return $type === false ? null : $type;
-    }
-
-    /**
-     * A human label for the record this message hangs off.
-     */
-    public function recordLabel(): ?string
-    {
-        $subject = $this->subjectable;
-
-        return match (true) {
-            $subject instanceof Lead => $subject->company_name,
-            $subject instanceof Company => $subject->name,
-            $subject instanceof Contact => $subject->name,
-            $subject instanceof Opportunity => $subject->name,
-            $subject instanceof Contract => $subject->title,
-            default => null,
-        };
     }
 }

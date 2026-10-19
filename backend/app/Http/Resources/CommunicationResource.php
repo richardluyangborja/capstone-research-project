@@ -25,11 +25,7 @@ class CommunicationResource extends JsonResource
             'reference' => $this->reference,
             'subject_type' => $this->recordType(),
             'subject_id' => $this->subject_id,
-            'record' => $this->whenLoaded('subjectable', fn (): ?array => $this->recordType() === null ? null : [
-                'type' => $this->recordType(),
-                'id' => $this->subject_id,
-                'label' => $this->recordLabel(),
-            ]),
+            'record' => $this->whenLoaded('subjectable', fn (): ?array => $this->recordBlock()),
             'contact_id' => $this->contact_id,
             'contact' => $this->whenLoaded('contact', fn (): ?array => $this->contact === null ? null : [
                 'id' => $this->contact->id,

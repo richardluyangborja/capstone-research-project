@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Enums\FollowUpDueState;
 use App\Enums\LeadStatus;
 use App\Models\Lead;
 use Illuminate\Http\Request;
@@ -75,6 +76,10 @@ class LeadResource extends JsonResource
                 $this->budget_rate,
             ),
             'last_activity_at' => $this->last_activity_at,
+            // The earliest open follow-up on this lead, maintained by module 04 (spec 12 §12) —
+            // the list renders "next follow-up" and its due state without joining the tasks.
+            'next_follow_up_at' => $this->next_follow_up_at,
+            'next_follow_up' => FollowUpDueState::block($this->next_follow_up_at),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];

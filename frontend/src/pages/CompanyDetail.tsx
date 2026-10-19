@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, Plus, SquareKanban } from 'lucide-react'
+import { ArrowLeft, CalendarClock, Plus, SquareKanban } from 'lucide-react'
 import PageHeader from '../components/common/PageHeader'
 import FormCard from '../components/common/FormCard'
 import StatusBadge from '../components/common/StatusBadge'
@@ -44,6 +44,7 @@ import {
 import { getAssignableUsers, parseValidationError } from '../lib/leads'
 import { listCompanyOpportunities } from '../lib/opportunities'
 import { activityTypeMeta } from '../lib/leadMeta'
+import { followUpDueMeta } from '../lib/followUpMeta'
 import { companySizeLabels, companyStatusMeta, companyTierLabels } from '../lib/companyMeta'
 import { contractStatusMeta, contractStatusOptions, formatExpiry } from '../lib/contractMeta'
 import { contactRoleMeta, contactStatusMeta } from '../lib/contactMeta'
@@ -842,6 +843,13 @@ export default function CompanyDetail() {
           >
             Log
           </Link>
+          <Link
+            to={`/follow-ups/new?subject_type=contract&subject_id=${contract.id}&subject_label=${encodeURIComponent(contract.title)}`}
+            title="Put a follow-up on this contract"
+            className="rounded-md border border-border px-2.5 py-1 text-xs font-medium text-foreground hover:bg-muted"
+          >
+            Follow-up
+          </Link>
           {contract.can_mark_signed && ['draft', 'sent'].includes(contract.status) && (
             <button
               type="button"
@@ -1061,6 +1069,15 @@ export default function CompanyDetail() {
               <StatusBadge tone="cost">{companyTierLabels[company.tier]}</StatusBadge>
             )}
             <StatusBadge tone={statusMeta.tone}>{statusMeta.label}</StatusBadge>
+            {company.can_update && (
+              <Link
+                to={`/follow-ups/new?subject_type=company&subject_id=${company.id}`}
+                className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
+              >
+                <CalendarClock className="h-4 w-4" aria-hidden="true" />
+                Follow-up
+              </Link>
+            )}
           </div>
         }
       />
@@ -2365,9 +2382,21 @@ export default function CompanyDetail() {
                           {activity.body && (
                             <p className="mt-0.5 text-xs text-muted-foreground">{activity.body}</p>
                           )}
+                          {activity.is_follow_up && activity.due && (
+                            <p className="mt-1 flex flex-wrap items-center gap-1.5">
+                              <StatusBadge tone={followUpDueMeta[activity.due.state].tone}>
+                                {followUpDueMeta[activity.due.state].label}
+                              </StatusBadge>
+                              <span className="text-xs text-muted-foreground">
+                                Due {formatDateTime(activity.due_at)}
+                              </span>
+                            </p>
+                          )}
                           <p className="mt-0.5 text-xs text-muted-foreground">
                             {activity.owner?.name ? `${activity.owner.name} · ` : ''}
-                            {formatDateTime(activity.occurred_at ?? activity.created_at)}
+                            {activity.is_follow_up
+                              ? `Added ${formatDateTime(activity.created_at)}`
+                              : formatDateTime(activity.occurred_at ?? activity.created_at)}
                           </p>
                         </div>
                       </li>

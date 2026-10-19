@@ -8,6 +8,9 @@ use App\Integrations\MockEmailGateway;
 use App\Integrations\MockFinanceBilling;
 use App\Integrations\MockServiceHandoff;
 use App\Integrations\ServiceHandoff;
+use App\Models\Activity;
+use App\Policies\TaskPolicy;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -29,6 +32,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        // A task *is* an `Activity`, but a policy named `ActivityPolicy` would claim every
+        // quick-log line — the rules here are about follow-ups only (spec 12 §Permissions).
+        Gate::policy(Activity::class, TaskPolicy::class);
     }
 }

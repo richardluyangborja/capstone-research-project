@@ -35,4 +35,18 @@ class ActivityFactory extends Factory
             'status' => ActivityStatus::Done,
         ]);
     }
+
+    /**
+     * A follow-up task (module 04, spec 12): something owed by a time, not a record of
+     * something done — so it carries a `due_at` and has not happened yet.
+     */
+    public function task(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'type' => ActivityType::Task,
+            'status' => ActivityStatus::Open,
+            'due_at' => now()->addDay(),
+            'occurred_at' => null,
+        ]);
+    }
 }

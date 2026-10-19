@@ -100,11 +100,9 @@ class LeadLifecycleController extends Controller
 
         $activities = $lead->activities()
             ->with('owner:id,name')
-            ->orderByDesc('occurred_at')
-            ->orderByDesc('created_at')
-            // ULIDs are time-ordered, so this keeps entries created in the same
-            // second (e.g. a logged call + the status change it triggered) stable.
-            ->orderByDesc('id')
+            // What is still owed first, then what happened — one order for every feed
+            // (module 04, spec 12 §UI), so a task reads the same here and in the worklist.
+            ->timelineOrder()
             ->limit(100)
             ->get();
 

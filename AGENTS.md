@@ -223,6 +223,25 @@ Laravel's own and is separate from `frontend/`.
   changes nothing already logged, and only active templates enter the composer's picker. Seeded templates
   cover email/call/meeting plus one retired. **Not built here:** template categories, per-team libraries
   and scheduled sending (module 04).
+- **Module 04 — Follow-up Reminder System (slice S1 — tasks & the worklist):** `GET /follow-ups`
+  (read-only, paginated, `filter[owner|state|record_type|record_id|due_from|due_to]` + `search`,
+  `counts` at the root), `POST /tasks`, `GET|PATCH /tasks/{id}`, `PATCH /tasks/{id}/status`. A task is
+  an **`Activity` with `type = task`** — the module adds **no table** — carrying a `due_at` and the
+  reserved `open`/`done`/`cancelled` status; `due` (`overdue|today|upcoming`, `days`, `overdue`) is
+  **computed on read** against the PH business day (`FollowUpDueState`, `config/crm.php` `crm.timezone`)
+  and never stored. `ActivityStatus::allowedTransitions()` drives the moves (a self-move and
+  done→cancelled are 422; tasks are **cancelled, never deleted** — there is no delete route), and every
+  write keeps the record's own `Lead::syncNextFollowUpAt()` honest so the lead list shows one
+  `next_follow_up_at` column. `FollowUpResource` wraps `TaskResource` with a `kind`; a task's record is
+  fixed once created (`subject_type`/`subject_id` are create-only) and `channel` is always null (rule 13).
+  `TaskPolicy` = readable with its subject, editable/movable by **one person** (a salesrep their own, a
+  manager the team's, an admin anyone's — ADR-0004); creating needs the **subject's** update right and a
+  salesrep may only owe themselves (owner_id for another person is 403). The three record timelines
+  (`/leads|companies|opportunities/{id}/…`) order still-owed tasks ahead of what happened
+  (`scopeTimelineOrder`) and `ActivityResource` marks each with `is_follow_up`/`due_at`/`due`. **Not
+  built here:** the scheduled message (S2), the due dispatch + notifications (S3) and the generated
+  reminders (S4); `communications.scheduled_for` does not exist yet, so S1's worklist, `counts` and
+  `next_follow_up_at` read **tasks only**.
 
 Frontend routes: `/login`, `/leads` (views: All / My Leads / Unassigned / Team / Archived, inline
 owner control, bulk assign, status/rating/aging columns, "Stale only" filter), `/leads/new`,
@@ -267,10 +286,20 @@ inserting at the caret of the field last used; the message detail carries **Repl
 that carries
 files; the account detail gains a
 Communications tab with a per-contract "Log" action, and leads and deals carry a Communications
-section. The topbar bell shows assignment notifications. The sidebar
+section. `/follow-ups` (the worklist: four stat cards — Overdue / Due today / Upcoming / Completed —
+over a table of due state, subject, kind, record link, owner and status, with **Complete** /
+**Reschedule** / **Cancel** on an open row and **Reopen** on a finished one; Everyone / Mine / My team
+tabs, state + record-type + search filters and a `?subject_type=&subject_id=` deep link),
+`/follow-ups/new` (put something owed on a lead, account, contact or deal: record picker, title, notes,
+due moment defaulting to tomorrow 09:00, and an assignee picker for manager+) and `/follow-ups/:id`
+(the same form in edit mode — the record shown, not re-pointed — plus the status control). The lead
+list carries a **Next follow-up** column, leads/accounts/deals carry a **Follow-up** quick action, the
+contracts tab offers a per-contract one, and the three timelines mark an owed task with its due state
+and due moment. The topbar bell shows assignment notifications. The sidebar
 is **grouped by module** — module 01's submodules under `Lead & Client Tracking`, module 02's screens
 under `Opportunity Pipeline Visualization`, module 03's slices under `Communication History
-Management`. Account + logout live in the sidebar footer; the brand is
+Management`, module 04's under `Follow-up Reminder System`. Account + logout live in the sidebar footer;
+the brand is
 "Primepower Manpower Services / Customer Relationship Management".
 
 **Module 03 is complete — S1–S5 built.** Module 03's five slices: **S1 log &
@@ -287,11 +316,13 @@ module-01 deferral, ADR-0006). `/leads/{id}/status` cannot reach `converted`; co
 path (ADR-0009). `Company::deletionBlockers()` carries both guards (open deal, signed contract) —
 ADR-0010 §6.
 
-**The next work is module 04, Follow-up Reminders** — `resources/specs/12-follow-up-reminders.md` is
-written (S1–S4, ADR-0018) and S1 is next. The module adds **no table**: a follow-up is an `Activity`
-(`type=task` + `due_at` + `open/done/cancelled`) or a `Communication` with the reserved `scheduled`
-status (`scheduled_for`; `occurred_at` becomes nullable and is stamped when it really leaves), and
-`GET /follow-ups` is one read-only worklist over both. Nothing runs in the background — due sends and
+**Module 04 is under way — S1 built.** `resources/specs/12-follow-up-reminders.md` declares four
+slices (S1–S4, ADR-0018) and **S1 (follow-up tasks + the worklist) has landed**; S2 (scheduled
+communications) is next. The module adds **no table**: a follow-up is an `Activity`
+(`type=task` + `due_at` + `open/done/cancelled`) or, from S2, a `Communication` with the reserved
+`scheduled` status (`scheduled_for`; `occurred_at` becomes nullable and is stamped when it really
+leaves), and `GET /follow-ups` is one read-only worklist over both — today it reads tasks only.
+Nothing runs in the background — due sends and
 due reminders are dispatched on demand (`communication:send-due`, `follow-ups:notify-due`) exactly like
 the mocked inbound sync, and `reminded_at`/`source_key` keep repeated runs idempotent.
 
@@ -318,7 +349,13 @@ answering anything first. S5 seeds the **house's wording** — a rate-sheet foll
 confirmation (email), a cold-call script (call) and a meeting agenda (meeting), written with
 `{{contact.first_name}}`/`{{company.name}}` — plus an **inactive** `Holiday greeting` (kept but out of the
 picker) and a **retired** `Q3 rate increase notice` (soft-deleted), so the book's active / inactive /
-retired states and **Restore** all demo from real rows.
+retired states and **Restore** all demo from real rows. Module 04 S1 seeds **six follow-up tasks** across
+every state it can show — a Sunrise rate-sheet task overdue, a BPO 40-seat start-date task due today
+(Liza's, on a deal Sam owns, so "visible with the record" and the team's workload both show), a BPO
+contract chase and a Harbor forklift-shortlist task upcoming (the latter on the lead, so the lead list's
+**Next follow-up** column and the lead timeline demo unseeded), plus one done and one cancelled task on
+Sunrise — so the worklist's counts, its overdue/today/upcoming tabs and the complete/cancel/reopen paths
+need no setup.
 
 ## Conventions that differ from framework defaults
 
@@ -397,8 +434,9 @@ qualification, assignment, lifecycle, company/contact, lead→client conversion 
 module 02 (Opportunity Pipeline Visualization) covers the deal book, the Kanban board, stage
 moves/won-lost and the board forecast. **Module 03** (Communication History) is **complete** — its five
 declared slices (S1 log & history, S2 mocked email send/retry, S3 attachments, S4 threading, S5 templates)
-are all built. **Module 04** (Follow-up Reminders) is **planned** — `resources/specs/12-follow-up-reminders.md`
-declares four slices (ADR-0018) and S1 is next; its worklist reuses `Activity` and the reserved
+are all built. **Module 04** (Follow-up Reminders) is **under way** — `resources/specs/12-follow-up-reminders.md`
+declares four slices (ADR-0018) and **S1 (tasks + the worklist) is built**, with S2 next; its worklist
+reuses `Activity` and the reserved
 `CommunicationStatus.scheduled` rather than adding a table. Module 05 (client satisfaction, spec `13`)
 follows — both are in **ADR-0014**. Dedup/merge and advanced tiers are module-01 deferrals
 (ADR-0006), and automatic client aging stays one too (ADR-0018 §6). Other departments are consumed via

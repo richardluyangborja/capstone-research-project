@@ -5,9 +5,9 @@ Module 4 (ADR-0014). Entities: `Activity` (extended — `due_at`/`status` finall
 `scheduled_for` in S2), `Lead` (`next_follow_up_at` finally maintained), `Company`, `Contact`,
 `Opportunity`, `Contract`, `User`. ADRs: 0004, 0005, 0007, 0013, 0014, 0016, 0017, **0018**.
 
-> **Planned — S1 next.** This is the contract for module 04, shipped one slice per PR (ADR-0016 §2).
-> Its central choice is that **a follow-up is not a new table**: `00-data-model.md` already reserved
-> `Activity.due_at`/`status` and `Lead.next_follow_up_at`, ADR-0017 §3 reserved
+> **Slice S1 built; S2–S4 planned.** This is the contract for module 04, shipped one slice per PR
+> (ADR-0016 §2). Its central choice is that **a follow-up is not a new table**: `00-data-model.md`
+> already reserved `Activity.due_at`/`status` and `Lead.next_follow_up_at`, ADR-0017 §3 reserved
 > `CommunicationStatus.scheduled` for exactly this module, and ADR-0018 §1 settles the pair. Nothing
 > runs in the background — due work is pulled on demand, the same stance as the mocked inbound sync
 > (ADR-0017 §4).
@@ -80,7 +80,7 @@ Base `/api/v1`; JSON; `Authorization: Bearer <jwt>` (ADR-0008). Standard convent
 
 | Method | Path | Slice | Description |
 | --- | --- | --- | --- |
-| `GET` | `/follow-ups` | S1 | The worklist — open tasks **and** scheduled messages, both shapes in one ordered feed |
+| `GET` | `/follow-ups` | S1 | The worklist — what is owed, ordered by due time (slice S1 lists the tasks; scheduled messages join them in S2) |
 | `POST` | `/tasks` | S1 | Create a follow-up task on a record |
 | `GET` | `/tasks/{id}` | S1 | One task |
 | `PATCH` | `/tasks/{id}` | S1 | Edit it (title, notes, due time, assignee) — a reschedule re-arms the reminder |
@@ -133,36 +133,45 @@ or `done → cancelled` is **422** (the same shape as every other lifecycle in t
 {
   "kind": "task",
   "id": "01J…",
-  "title": "Send the revised rate sheet",
-  "excerpt": "Cover the two supervisor roles we discussed.",
+  "subject": "Send the revised rate sheet",
+  "body": "Cover the two supervisor roles we discussed.",
   "record": { "type": "company", "id": "01J…", "label": "Sunrise Foods Inc" },
   "owner": { "id": 4, "name": "Sam Salesrep" },
   "due_at": "2026-10-21T01:00:00.000000Z",
   "due": { "state": "today", "label": "Due today", "days": 0, "overdue": false },
   "status": { "value": "open", "label": "Open" },
   "channel": null,
-  "scheduled_for": null,
-  "generated": false,
   "can_update": true,
   "can_transition": true,
+  "can_send": false,
+  "can_delete": false,
   "created_at": "2026-10-18T02:00:00.000000Z"
 }
 ```
 
-A scheduled message differs by `kind: "message"`, a `channel`, a `scheduled_for`, `due` measuring
-that instant, and `status.value: "scheduled"`. A `state` filter of `overdue`/`today`/`upcoming`
-implies `open`; `done`/`cancelled` list finished tasks.
+The row keeps the record's own field names (`subject`, `body`), so a task and a scheduled
+message read the same in the feed. When the second shape lands (S2) a message row differs by
+`kind: "message"`, a `channel`, a `due` measuring its `scheduled_for` and `status.value:
+"scheduled"`; S4 adds `generated`. The `can_*` flags are what the row's actions are gated on —
+`can_send`/`can_delete` are false for a task, which is cancelled rather than deleted (rule 9).
 
-**`GET /follow-ups`** returns `{ data: […], meta: { current_page, per_page, total, last_page, counts:
-{ overdue, today, upcoming, open, done } } }` with `filter[owner|state|kind|record_type|record_id|
-due_from|due_to]` + `search` (title/excerpt). `filter[owner]=me` is the shorthand the UI's **Mine**
-tab uses. The feed is ordered by `due_at` ascending, then oldest first — what is most owed, first.
+A `state` filter of `overdue`/`today`/`upcoming` implies `open`; `done`/`cancelled` list
+finished tasks, and `all` shows everything.
+
+**`GET /follow-ups`** returns `{ data: […], meta: { current_page, per_page, total, last_page },
+counts: { overdue, today, upcoming, open, done } }` with
+`filter[owner|state|record_type|record_id|due_from|due_to]` + `search` (subject/body).
+`filter[owner]=me` is the shorthand the UI's **Mine** tab uses, `filter[owner]=team` narrows to
+one team, and `filter[record_type]=&filter[record_id]=` is the deep link a record's **Follow-up**
+action uses (`kind` joins the filter list in S2, when there are two kinds to choose between).
+The feed is ordered by `due_at` ascending, then oldest first — what is most owed, first.
 
 **`POST /follow-ups/generate`** returns the run's summary: the tasks it created (as
 `FollowUpResource`s) and what it skipped, per source (rule 11).
 
-**`TaskResource`** is the task read on its own (`/tasks/{id}`): the fields above without the
-worklist's `kind`/`due.label`, plus `body`, `updated_at` and `source_key` when generated.
+**`TaskResource`** is the task read on its own (`POST /tasks`, `GET`/`PATCH /tasks/{id}`, the
+status move): a single task with the same fields as a worklist row minus `kind`, plus `owner_id`,
+`body` and `updated_at`. S4 adds `source_key` to a generated task.
 
 ## Business rules
 
@@ -212,8 +221,9 @@ worklist's `kind`/`due.label`, plus `body`, `updated_at` and `source_key` when g
     whoever happened to run it.
 12. **`Lead.next_follow_up_at` is that lead's earliest open follow-up** — the sooner of its open
     tasks and its scheduled messages — recomputed on every create, reschedule, transition and send
-    that touches a lead, and null when nothing is open. The lead list and the stale/at-risk views can
-    then read one column instead of joining two tables.
+    that touches a lead, and null when nothing is open. Slice S1 maintains it from the tasks (the
+    only shape that exists yet); S2 takes the sooner of the two. The lead list and the stale/at-risk
+    views can then read one column instead of joining two tables.
 13. **A task is not a communication and a communication is not a task.** The two records stay
     distinct (ADR-0017 §1): a task has no channel, direction or participants, and a message has no
     completion. Completing a task does not write a communication, and sending a message does not
@@ -240,12 +250,12 @@ a salesrep's lead, account, contact or deal is theirs; a manager covers the team
 
 **S1 — follow-up tasks & the worklist**
 
-- `/follow-ups` — the worklist: four `StatCard`s (Overdue, Due today, Upcoming, Completed this week)
+- `/follow-ups` — the worklist: four `StatCard`s (Overdue, Due today, Upcoming, Completed)
   over a `DataTable` whose rows carry a state badge (Overdue / Due today / Upcoming / Done /
-  Cancelled), a kind badge (Task / Email), the title with its record as a deep link, the owner and
-  the due moment in PH time. Filters: **Mine / Team / All**, state, kind, record type and `search`;
-  a `?subject_type=&subject_id=` deep link narrows it to one record. A **Dispatch due** action sits
-  in the header for admin+ with the simulated-clock note (S3).
+  Cancelled), a kind badge (Task / Email — one kind until S2 adds the other), the subject with its
+  record as a deep link, the owner and the due moment in PH time. Filters: **Everyone / Mine / My
+  team**, state, record type and `search`; a `?subject_type=&subject_id=` deep link narrows it to one
+  record. The **Dispatch due** action joins the header in S3, with the simulated-clock note.
 - Row actions per the API's `can_*`: **Complete**, **Reschedule** (a small due-date dialog →
   `PATCH due_at`), **Cancel**, **Reopen**. Inline, no page reload.
 - `/follow-ups/new` — the create form: record picker (prefilled from the deep link), title, notes,
@@ -305,9 +315,10 @@ creates, so a generated reminder reaches its owner exactly like a hand-written o
 - **S1** seeds half a dozen tasks across every state so the worklist needs no setup: an **overdue**
   "Send the revised rate sheet" on Sunrise Foods (Sam), a **due today** "Confirm the 40-seat start
   date" on the BPO deal (Liza), an **upcoming** "Chase the signed contract" on BPO Solutions (Sam),
-  a completed one and a cancelled one on Sunrise, and one on a lead ("Follow up on the recruitment
-  drive", Liza) so `next_follow_up_at` shows up in the lead list and the stale view. Two owners is
-  deliberate: the **Mine / Team** tabs and the assignment notification both demo without setup.
+  a completed one and a cancelled one on Sunrise, and one on the **Harbor Logistics lead** ("Confirm
+  the forklift operator shortlist with Dan", Liza) so `next_follow_up_at` shows up in the lead list
+  and the stale view. Two owners is deliberate: the **Mine / My team** tabs and the manager's per-rep
+  filter both demo without setup.
 - **S2** seeds two scheduled emails: one due tomorrow on Sunrise (Sam) and one **overdue** on BPO
   Solutions (Liza) — so **Send now** demos on one and an admin **Dispatch due** sends the other
   through the mocked gateway live.
@@ -331,14 +342,14 @@ creates, so a generated reminder reaches its owner exactly like a hand-written o
       status are 422.
 - [ ] A salesrep may create and complete only their own; a manager the team's; an admin anyone's, and
       a salesrep cannot assign a task to another user (422/403).
-- [ ] `GET /follow-ups` merges tasks and scheduled messages ordered by due time, honours
-      `filter[owner|state|kind|record_type|record_id|due_from|due_to]` + `search`, and reports the
-      counts block.
+- [ ] `GET /follow-ups` lists what is owed, ordered by due time, honours
+      `filter[owner|state|record_type|record_id|due_from|due_to]` + `search`, and reports the
+      counts block. (S2 adds the second shape and with it `filter[kind]`.)
 - [ ] `overdue` / `today` / `upcoming` are computed from the PH day boundary and change with the
       clock, not with a stored column.
 - [ ] A task appears in its record's timeline with its due state, and `ActivityResource` marks it.
-- [ ] `Lead.next_follow_up_at` tracks the earliest open follow-up (task or scheduled message) on a
-      lead, and is null once none is open.
+- [ ] `Lead.next_follow_up_at` tracks the earliest open follow-up on a lead — from the tasks in S1,
+      the sooner of tasks and scheduled messages once S2 lands — and is null once none is open.
 - [ ] No delete endpoint exists; a task is cancelled and can be reopened.
 
 **S2**
