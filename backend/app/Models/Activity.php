@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\ActivityStatus;
 use App\Enums\ActivityType;
 use App\Enums\FollowUpDueState;
+use App\Events\FollowUpDue;
 use App\Models\Concerns\HasSubjectRecord;
 use Carbon\CarbonInterface;
 use Database\Factories\ActivityFactory;
@@ -35,6 +36,7 @@ class Activity extends Model
         'status',
         'due_at',
         'occurred_at',
+        'reminded_at',
         'owner_id',
         'subject_type',
         'subject_id',
@@ -51,6 +53,7 @@ class Activity extends Model
             'status' => ActivityStatus::class,
             'due_at' => 'datetime',
             'occurred_at' => 'datetime',
+            'reminded_at' => 'datetime',
         ];
     }
 
@@ -87,6 +90,48 @@ class Activity extends Model
     public function dueState(?CarbonInterface $now = null): ?FollowUpDueState
     {
         return FollowUpDueState::for($this->due_at, $now);
+    }
+
+    /**
+     * The tasks the due run still has to flag (module 04 slice S3, spec 12 §3, §10): open, past
+     * their due moment and never reminded. A settled task is never flagged, and a reschedule
+     * clears the marker so the task re-arms.
+     */
+    public function scopeDueForReminder(Builder $query, ?CarbonInterface $now = null): Builder
+    {
+        return $query->tasks()
+            ->where('status', ActivityStatus::Open)
+            ->whereNotNull('due_at')
+            ->where('due_at', '<=', $now ?? now())
+            ->whereNull('reminded_at');
+    }
+
+    /**
+     * Flag every open task that has fallen due and has not been flagged yet (module 04 slice S3,
+     * spec 12 §10). Each one raises `FollowUpDue` — the notification is the listener's job, not
+     * the run's — and is stamped as it goes, so a second run of the same day raises nothing and a
+     * task that falls due later is picked up by the next one.
+     *
+     * Nothing runs on a timer in this phase: an admin runs this in-app or through
+     * `follow-ups:notify-due`, exactly as the due sends are dispatched (rule 6).
+     *
+     * @return array{notified: int}
+     */
+    public static function notifyDue(?CarbonInterface $now = null): array
+    {
+        $due = static::query()
+            ->dueForReminder($now)
+            ->with('owner')
+            ->orderBy('due_at')
+            ->get();
+
+        foreach ($due as $task) {
+            FollowUpDue::dispatch($task);
+
+            $task->forceFill(['reminded_at' => $now ?? now()])->save();
+        }
+
+        return ['notified' => $due->count()];
     }
 
     /**

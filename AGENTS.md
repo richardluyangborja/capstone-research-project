@@ -261,6 +261,20 @@ Laravel's own and is separate from `frontend/`.
   `ScheduledMessageResource`), and `Lead::syncNextFollowUpAt()` takes the **sooner** of the two.
   Messages are sent or **soft-deleted** (cancel), never completed (`can_transition` is always false);
   `CommunicationPolicy::dispatch` is admin+.
+- **Module 04 slice S3 — notifications & the due run:** `activities.reminded_at` is the reminder
+  marker. `FollowUpAssigned` fires when a task is **created for someone else or reassigned**
+  (`TaskController`), and `NotifyFollowUpOwner` tells the new owner — nothing is sent when it is the
+  actor's own work. `Activity::notifyDue()` (over `scopeDueForReminder`: `status = open`, `due_at`
+  passed, `reminded_at` null) raises `FollowUpDue` per task and **stamps** it, so
+  `POST /follow-ups/dispatch-due` (**admin+**, `TaskPolicy::dispatchDue`, twin of
+  `php artisan follow-ups:notify-due`) returns `{notified}` and a second run flags nothing; a
+  **reschedule clears `reminded_at`** (`TaskController::update`), re-arming the task. A settled task
+  is never flagged. Every database notification now carries a **`url`** the bell opens (a lead, a
+  follow-up, a message) — `NotificationController` passes it through and `NotificationBell` prefers it
+  over `lead_id`; `LeadAssignedNotification` gained one too. `CommunicationFailed` gained an
+  **`actor`** (the user who pressed send, or null on an unattended dispatch) and
+  `NotifyAuthorOfFailedSend` tells the message's author only when that actor is somebody else —
+  a rep staring at their own rejected send is not notified twice.
 
 Frontend routes: `/login`, `/leads` (views: All / My Leads / Unassigned / Team / Archived, inline
 owner control, bulk assign, status/rating/aging columns, "Stale only" filter), `/leads/new`,
@@ -315,14 +329,15 @@ over a table of due state, subject, **kind** (Task / Email), record link, owner 
 **Reschedule** / **Cancel** on an open task row, **Reopen** on a finished one, and **Send now** /
 **Open** / **Cancel** on a scheduled message row (which names its recipient); Everyone / Mine / My
 team
-tabs, state + kind + record-type + search filters and a `?subject_type=&subject_id=` deep link; an
-admin header action **Dispatch due sends** with the no-timer note),
+tabs, state + kind + record-type + search filters and a `?subject_type=&subject_id=` deep link; the
+admin header actions **Dispatch due reminders** and **Dispatch due sends** with the no-timer note),
 `/follow-ups/new` (put something owed on a lead, account, contact or deal: record picker, title, notes,
 due moment defaulting to tomorrow 09:00, and an assignee picker for manager+) and `/follow-ups/:id`
 (the same form in edit mode — the record shown, not re-pointed — plus the status control). The lead
 list carries a **Next follow-up** column, leads/accounts/deals carry a **Follow-up** quick action, the
 contracts tab offers a per-contract one, and the three timelines mark an owed task with its due state
-and due moment. The topbar bell shows assignment notifications. The sidebar
+and due moment. The topbar bell lists the assignment and due notifications, each opening the item it
+is about (the follow-up, the message, or the lead it hangs off). The sidebar
 is **grouped by module** — module 01's submodules under `Lead & Client Tracking`, module 02's screens
 under `Opportunity Pipeline Visualization`, module 03's slices under `Communication History
 Management`, module 04's under `Follow-up Reminder System`. Account + logout live in the sidebar footer;
@@ -343,9 +358,10 @@ module-01 deferral, ADR-0006). `/leads/{id}/status` cannot reach `converted`; co
 path (ADR-0009). `Company::deletionBlockers()` carries both guards (open deal, signed contract) —
 ADR-0010 §6.
 
-**Module 04 is under way — S1 and S2 built.** `resources/specs/12-follow-up-reminders.md` declares four
-slices (S1–S4, ADR-0018) and **S1 (follow-up tasks + the worklist) and S2 (scheduled outbound
-messages + the due dispatch) have landed**; S3 (notifications & the due run) is next. The module adds
+**Module 04 is under way — S1, S2 and S3 built.** `resources/specs/12-follow-up-reminders.md` declares four
+slices (S1–S4, ADR-0018) and **S1 (follow-up tasks + the worklist), S2 (scheduled outbound
+messages + the due dispatch) and S3 (notifications & the due run) have landed**; S4 (generated
+reminders) is next. The module adds
 **no table**: a follow-up is an `Activity`
 (`type=task` + `due_at` + `open/done/cancelled`) or a `Communication` with the reserved
 `scheduled` status (`scheduled_for`; `occurred_at` is nullable and is stamped when it really
@@ -388,7 +404,10 @@ need no setup. Module 04 **S2 seeds two scheduled emails** — a Sunrise rate-sh
 tomorrow 09:00 PH (Sam's) and a BPO contract chase **overdue** since yesterday (Liza's, on Sam's
 account, so the "visible with the record, owed by someone else" split shows too) — both with no mirror
 activity, so **Send now** demos on one and an admin **Dispatch due sends** sends the overdue one
-through the mocked gateway live.
+through the mocked gateway live. Module 04 **S3 hands two of those tasks over** the way the API does
+it — Liza's two seeded tasks are dispatched from Sam — so her bell opens with two real assignments
+while Sam's stays empty, and an admin **Dispatch due reminders** on the worklist flags what has come
+due without a second run adding anything.
 
 ## Conventions that differ from framework defaults
 
@@ -468,8 +487,8 @@ module 02 (Opportunity Pipeline Visualization) covers the deal book, the Kanban 
 moves/won-lost and the board forecast. **Module 03** (Communication History) is **complete** — its five
 declared slices (S1 log & history, S2 mocked email send/retry, S3 attachments, S4 threading, S5 templates)
 are all built. **Module 04** (Follow-up Reminders) is **under way** — `resources/specs/12-follow-up-reminders.md`
-declares four slices (ADR-0018) and **S1 (tasks + the worklist) and S2 (scheduled outbound messages +
-the due dispatch) are built**, with S3 next; its worklist
+declares four slices (ADR-0018) and **S1 (tasks + the worklist), S2 (scheduled outbound messages +
+the due dispatch) and S3 (notifications & the due run) are built**, with S4 next; its worklist
 reuses `Activity` and the reserved
 `CommunicationStatus.scheduled` rather than adding a table. Module 05 (client satisfaction, spec `13`)
 follows — both are in **ADR-0014**. Dedup/merge and advanced tiers are module-01 deferrals

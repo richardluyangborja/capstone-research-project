@@ -47,6 +47,15 @@ class TaskPolicy
     }
 
     /**
+     * Running the due reminders notifies owners across every team at once, so it is an admin
+     * action (spec 12 §Permissions) — the same reasoning as dispatching the due sends.
+     */
+    public function dispatchDue(User $user): bool
+    {
+        return $user->role->isAdmin();
+    }
+
+    /**
      * Handing a task to someone else — the lead-assignment rule (spec 03 §2): yourself, the
      * team's for a manager, anyone for an admin. Shared with the picker and both write paths so
      * the rule cannot drift.

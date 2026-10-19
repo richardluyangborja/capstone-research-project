@@ -93,7 +93,7 @@ on the one before:
 | 01 | Lead & Client Tracking | — | `01`–`09` **(built)** |
 | 02 | Opportunity Pipeline Visualization | `Opportunity` record (08) | `10` **(built)** |
 | 03 | Communication History Management | objects from 01–02 | `11` **(built)** |
-| 04 | Follow-up Reminder System | 03 + notifications | `12` (in progress — 4 slices, S1–S2 built) |
+| 04 | Follow-up Reminder System | 03 + notifications | `12` (in progress — 4 slices, S1–S3 built) |
 | 05 | Client Satisfaction & Survey | clients + contacts | `13` |
 
 The AI service (dashboard + management reports + suggestions) is cross-cutting and built after 01–05.
@@ -131,7 +131,7 @@ mocked Service handoff still fires only on `mark-signed` (ADR-0015 §4).
 slice ships as its own PR (ADR-0016). Nothing scheduled runs — due work is dispatched on demand in
 module 04.
 
-## Module 04 → delivery slices (in progress — S1–S2 built, ADR-0018)
+## Module 04 → delivery slices (in progress — S1–S3 built, ADR-0018)
 
 1. **S1 Follow-up tasks & the worklist** *(built)* — a to-do you owe (`Activity`, `type = task`, with the
    `due_at` and `open`/`done`/`cancelled` status the model already reserved), the one worklist that
@@ -141,8 +141,11 @@ module 04.
    clock untouched); **Send now** sends it early, and an admin **Dispatch due sends** (or
    `communication:send-due`) sends what has fallen due through the mocked gateway, once. The worklist
    carries both shapes (`filter[kind]`), and the book gains a `due` filter.
-3. **S3 Notifications & the due run** — assignment and due notifications on the existing bell, with
-   `reminded_at` keeping repeated runs idempotent and a reschedule re-arming the reminder.
+3. **S3 Notifications & the due run** *(built)* — assignment and due notifications on the existing bell,
+   each naming the item it is about; `reminded_at` keeps repeated runs
+   idempotent, a reschedule re-arms the reminder, and an admin **Dispatch due reminders** (or
+   `follow-ups:notify-due`) flags what has come due. A send that fails with nobody watching tells the
+   author.
 4. **S4 Generated renewal & check-in reminders** — the renewals deferral ADR-0013 §3 parked here:
    tasks generated from contracts expiring inside `crm.contracts.expiring_soon_days`, clients quiet
    past `crm.follow_ups.check_in_days` and stale leads, keyed by `source_key` so a run is idempotent.

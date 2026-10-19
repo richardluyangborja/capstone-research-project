@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Enums\ActivityStatus;
 use App\Enums\ActivityType;
+use App\Events\FollowUpAssigned;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreTaskRequest;
 use App\Http\Requests\UpdateTaskRequest;
@@ -42,18 +43,24 @@ class TaskController extends Controller
         // activity or a message against it (spec 12 §Permissions).
         $this->authorize('update', $subject);
 
+        $owner = $this->resolveOwner($request, $data['owner_id'] ?? null);
+
         $task = Activity::create([
             'type' => ActivityType::Task,
             'subject' => $data['subject'],
             'body' => $data['body'] ?? null,
             'status' => ActivityStatus::Open,
             'due_at' => Carbon::parse($data['due_at']),
-            'owner_id' => $this->resolveOwner($request, $data['owner_id'] ?? null)->id,
+            'owner_id' => $owner->id,
             'subject_type' => $subject->getMorphClass(),
             'subject_id' => $subject->getKey(),
         ]);
 
         $task->syncSubjectFollowUp();
+
+        // Handing work to someone else is worth telling them about; putting it on yourself
+        // raises the same event and the listener stays quiet (spec 12 §10).
+        FollowUpAssigned::dispatch($task, $owner, $user);
 
         return (new TaskResource($task->load($this->relations())))
             ->response()
@@ -69,12 +76,14 @@ class TaskController extends Controller
 
     /**
      * Edit the task's wording, when it is owed or who owes it. Moving `due_at` is a reschedule,
-     * which from slice S3 also re-arms the reminder (spec 12 §3).
+     * which from slice S3 also re-arms the reminder (spec 12 §3); handing it to someone else
+     * tells them (spec 12 §10).
      */
     public function update(UpdateTaskRequest $request, Activity $task): TaskResource
     {
         $data = $request->validated();
         $attributes = [];
+        $previousOwnerId = $task->owner_id;
 
         foreach (['subject', 'body'] as $field) {
             if (array_key_exists($field, $data)) {
@@ -84,6 +93,9 @@ class TaskController extends Controller
 
         if (array_key_exists('due_at', $data)) {
             $attributes['due_at'] = Carbon::parse($data['due_at']);
+            // The reminder is re-armed: a task pushed to next week is flagged when next week
+            // comes instead of staying silent forever (spec 12 §3).
+            $attributes['reminded_at'] = null;
         }
 
         if (array_key_exists('owner_id', $data)) {
@@ -93,6 +105,10 @@ class TaskController extends Controller
         if ($attributes !== []) {
             $task->fill($attributes)->save();
             $task->syncSubjectFollowUp();
+
+            if ($task->owner_id !== $previousOwnerId) {
+                FollowUpAssigned::dispatch($task, $task->load('owner')->owner, $request->user());
+            }
         }
 
         return new TaskResource($task->load($this->relations()));

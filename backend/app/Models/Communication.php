@@ -391,13 +391,14 @@ class Communication extends Model
      * learns about the attempt.
      *
      * The message "happened" when it left, so a send (or a successful retry) stamps
-     * `occurred_at` too.
+     * `occurred_at` too. `actor` is who pressed send; null means nobody was watching (a due
+     * dispatch), which is what decides whether a failure is worth a notification (spec 12 §10).
      */
-    public function sendThrough(EmailGateway $gateway): self
+    public function sendThrough(EmailGateway $gateway, ?User $actor = null): self
     {
         $result = $gateway->send(OutboundEmail::forCommunication($this));
 
-        return DB::transaction(function () use ($result): self {
+        return DB::transaction(function () use ($result, $actor): self {
             $this->status = $result->success ? CommunicationStatus::Sent : CommunicationStatus::Failed;
             $this->external_id = $result->externalId;
             $this->failed_reason = $result->message;
@@ -407,7 +408,7 @@ class Communication extends Model
             if ($result->success) {
                 CommunicationSent::dispatch($this);
             } else {
-                CommunicationFailed::dispatch($this);
+                CommunicationFailed::dispatch($this, $actor);
             }
 
             return $this;

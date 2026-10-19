@@ -63,3 +63,13 @@ export const updateTaskStatus = async (id: string, status: string): Promise<Task
   const { data } = await api.patch<{ data: Task }>(`/tasks/${id}/status`, { status })
   return data.data
 }
+
+/**
+ * Flag every open task that has fallen due (spec 12 §S3, §10): the in-app twin of
+ * `follow-ups:notify-due`. Admin-only, because one run notifies owners across every team, and
+ * nothing runs on a timer in this phase — the demo clicks this.
+ */
+export const dispatchDueFollowUps = async (): Promise<{ notified: number }> => {
+  const { data } = await api.post<{ data: { notified: number } }>('/follow-ups/dispatch-due')
+  return data.data
+}

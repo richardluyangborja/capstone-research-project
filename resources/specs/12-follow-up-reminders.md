@@ -5,7 +5,7 @@ Module 4 (ADR-0014). Entities: `Activity` (extended — `due_at`/`status` finall
 `scheduled_for` in S2), `Lead` (`next_follow_up_at` finally maintained), `Company`, `Contact`,
 `Opportunity`, `Contract`, `User`. ADRs: 0004, 0005, 0007, 0013, 0014, 0016, 0017, **0018**.
 
-> **Slices S1–S2 built; S3–S4 planned.** This is the contract for module 04, shipped one slice per PR
+> **Slices S1–S3 built; S4 planned.** This is the contract for module 04, shipped one slice per PR
 > (ADR-0016 §2). Its central choice is that **a follow-up is not a new table**: `00-data-model.md`
 > already reserved `Activity.due_at`/`status` and `Lead.next_follow_up_at`, ADR-0017 §3 reserved
 > `CommunicationStatus.scheduled` for exactly this module, and ADR-0018 §1 settles the pair. Nothing
@@ -244,8 +244,8 @@ status move): a single task with the same fields as a worklist row minus `kind`,
     whoever happened to run it.
 12. **`Lead.next_follow_up_at` is that lead's earliest open follow-up** — the sooner of its open
     tasks and its scheduled messages — recomputed on every create, reschedule, transition and send
-    that touches a lead, and null when nothing is open. Slice S1 maintains it from the tasks (the
-    only shape that exists yet); S2 takes the sooner of the two. The lead list and the stale/at-risk
+    that touches a lead, and null when nothing is open. S1 maintained it from the tasks (the
+    only shape that existed then); S2 takes the sooner of the two. The lead list and the stale/at-risk
     views can then read one column instead of joining two tables.
 13. **A task is not a communication and a communication is not a task.** The two records stay
     distinct (ADR-0017 §1): a task has no channel, direction or participants, and a message has no
@@ -332,11 +332,13 @@ a salesrep's lead, account, contact or deal is theirs; a manager covers the team
 
 | Event | Emitted by | Effect |
 | --- | --- | --- |
-| `FollowUpAssigned` | creating a task, reassigning one, assigning a scheduled message | notifies the new owner (S3) |
+| `FollowUpAssigned` | creating a task for someone else, reassigning one | notifies the new owner, unless they assigned it to themselves (S3) |
 | `FollowUpDue` | the due run (`POST /follow-ups/dispatch-due`, `follow-ups:notify-due`) | notifies the owner and stamps `reminded_at` (S3) |
 
 Sending and failing a scheduled message reuse module 03's `CommunicationSent` / `CommunicationFailed`;
-S3 adds the author notification on the failed path. The generator reuses `FollowUpAssigned` per task it
+S3 gives `CommunicationFailed` an `actor`, and the author is notified only when that actor is somebody
+else (or nobody — an unattended dispatch), because the rep who pressed the button is looking at the
+reason already. The generator reuses `FollowUpAssigned` per task it
 creates, so a generated reminder reaches its owner exactly like a hand-written one.
 
 ## Demo data
@@ -351,9 +353,9 @@ creates, so a generated reminder reaches its owner exactly like a hand-written o
 - **S2** seeds two scheduled emails: one due tomorrow on Sunrise (Sam) and one **overdue** on BPO
   Solutions (Liza) — so **Send now** demos on one and an admin **Dispatch due** sends the other
   through the mocked gateway live.
-- **S3** needs no seed beyond S1's: the seeded task assigned to Liza is created (and dispatched) the
-  way the API does it, so the bell has a real assignment to show; the due run is then triggered from
-  the worklist during a demo.
+- **S3** needs no seed beyond S1's: the two tasks Liza owes are created the way the API creates them
+  and their hand-over is dispatched, so the bell opens with a real assignment each; the due run is
+  then triggered from the worklist during a demo.
 - **S4** seeds nothing of its own: it works off the data already there — the seeded Harbor Logistics
   renewal chain (a contract inside `crm.contracts.expiring_soon_days`), a seeded account that has
   gone quiet (Greenfield Hotels stays silent through module 03's seed) and a stale lead. The seeder
@@ -402,15 +404,18 @@ creates, so a generated reminder reaches its owner exactly like a hand-written o
 
 **S3**
 
-- [ ] Assigning a task (or a scheduled message) to another user notifies that user once, and assigning
-      it to yourself does not.
-- [ ] The due run notifies the owner of each open task that has fallen due and stamps `reminded_at`; a
+- [x] Assigning a task to another user notifies that user once, and assigning it to yourself does
+      not. (A scheduled message has no assignee: it belongs to whoever wrote it.)
+- [x] The due run notifies the owner of each open task that has fallen due and stamps `reminded_at`; a
       second run adds nothing, and a task that falls due later is picked up by the next run.
-- [ ] Rescheduling a task clears `reminded_at`, so it is flagged again when it next falls due.
-- [ ] A cancelled or completed task is never flagged by the due run.
-- [ ] A failed scheduled send notifies its author, naming the gateway's reason.
-- [ ] Only admin+ may dispatch (403 otherwise), and both the endpoint and `follow-ups:notify-due`
+- [x] Rescheduling a task clears `reminded_at`, so it is flagged again when it next falls due.
+- [x] A cancelled or completed task is never flagged by the due run.
+- [x] A failed scheduled send notifies its author, naming the gateway's reason — unless the author is
+      the one who pressed the button and is already reading it.
+- [x] Only admin+ may dispatch (403 otherwise), and both the endpoint and `follow-ups:notify-due`
       return the number notified.
+- [x] Each notification carries the item it is about, so the bell opens the follow-up (or the message)
+      rather than only the lead it hangs off.
 
 **S4**
 
