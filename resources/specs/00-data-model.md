@@ -75,7 +75,7 @@ Opportunity ──► Contract ──(signed)──► Company becomes "Client"
 | `status_changed_at` | timestamp | | |
 | `owner_id` | FK users | | assignee (nullable = queue) |
 | `last_activity_at` | timestamp | | denormalised |
-| `next_follow_up_at` | timestamp | | used by follow-up module later |
+| `next_follow_up_at` | timestamp | | the lead's earliest open follow-up — task or scheduled message (module 04) |
 | `converted_company_id` | FK companies | | set on conversion |
 | `converted_opportunity_id` | FK opportunities | | set on conversion |
 
@@ -152,18 +152,21 @@ contract is created from the deal and the mocked Service handoff still fires on 
 
 | Field | Type | Req | Notes |
 | --- | --- | --- | --- |
-| `type` | `ActivityType` | ✓ | |
+| `type` | `ActivityType` | ✓ | `task` + a `due_at` is a **follow-up** (module 04) |
 | `subject` | string | ✓ | |
 | `body` | text | | |
-| `status` | `ActivityStatus` | ✓ | default `open` |
-| `due_at` | timestamp | | tasks/reminders |
+| `status` | `ActivityStatus` | ✓ | default `open`; a task is `open`, `done` or `cancelled` (module 04) |
+| `due_at` | timestamp | | when a task is owed (module 04) |
 | `occurred_at` | timestamp | | for logged touches |
-| `owner_id` | FK users | ✓ | |
+| `owner_id` | FK users | ✓ | who owes the task / logged the touch |
 | `subject_type` / `subject_id` | morph | | lead / company / contact / opportunity / contract |
 | `communication_id` | ULID communications | | set when the activity mirrors a logged communication (module 03) |
+| `reminded_at` | timestamp | | when the owner was last told it fell due; cleared on reschedule (module 04) |
+| `source_key` | string | | the generator key of a generated reminder, e.g. `renewal:CON-…` (module 04) |
 
 `Activity` is the **lightweight quick log** (a touch or a task). Detailed, channel-aware history is the
-`Communication` record below — a logged communication also writes an activity (ADR-0017 §2).
+`Communication` record below — a logged communication also writes an activity (ADR-0017 §2). A `task`
+is the one shape that is *not* a record of something done: it is a promise with a `due_at` (module 04).
 
 ## Communication (module 03, spec 11)
 
@@ -174,12 +177,13 @@ contract is created from the deal and the mocked Service handoff still fires on 
 | `contact_id` | FK contacts | | the person on the other end, when known |
 | `channel` | `CommunicationChannel` | ✓ | |
 | `direction` | `CommunicationDirection` | ✓ | |
-| `status` | `CommunicationStatus` | ✓ | default from channel/direction; `scheduled` is module 04's |
+| `status` | `CommunicationStatus` | ✓ | default from channel/direction; `scheduled` = an outbound email due later (module 04) |
 | `subject` | string | ✓ | email subject line, or a one-line summary for a call |
 | `body` | text | | the content/notes (stored once — the activity mirror carries no copy) |
 | `from_name` / `from_address` | string | | participant display |
 | `to_name` / `to_address` | string | | primary recipient |
-| `occurred_at` | timestamp | ✓ | when it happened |
+| `scheduled_for` | timestamp | | when it is due to go out and it has not yet (module 04, `status = scheduled`) |
+| `occurred_at` | timestamp | | when it happened — **null** while scheduled, stamped when it leaves |
 | `duration_minutes` | int | | calls/meetings |
 | `outcome` | `CommunicationOutcome` | | calls |
 | `external_id` | string | | message id from the mocked email gateway |
