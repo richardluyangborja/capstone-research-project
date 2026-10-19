@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft, UserPlus } from 'lucide-react'
+import { ArrowLeft, CalendarClock, UserPlus } from 'lucide-react'
 import PageHeader from '../components/common/PageHeader'
 import FormCard from '../components/common/FormCard'
 import CommunicationList from '../components/common/CommunicationList'
@@ -30,6 +30,7 @@ import {
   leadStatusMeta,
   urgencyLabels,
 } from '../lib/leadMeta'
+import { followUpDueMeta } from '../lib/followUpMeta'
 import { formatDate, formatDateTime } from '../lib/format'
 import type {
   Activity,
@@ -288,6 +289,15 @@ export default function LeadDetail() {
           <div className="flex items-center gap-2">
             <LeadAgingBadge aging={lead.aging} days={lead.days_since_activity} />
             <StatusBadge tone={statusMeta.tone}>{statusMeta.label}</StatusBadge>
+            {lead.can_update && (
+              <Link
+                to={`/follow-ups/new?subject_type=lead&subject_id=${lead.id}`}
+                className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
+              >
+                <CalendarClock className="h-4 w-4" aria-hidden="true" />
+                Follow-up
+              </Link>
+            )}
           </div>
         }
       />
@@ -528,9 +538,21 @@ export default function LeadDetail() {
                         {activity.body && (
                           <p className="mt-0.5 text-xs text-muted-foreground">{activity.body}</p>
                         )}
+                        {activity.is_follow_up && activity.due && (
+                          <p className="mt-1 flex flex-wrap items-center gap-1.5">
+                            <StatusBadge tone={followUpDueMeta[activity.due.state].tone}>
+                              {followUpDueMeta[activity.due.state].label}
+                            </StatusBadge>
+                            <span className="text-xs text-muted-foreground">
+                              Due {formatDateTime(activity.due_at)}
+                            </span>
+                          </p>
+                        )}
                         <p className="mt-0.5 text-xs text-muted-foreground">
                           {activity.owner?.name ? `${activity.owner.name} · ` : ''}
-                          {formatDateTime(activity.occurred_at ?? activity.created_at)}
+                          {activity.is_follow_up
+                            ? `Added ${formatDateTime(activity.created_at)}`
+                            : formatDateTime(activity.occurred_at ?? activity.created_at)}
                         </p>
                       </div>
                     </li>

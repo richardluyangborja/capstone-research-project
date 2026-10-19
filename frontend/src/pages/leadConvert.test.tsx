@@ -42,6 +42,8 @@ const {
     status: 'qualified',
     status_changed_at: '2026-10-16T02:00:00.000000Z',
     last_activity_at: '2026-10-16T02:00:00.000000Z',
+    next_follow_up_at: null,
+    next_follow_up: null,
     notes: null,
     owner: { id: 1, name: 'Sam Salesrep' },
     owner_id: 1,

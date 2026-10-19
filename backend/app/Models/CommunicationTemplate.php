@@ -199,7 +199,7 @@ class CommunicationTemplate extends Model
             'user.name' => $user->name,
             'user.email' => $user->email,
             'today' => Carbon::now()
-                ->timezone((string) config('crm.templates.timezone', 'Asia/Manila'))
+                ->timezone((string) config('crm.timezone', 'Asia/Manila'))
                 ->format('d M Y'),
         ];
     }

@@ -16,6 +16,8 @@ import CommunicationTemplates from '../pages/CommunicationTemplates'
 import Contacts from '../pages/Contacts'
 import Conversion from '../pages/Conversion'
 import DashboardHome from '../pages/DashboardHome'
+import FollowUpForm from '../pages/FollowUpForm'
+import FollowUps from '../pages/FollowUps'
 import LeadConvert from '../pages/LeadConvert'
 import LeadDetail from '../pages/LeadDetail'
 import LeadsList from '../pages/LeadsList'
@@ -70,6 +72,9 @@ export default function AppRouter() {
           <Route path="/communications/templates/new" element={<CommunicationTemplateForm />} />
           <Route path="/communications/templates/:id" element={<CommunicationTemplateForm />} />
           <Route path="/communications/:id" element={<CommunicationDetail />} />
+          <Route path="/follow-ups" element={<FollowUps />} />
+          <Route path="/follow-ups/new" element={<FollowUpForm />} />
+          <Route path="/follow-ups/:id" element={<FollowUpForm />} />
         </Route>
       </Route>
 

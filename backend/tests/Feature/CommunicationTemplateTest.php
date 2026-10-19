@@ -278,7 +278,7 @@ class CommunicationTemplateTest extends TestCase
             'body' => 'Hi {{contact.first_name}} ({{contact.name}}, {{contact.position}}) — {{user.name}}, {{today}}',
         ]);
 
-        $today = Carbon::now()->timezone(config('crm.templates.timezone'))->format('d M Y');
+        $today = Carbon::now()->timezone(config('crm.timezone'))->format('d M Y');
 
         $this->actingAs($manager, 'api')
             ->postJson("/api/v1/communication-templates/{$template->id}/render", [

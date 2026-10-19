@@ -164,7 +164,7 @@ class CommunicationController extends Controller
             return [
                 'thread_id' => $group->thread_id,
                 'title' => $root?->subject,
-                'record' => $root === null ? null : $this->recordBlock($root),
+                'record' => $root?->recordBlock(),
                 'channel' => $root?->channel,
                 'message_count' => (int) $group->message_count,
                 'first_at' => Carbon::parse((string) $group->first_at)->toIso8601String(),
@@ -228,7 +228,7 @@ class CommunicationController extends Controller
             'data' => [
                 'thread_id' => $threadId,
                 'title' => $root->subject,
-                'record' => $this->recordBlock($root),
+                'record' => $root->recordBlock(),
                 'channel' => $root->channel,
                 'message_count' => $messages->count(),
                 'first_at' => $messages->first()->occurred_at?->toIso8601String(),
@@ -247,7 +247,7 @@ class CommunicationController extends Controller
         $data = $request->validated();
         $user = $request->user();
 
-        $subject = $this->resolveSubject($data['subject_type'], $data['subject_id']);
+        $subject = Communication::resolveSubjectType($data['subject_type'], $data['subject_id']);
 
         if ($subject === null) {
             throw ValidationException::withMessages([
@@ -530,34 +530,6 @@ class CommunicationController extends Controller
         return CommunicationResource::collection($communications)->additional([
             'meta' => ['total' => $communications->count()],
         ]);
-    }
-
-    /**
-     * The short `subject_type` the API accepts, resolved to the record it names.
-     */
-    private function resolveSubject(string $type, string $id): Lead|Company|Contact|Opportunity|Contract|null
-    {
-        $class = Communication::subjectTypes()[$type] ?? null;
-
-        return $class === null ? null : $class::query()->find($id);
-    }
-
-    /**
-     * The record block a conversation hangs off — the same shape the resource returns for one
-     * message, so the client links a thread exactly as it links an entry. Expects the message's
-     * `subjectable` to be loaded.
-     *
-     * @return array{type: string, id: string, label: string|null}|null
-     */
-    private function recordBlock(Communication $communication): ?array
-    {
-        $type = $communication->recordType();
-
-        return $type === null ? null : [
-            'type' => $type,
-            'id' => $communication->subject_id,
-            'label' => $communication->recordLabel(),
-        ];
     }
 
     /**

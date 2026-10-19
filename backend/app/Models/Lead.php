@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\ActivityStatus;
 use App\Enums\AgingLevel;
 use App\Enums\DisqualificationReason;
 use App\Enums\LeadRating;
@@ -10,6 +11,7 @@ use App\Enums\LeadStatus;
 use App\Enums\Role;
 use App\Enums\Urgency;
 use App\Events\LeadStatusChanged;
+use Carbon\Carbon;
 use Database\Factories\LeadFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
@@ -272,6 +274,28 @@ class Lead extends Model
 
             LeadStatusChanged::dispatch($this, $from, $status, $actor, $note);
         });
+    }
+
+    /**
+     * Keep `next_follow_up_at` pointing at the lead's earliest open follow-up (spec 12 §12), or
+     * null when nothing is owed. Called whenever a follow-up on this lead is created, moved or
+     * finished, so the lead list and the aging views read one column instead of joining two
+     * tables.
+     *
+     * Slice S1 knows one shape — an open task; slice S2 adds the scheduled messages and takes
+     * the sooner of the two, which is when this becomes the full rule.
+     */
+    public function syncNextFollowUpAt(): void
+    {
+        $nextTask = $this->activities()
+            ->tasks()
+            ->where('status', ActivityStatus::Open)
+            ->whereNotNull('due_at')
+            ->min('due_at');
+
+        $this->forceFill([
+            'next_follow_up_at' => $nextTask === null ? null : Carbon::parse($nextTask),
+        ])->save();
     }
 
     /**

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Trash2 } from 'lucide-react'
+import { ArrowLeft, CalendarClock, Trash2 } from 'lucide-react'
 import PageHeader from '../components/common/PageHeader'
 import FormCard from '../components/common/FormCard'
 import CommunicationList from '../components/common/CommunicationList'
@@ -21,6 +21,7 @@ import { listCompanyContacts } from '../lib/contacts'
 import { getAssignableUsers, parseValidationError } from '../lib/leads'
 import { opportunityStageMeta, lostReasonLabels } from '../lib/opportunityMeta'
 import { activityTypeMeta } from '../lib/leadMeta'
+import { followUpDueMeta } from '../lib/followUpMeta'
 import { formatCurrency, formatDate, formatDateTime } from '../lib/format'
 import type {
   Activity,
@@ -239,6 +240,15 @@ export default function OpportunityDetail() {
             <StatusBadge tone={opportunityStageMeta[deal.stage].tone}>
               {opportunityStageMeta[deal.stage].label}
             </StatusBadge>
+            {deal.can_update && (
+              <Link
+                to={`/follow-ups/new?subject_type=opportunity&subject_id=${deal.id}`}
+                className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
+              >
+                <CalendarClock className="h-4 w-4" aria-hidden="true" />
+                Follow-up
+              </Link>
+            )}
             {deal.can_delete && (
               <button
                 type="button"
@@ -447,8 +457,20 @@ export default function OpportunityDetail() {
                     {entry.body && (
                       <p className="mt-1 text-sm text-muted-foreground">{entry.body}</p>
                     )}
+                    {entry.is_follow_up && entry.due && (
+                      <p className="mt-1 flex flex-wrap items-center gap-1.5">
+                        <StatusBadge tone={followUpDueMeta[entry.due.state].tone}>
+                          {followUpDueMeta[entry.due.state].label}
+                        </StatusBadge>
+                        <span className="text-xs text-muted-foreground">
+                          Due {formatDateTime(entry.due_at)}
+                        </span>
+                      </p>
+                    )}
                     <p className="mt-1 text-xs text-muted-foreground">
-                      {formatDateTime(entry.occurred_at ?? entry.created_at)}
+                      {entry.is_follow_up
+                        ? `Added ${formatDateTime(entry.created_at)}`
+                        : formatDateTime(entry.occurred_at ?? entry.created_at)}
                       {entry.owner ? ` · ${entry.owner.name}` : ''}
                     </p>
                   </li>

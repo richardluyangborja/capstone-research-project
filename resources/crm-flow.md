@@ -93,7 +93,7 @@ on the one before:
 | 01 | Lead & Client Tracking | — | `01`–`09` **(built)** |
 | 02 | Opportunity Pipeline Visualization | `Opportunity` record (08) | `10` **(built)** |
 | 03 | Communication History Management | objects from 01–02 | `11` **(built)** |
-| 04 | Follow-up Reminder System | 03 + notifications | `12` (planned — 4 slices) |
+| 04 | Follow-up Reminder System | 03 + notifications | `12` (in progress — 4 slices, S1 built) |
 | 05 | Client Satisfaction & Survey | clients + contacts | `13` |
 
 The AI service (dashboard + management reports + suggestions) is cross-cutting and built after 01–05.
@@ -131,11 +131,11 @@ mocked Service handoff still fires only on `mark-signed` (ADR-0015 §4).
 slice ships as its own PR (ADR-0016). Nothing scheduled runs — due work is dispatched on demand in
 module 04.
 
-## Module 04 → delivery slices (planned, ADR-0018)
+## Module 04 → delivery slices (in progress — S1 built, ADR-0018)
 
-1. **S1 Follow-up tasks & the worklist** — a to-do you owe (`Activity`, `type = task`, with the
+1. **S1 Follow-up tasks & the worklist** *(built)* — a to-do you owe (`Activity`, `type = task`, with the
    `due_at` and `open`/`done`/`cancelled` status the model already reserved), the one worklist that
-   lists both shapes by due time, and `Lead.next_follow_up_at` finally maintained.
+   lists both shapes by due time (tasks only until S2), and `Lead.next_follow_up_at` finally maintained.
 2. **S2 Scheduled outbound messages** — the reserved `CommunicationStatus.scheduled`: an outbound
    email with a `scheduled_for`, writable and readable but not yet happened; **Send now**, and an
    admin **Dispatch due** (or `communication:send-due`) that sends what has fallen due through the

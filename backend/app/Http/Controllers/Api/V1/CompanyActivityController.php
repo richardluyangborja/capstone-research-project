@@ -53,9 +53,7 @@ class CompanyActivityController extends Controller
 
         $activities = $company->activities()
             ->with('owner:id,name')
-            ->orderByDesc('occurred_at')
-            ->orderByDesc('created_at')
-            ->orderByDesc('id')
+            ->timelineOrder()
             ->limit(100)
             ->get();
 
