@@ -98,6 +98,7 @@ vi.mock('../lib/followUps', () => ({
   createTask: vi.fn(),
   updateTask: vi.fn(),
   updateTaskStatus: vi.fn(),
+  dispatchDueFollowUps: vi.fn(),
 }))
 
 // The worklist's message actions are the history book's own calls (slice S2).
@@ -153,6 +154,7 @@ beforeEach(() => {
     failed: 1,
     source: 'Email (mocked)',
   })
+  vi.mocked(followUpApi.dispatchDueFollowUps).mockResolvedValue({ notified: 2 })
 })
 
 const renderWorklist = () =>
@@ -368,11 +370,25 @@ describe('the follow-up worklist', () => {
     ).toBeInTheDocument()
   })
 
+  it('lets an admin dispatch the due reminders, and reports how many owners were told', async () => {
+    session.role = 'admin'
+    renderWorklist()
+    await screen.findByText('Send the revised rate sheet')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Dispatch due reminders' }))
+
+    await waitFor(() => expect(followUpApi.dispatchDueFollowUps).toHaveBeenCalledTimes(1))
+    expect(
+      await screen.findByText('2 owners were notified of follow-ups that have come due.'),
+    ).toBeInTheDocument()
+  })
+
   it('offers a manager no dispatch: one run writes across every team', async () => {
     renderWorklist()
     await screen.findByText('Send the revised rate sheet')
 
     expect(screen.queryByRole('button', { name: 'Dispatch due sends' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Dispatch due reminders' })).not.toBeInTheDocument()
   })
 })
 

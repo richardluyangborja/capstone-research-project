@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { CalendarPlus, MailCheck, Search } from 'lucide-react'
+import { CalendarPlus, BellRing, MailCheck, Search } from 'lucide-react'
 import PageHeader from '../components/common/PageHeader'
 import StatusBadge from '../components/common/StatusBadge'
 import EmptyState from '../components/common/EmptyState'
@@ -9,7 +9,13 @@ import StatCard from '../components/common/StatCard'
 import RescheduleDialog from '../components/common/RescheduleDialog'
 import DataTable, { type DataTableColumn } from '../components/common/DataTable'
 import { useAuth } from '../lib/auth-context'
-import { listFollowUps, updateTask, updateTaskStatus, type FollowUpFilters } from '../lib/followUps'
+import {
+  dispatchDueFollowUps,
+  listFollowUps,
+  updateTask,
+  updateTaskStatus,
+  type FollowUpFilters,
+} from '../lib/followUps'
 import {
   deleteCommunication,
   dispatchDueCommunications,
@@ -61,9 +67,11 @@ export default function FollowUps() {
   const [rescheduling, setRescheduling] = useState<FollowUp | null>(null)
   const [dispatching, setDispatching] = useState(false)
   const [dispatchNote, setDispatchNote] = useState('')
+  const [notifying, setNotifying] = useState(false)
+  const [notifyNote, setNotifyNote] = useState('')
 
-  // Sending every due message writes across every team, so it is an admin action — the
-  // salesrep's own demo runs `php artisan communication:send-due` meanwhile (spec 12 §S2).
+  // Both due runs write across every team at once, so they are admin actions — the salesrep's
+  // own demo runs `php artisan follow-ups:notify-due` meanwhile (spec 12 §S3, §6).
   const canDispatch = user?.role === 'admin' || user?.role === 'superadmin'
 
   const load = useCallback(
@@ -139,6 +147,32 @@ export default function FollowUps() {
       setError('Could not dispatch the due messages.')
     } finally {
       setDispatching(false)
+    }
+  }
+
+  /**
+   * An admin flags every task that has come due (spec 12 §S3, §10). Nothing runs on a timer in
+   * this phase, so the demo clicks this — the owners are notified right away and each task is
+   * stamped, so a second click has nothing left to say.
+   */
+  const onNotifyDue = async () => {
+    setNotifying(true)
+    setError('')
+    setNotifyNote('')
+    try {
+      const result = await dispatchDueFollowUps()
+      setNotifyNote(
+        result.notified === 0
+          ? 'Nothing was due — no open follow-up has come due since the last run.'
+          : `${result.notified} ${
+              result.notified === 1 ? 'owner was' : 'owners were'
+            } notified of follow-ups that have come due.`,
+      )
+      await load(page)
+    } catch {
+      setError('Could not dispatch the due reminders.')
+    } finally {
+      setNotifying(false)
     }
   }
 
@@ -326,6 +360,17 @@ export default function FollowUps() {
             {canDispatch && (
               <button
                 type="button"
+                onClick={() => void onNotifyDue()}
+                disabled={notifying}
+                className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-60"
+              >
+                <BellRing className="h-4 w-4" aria-hidden="true" />
+                {notifying ? 'Notifying…' : 'Dispatch due reminders'}
+              </button>
+            )}
+            {canDispatch && (
+              <button
+                type="button"
                 onClick={() => void onDispatchDue()}
                 disabled={dispatching}
                 className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-60"
@@ -362,11 +407,19 @@ export default function FollowUps() {
         </div>
       )}
 
+      {notifyNote && (
+        <div className="mb-4">
+          <AlertItem variant="success">{notifyNote}</AlertItem>
+        </div>
+      )}
+
       {canDispatch && (
         <p className="mb-4 text-xs text-muted-foreground">
-          Nothing runs on a timer in this phase: <strong>Dispatch due sends</strong> takes the
-          scheduled emails whose moment has passed through the simulated mailbox, right now. A
-          second run finds nothing, because what went out is no longer scheduled.
+          Nothing runs on a timer in this phase: <strong>Dispatch due reminders</strong> notifies
+          the owners of the follow-ups that have come due, and <strong>Dispatch due sends</strong>{' '}
+          takes the scheduled emails whose moment has passed through the simulated mailbox, right
+          now. A second run of either finds nothing, because each task and message is stamped as it
+          is handled.
         </p>
       )}
 

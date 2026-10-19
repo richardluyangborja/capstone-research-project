@@ -61,8 +61,12 @@ export default function NotificationBell() {
       }
     }
 
-    if (item.lead_id) {
-      navigate(`/leads/${item.lead_id}`)
+    // Every notification names the item it is about (module 04 slice S3); older lead
+    // assignments still fall back to the lead they were written for.
+    const target = item.url ?? (item.lead_id ? `/leads/${item.lead_id}` : null)
+
+    if (target) {
+      navigate(target)
     }
   }
 

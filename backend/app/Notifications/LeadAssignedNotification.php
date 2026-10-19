@@ -31,6 +31,7 @@ class LeadAssignedNotification extends Notification
     {
         return [
             'type' => 'lead_assigned',
+            'url' => '/leads/'.$this->lead->id,
             'lead_id' => $this->lead->id,
             'reference' => $this->lead->reference,
             'company_name' => $this->lead->company_name,

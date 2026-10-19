@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Enums\ActivityStatus;
 use App\Enums\ActivityType;
 use App\Enums\FollowUpDueState;
+use App\Events\FollowUpAssigned;
 use App\Models\Activity;
 use App\Models\Company;
 use App\Models\Lead;
@@ -43,12 +44,13 @@ class DemoFollowUpSeeder extends Seeder
             'due_at' => Carbon::now()->subDays(2),
         ]);
 
-        // Due later today, in the business day the worklist is computed against.
+        // Due later today, in the business day the worklist is computed against. Sam handed it
+        // over, so the bell has a real assignment to show (slice S3).
         $this->task($bpoDeal, $liza, [
             'subject' => 'Confirm the 40-seat start date',
             'body' => 'Carla needs the ramp-up week in writing before the board meeting.',
             'due_at' => $this->laterToday(),
-        ]);
+        ], $sam);
 
         $this->task($bpo, $sam, [
             'subject' => 'Chase the signed contract',
@@ -76,7 +78,7 @@ class DemoFollowUpSeeder extends Seeder
             'subject' => 'Confirm the forklift operator shortlist with Dan',
             'body' => 'Fifteen operators needed at Manila South Harbor next month.',
             'due_at' => Carbon::now()->addDays(3),
-        ]);
+        ], $sam);
     }
 
     /**
@@ -84,9 +86,12 @@ class DemoFollowUpSeeder extends Seeder
      * record's own link and every write path that follows (a transition, a reschedule) behaves
      * the same on a seeded row as on a hand-made one.
      *
+     * When `$assignedBy` is given the assignment is raised the way the API raises it, so the
+     * bell opens with a real notification rather than a fabricated row (slice S3).
+     *
      * @param  array<string, mixed>  $attributes
      */
-    private function task(Model $subject, User $owner, array $attributes): Activity
+    private function task(Model $subject, User $owner, array $attributes, ?User $assignedBy = null): Activity
     {
         /** @var Activity $task */
         $task = $subject->activities()->create([
@@ -100,6 +105,10 @@ class DemoFollowUpSeeder extends Seeder
 
         // Keep the subject's own next-follow-up column honest (spec 12 §12).
         $task->syncSubjectFollowUp();
+
+        if ($assignedBy !== null) {
+            FollowUpAssigned::dispatch($task, $owner, $assignedBy);
+        }
 
         return $task;
     }

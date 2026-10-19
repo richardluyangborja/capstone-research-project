@@ -13,6 +13,7 @@ use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Query\Builder as QueryBuilder;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Carbon;
@@ -62,6 +63,18 @@ class FollowUpController extends Controller
             ],
             'counts' => $this->counts($user, $filters, $search, $kind),
         ]);
+    }
+
+    /**
+     * Flag every open task that has fallen due (module 04 slice S3, spec 12 §6, §10). Admin-only
+     * because one run notifies owners across every team — the same reason the due sends are —
+     * and it is the in-app twin of `follow-ups:notify-due`.
+     */
+    public function dispatchDue(): JsonResponse
+    {
+        $this->authorize('dispatchDue', Activity::class);
+
+        return response()->json(['data' => Activity::notifyDue()]);
     }
 
     /**

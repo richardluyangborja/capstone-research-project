@@ -20,6 +20,9 @@ class NotificationController extends Controller
                 'id' => $notification->id,
                 'type' => $notification->data['type'] ?? null,
                 'message' => $notification->data['message'] ?? '',
+                // Where the bell should take the reader: every notification names its own item
+                // (module 04 slice S3, spec 12 §UI).
+                'url' => $notification->data['url'] ?? null,
                 'lead_id' => $notification->data['lead_id'] ?? null,
                 'reference' => $notification->data['reference'] ?? null,
                 'company_name' => $notification->data['company_name'] ?? null,

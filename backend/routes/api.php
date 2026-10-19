@@ -168,8 +168,10 @@ Route::prefix('v1')->group(function (): void {
 
         // Module 04 — follow-up reminders. The worklist is a read model over what is owed (slice
         // S1 lists tasks; slice S2 adds scheduled messages beside them). A task is cancelled
-        // rather than deleted, so there is no destroy route.
+        // rather than deleted, so there is no destroy route. The due run is admin-only and is
+        // the in-app twin of `follow-ups:notify-due` (slice S3).
         Route::get('follow-ups', [FollowUpController::class, 'index']);
+        Route::post('follow-ups/dispatch-due', [FollowUpController::class, 'dispatchDue']);
         Route::patch('tasks/{task}/status', [TaskController::class, 'updateStatus']);
         Route::apiResource('tasks', TaskController::class)->only(['store', 'show', 'update']);
     });

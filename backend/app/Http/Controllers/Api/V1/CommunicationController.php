@@ -18,6 +18,7 @@ use App\Models\Contact;
 use App\Models\Contract;
 use App\Models\Lead;
 use App\Models\Opportunity;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -385,11 +386,12 @@ class CommunicationController extends Controller
      * as `failed` with the gateway's reason, so the rep can read it and retry — and
      * `meta.source` says the gateway was a mock. This is the worklist's **Send now**.
      */
-    public function send(EmailGateway $gateway, Communication $communication): JsonResponse
+    public function send(Request $request, EmailGateway $gateway, Communication $communication): JsonResponse
     {
         return $this->handToGateway(
             $gateway,
             $communication,
+            $request->user(),
             [CommunicationStatus::Draft, CommunicationStatus::Scheduled],
             'a draft or a scheduled message',
         );
@@ -398,11 +400,12 @@ class CommunicationController extends Controller
     /**
      * Try a rejected message again (spec 11 §S2).
      */
-    public function retry(EmailGateway $gateway, Communication $communication): JsonResponse
+    public function retry(Request $request, EmailGateway $gateway, Communication $communication): JsonResponse
     {
         return $this->handToGateway(
             $gateway,
             $communication,
+            $request->user(),
             [CommunicationStatus::Failed],
             'a message the gateway rejected',
         );
@@ -462,11 +465,15 @@ class CommunicationController extends Controller
      * gateway — differing only in the states they are legal from, which is a state error
      * (422), not a permission one (spec 11 §Errors).
      *
+     * `$actor` is who pressed send: it rides on `CommunicationFailed`, so a rep watching their
+     * own rejected send is not also notified (spec 12 §10).
+     *
      * @param  array<int, CommunicationStatus>  $from
      */
     private function handToGateway(
         EmailGateway $gateway,
         Communication $communication,
+        User $actor,
         array $from,
         string $expected,
     ): JsonResponse {
@@ -487,7 +494,7 @@ class CommunicationController extends Controller
             ]);
         }
 
-        $communication = $communication->sendThrough($gateway);
+        $communication = $communication->sendThrough($gateway, $actor);
 
         return (new CommunicationResource($communication->load($this->relations())))
             ->additional(['meta' => ['source' => $gateway->source()]])

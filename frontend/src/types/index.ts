@@ -470,6 +470,8 @@ export interface NotificationItem {
   id: string
   type: string | null
   message: string
+  /** Where the item lives, so the bell can open it — a lead, a follow-up, a message. */
+  url: string | null
   lead_id: string | null
   reference: string | null
   company_name: string | null
