@@ -4,6 +4,7 @@ import {
   Building2,
   ChevronDown,
   ClipboardCheck,
+  FileText,
   Handshake,
   History,
   Inbox,
@@ -73,6 +74,7 @@ const groups: NavGroup[] = [
         end: true,
       },
       { to: '/communications/threads', label: 'Threaded Conversations', icon: MessagesSquare },
+      { to: '/communications/templates', label: 'Communication Templates', icon: FileText },
     ],
   },
 ]

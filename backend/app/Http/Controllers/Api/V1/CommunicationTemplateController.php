@@ -54,6 +54,9 @@ class CommunicationTemplateController extends Controller
                 'is_active',
                 filter_var($filters['active'], FILTER_VALIDATE_BOOL),
             ))
+            // Retired (soft-deleted) rows are normally out of sight; this is how a manager finds
+            // one again to bring it back (spec 11 §S5).
+            ->when(filter_var($filters['retired'] ?? false, FILTER_VALIDATE_BOOL), fn ($query) => $query->onlyTrashed())
             ->search($request->string('search')->toString() ?: null)
             ->orderByDesc('is_active')
             ->orderBy('name')

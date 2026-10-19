@@ -12,7 +12,9 @@ use Illuminate\Database\Seeder;
  *
  * The house's wording, so the composer's picker renders from a real record and the merge
  * fields fill from whatever the message is pointed at. The `Holiday greeting` is seeded
- * **retired** (`is_active = false`) so the template book's active filter has something to hide.
+ * **inactive** (`is_active = false`) so the template book's active filter has something to
+ * hide, and the superseded `Q3 rate increase notice` is seeded **retired** (soft-deleted) so
+ * the book's Retired state and **Restore** demo without retiring something live first.
  */
 class DemoCommunicationTemplateSeeder extends Seeder
 {
@@ -23,6 +25,10 @@ class DemoCommunicationTemplateSeeder extends Seeder
         foreach ($this->templates() as $template) {
             CommunicationTemplate::create($template + ['created_by' => $manager?->id]);
         }
+
+        // Retired through the same soft delete the API uses, so the row is genuinely out of the
+        // picker and the book — findable only under `filter[retired]` (spec 11 §S5).
+        CommunicationTemplate::query()->where('name', 'Q3 rate increase notice')->delete();
     }
 
     /**
@@ -92,6 +98,17 @@ class DemoCommunicationTemplateSeeder extends Seeder
                     ."{{company.name}}. Thank you for working with us this year.\n\n"
                     .'{{user.name}}',
                 'is_active' => false,
+            ],
+            // Superseded wording: seeded retired (the seeder soft-deletes it below).
+            [
+                'name' => 'Q3 rate increase notice',
+                'channel' => CommunicationChannel::Email,
+                'subject' => 'Adjusting our rates from 1 July',
+                'body' => "Hi {{contact.first_name}},\n\n"
+                    .'Please note that our rates for {{company.name}} adjust from 1 July, covering '
+                    ."the roles we currently supply.\n\n"
+                    .'The updated schedule is attached to your account.',
+                'is_active' => true,
             ],
         ];
     }

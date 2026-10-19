@@ -215,6 +215,19 @@ class CommunicationTemplateTest extends TestCase
             ->assertNoContent();
 
         $this->actingAs($manager, 'api')
+            ->getJson('/api/v1/communication-templates')
+            ->assertOk()
+            ->assertJsonPath('meta.total', 0);
+
+        // A retired row leaves the book, but a manager can still find it to bring it back.
+        $this->actingAs($manager, 'api')
+            ->getJson('/api/v1/communication-templates?filter[retired]=true')
+            ->assertOk()
+            ->assertJsonPath('meta.total', 1)
+            ->assertJsonPath('data.0.id', $template->id)
+            ->assertJsonPath('data.0.can_restore', true);
+
+        $this->actingAs($manager, 'api')
             ->getJson("/api/v1/communication-templates/{$template->id}")
             ->assertNotFound();
 

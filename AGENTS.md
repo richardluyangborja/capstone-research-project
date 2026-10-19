@@ -308,8 +308,9 @@ and the Sunrise rate-sheet email with the client's approval and Sam's reply (thr
 at the message it answers) — so the conversation list, the thread view and the "last word" demo without
 answering anything first. S5 seeds the **house's wording** — a rate-sheet follow-up and a site-visit
 confirmation (email), a cold-call script (call) and a meeting agenda (meeting), written with
-`{{contact.first_name}}`/`{{company.name}}` — plus one retired `Holiday greeting`, so the picker renders
-from a real record and the active filter has something to hide.
+`{{contact.first_name}}`/`{{company.name}}` — plus an **inactive** `Holiday greeting` (kept but out of the
+picker) and a **retired** `Q3 rate increase notice` (soft-deleted), so the book's active / inactive /
+retired states and **Restore** all demo from real rows.
 
 ## Conventions that differ from framework defaults
 

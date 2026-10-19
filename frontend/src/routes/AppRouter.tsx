@@ -11,6 +11,8 @@ import CommunicationDetail from '../pages/CommunicationDetail'
 import Communications from '../pages/Communications'
 import CommunicationThreadDetail from '../pages/CommunicationThreadDetail'
 import CommunicationThreads from '../pages/CommunicationThreads'
+import CommunicationTemplateForm from '../pages/CommunicationTemplateForm'
+import CommunicationTemplates from '../pages/CommunicationTemplates'
 import Contacts from '../pages/Contacts'
 import Conversion from '../pages/Conversion'
 import DashboardHome from '../pages/DashboardHome'
@@ -64,6 +66,9 @@ export default function AppRouter() {
           <Route path="/communications/new" element={<NewCommunication />} />
           <Route path="/communications/threads" element={<CommunicationThreads />} />
           <Route path="/communications/threads/:threadId" element={<CommunicationThreadDetail />} />
+          <Route path="/communications/templates" element={<CommunicationTemplates />} />
+          <Route path="/communications/templates/new" element={<CommunicationTemplateForm />} />
+          <Route path="/communications/templates/:id" element={<CommunicationTemplateForm />} />
           <Route path="/communications/:id" element={<CommunicationDetail />} />
         </Route>
       </Route>

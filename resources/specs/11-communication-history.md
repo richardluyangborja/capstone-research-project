@@ -140,7 +140,7 @@ Despite the table above reading `{id}`, the send/retry/upload/reply routes bind 
 
 | Method | Path | Description |
 | --- | --- | --- |
-| `GET` | `/api/v1/communication-templates` | Templates — `filter[channel\|active]` + `search`, paginated |
+| `GET` | `/api/v1/communication-templates` | Templates — `filter[channel\|active\|retired]` + `search`, paginated |
 | `POST` | `/api/v1/communication-templates` | Author one (manager+) |
 | `GET` | `/api/v1/communication-templates/{id}` | One template |
 | `PATCH` | `/api/v1/communication-templates/{id}` | Edit it (manager+) |
@@ -386,8 +386,10 @@ busy, other`).
 **S5 — templates**
 
 - `/communications/templates` — the template book: name, channel badge, title line, active state and
-  author, narrowed by `filter[channel|active]` + `search`, with **New template** for manager+ and
-  **Edit** / **Retire** / **Restore** on the rows the API allows.
+  author, narrowed by channel/state (`All` / `Active` / `Inactive` / `Retired`) + `search`, with
+  **New template** for manager+ and **Edit** / **Retire** / **Restore** on the rows the API allows
+  (a retired row is found under the `Retired` state, and only offers **Restore** — the API does not
+  serve a retired template by id, so there is nothing to open).
 - `/communications/templates/new` and `/communications/templates/:id` — the form (name, channel, title
   line, body, active) with the merge-field vocabulary as chips that insert at the caret of the field last
   used.
@@ -434,8 +436,9 @@ files what it does pull *into* the conversation it answers.
 
 Slice S5 seeds the house's own wording: a rate-sheet follow-up and a site-visit confirmation (email), a
 cold-call script (call) and a meeting agenda (meeting) — each written with `{{contact.first_name}}` and
-`{{company.name}}` so the render demo fills them from the record it is pointed at — plus one retired
-`Holiday greeting`, so the active filter has something to hide.
+`{{company.name}}` so the render demo fills them from the record it is pointed at — plus an **inactive**
+`Holiday greeting` (kept, hidden from the picker) and a **retired** `Q3 rate increase notice`
+(soft-deleted), so the book's three states demo without touching a live row first.
 
 ## Acceptance criteria
 
@@ -521,6 +524,8 @@ cold-call script (call) and a meeting agenda (meeting) — each written with `{{
       them (403), and force-deleting stays admin.
 - [x] A live duplicate name is 422; a retired template frees its name, and restoring the old one when the
       name has since been taken is refused rather than silently shadowing the live template.
+- [x] A retired template leaves the book but stays findable (`filter[retired]=true`) so a manager can
+      bring it back; it is not served by id, so it cannot be edited until it is restored.
 - [x] `POST /communication-templates/{id}/render` renders the title line and body against a record with
       the caller's own details, and leaves any unknown or empty placeholder **verbatim** while listing it
       in `unresolved`.
