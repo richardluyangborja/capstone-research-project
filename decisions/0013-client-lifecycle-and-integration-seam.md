@@ -40,6 +40,9 @@ spec left open:
    computed for clients. Renewal reminders and automatic aging belong to the deferred
    follow-up/reminder module. `Contract::isExpiringSoon()` (`crm.contracts.expiring_soon_days`,
    default 30) is a **read-time flag** the UI badges — not a background effect.
+   *(Amended by ADR-0018 §6: renewal reminders land in that module as intended (spec 12 S4), but
+   **automatic aging** was left out of it and stays a standalone deferral — it advances the client
+   lifecycle rather than reminding anyone.)*
 4. **Department integrations live in `app/Integrations/` — the one deliberate new base folder.**
    This is the documented exception to the backend rule "don't create new base folders without
    approval". Each mocked department is an interface (`ServiceHandoff`, `FinanceBilling`) plus a

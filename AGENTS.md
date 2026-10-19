@@ -273,8 +273,7 @@ under `Opportunity Pipeline Visualization`, module 03's slices under `Communicat
 Management`. Account + logout live in the sidebar footer; the brand is
 "Primepower Manpower Services / Customer Relationship Management".
 
-**Module 03 is complete — S1–S5 built — and the next work is module 04, Follow-up Reminders** (spec
-`resources/specs/12-*`, ADR-0014). Module 03's five slices: **S1 log &
+**Module 03 is complete — S1–S5 built.** Module 03's five slices: **S1 log &
 history**, **S2 email compose/send/retry through a mocked gateway**, **S3 attachments
 (the deferred polymorphic `attachments` table)**, **S4 threading (conversations, replies
 and the thread view)** and **S5 templates + merge fields (a prefill for the composer, never a link back
@@ -282,10 +281,19 @@ from the message)**.
 `Activity` stays the
 lightweight quick log; `Communication` is the detailed record and every logged communication also writes
 an activity, so the existing timelines stay the merged feed. Still deferred: contract
-versioning/e-signature, renewal reminders/automatic client aging, duplicate detection & merge (a
+versioning/e-signature, **automatic client aging** (ADR-0018 §6 — once assumed to land with module 04,
+it does not), duplicate detection & merge (a
 module-01 deferral, ADR-0006). `/leads/{id}/status` cannot reach `converted`; conversion is the only
 path (ADR-0009). `Company::deletionBlockers()` carries both guards (open deal, signed contract) —
 ADR-0010 §6.
+
+**The next work is module 04, Follow-up Reminders** — `resources/specs/12-follow-up-reminders.md` is
+written (S1–S4, ADR-0018) and S1 is next. The module adds **no table**: a follow-up is an `Activity`
+(`type=task` + `due_at` + `open/done/cancelled`) or a `Communication` with the reserved `scheduled`
+status (`scheduled_for`; `occurred_at` becomes nullable and is stamped when it really leaves), and
+`GET /follow-ups` is one read-only worklist over both. Nothing runs in the background — due sends and
+due reminders are dispatched on demand (`communication:send-due`, `follow-ups:notify-due`) exactly like
+the mocked inbound sync, and `reminded_at`/`source_key` keep repeated runs idempotent.
 
 **Demo accounts** (password `password`, via `php artisan migrate:fresh --seed`):
 `salesrep@primepower.test`, `salesrep2@primepower.test` (same team), `manager@primepower.test`,
@@ -389,7 +397,9 @@ qualification, assignment, lifecycle, company/contact, lead→client conversion 
 module 02 (Opportunity Pipeline Visualization) covers the deal book, the Kanban board, stage
 moves/won-lost and the board forecast. **Module 03** (Communication History) is **complete** — its five
 declared slices (S1 log & history, S2 mocked email send/retry, S3 attachments, S4 threading, S5 templates)
-are all built. The remaining CRM modules — 04
-follow-up reminders, 05 client satisfaction
-— are in **ADR-0014** (specs `12`–`13`). Dedup/merge and advanced tiers are module-01 deferrals
-(ADR-0006). Other departments are consumed via **mocked integrations** (ADR-0005), not built here.
+are all built. **Module 04** (Follow-up Reminders) is **planned** — `resources/specs/12-follow-up-reminders.md`
+declares four slices (ADR-0018) and S1 is next; its worklist reuses `Activity` and the reserved
+`CommunicationStatus.scheduled` rather than adding a table. Module 05 (client satisfaction, spec `13`)
+follows — both are in **ADR-0014**. Dedup/merge and advanced tiers are module-01 deferrals
+(ADR-0006), and automatic client aging stays one too (ADR-0018 §6). Other departments are consumed via
+**mocked integrations** (ADR-0005), not built here.
