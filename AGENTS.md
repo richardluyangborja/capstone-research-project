@@ -275,6 +275,24 @@ Laravel's own and is separate from `frontend/`.
   **`actor`** (the user who pressed send, or null on an unattended dispatch) and
   `NotifyAuthorOfFailedSend` tells the message's author only when that actor is somebody else —
   a rep staring at their own rejected send is not notified twice.
+- **Module 04 slice S4 — generated reminders:** the reminders the records imply, raised on demand.
+  `Activity::generateFollowUps()` (twin of `php artisan follow-ups:generate`, exposed as
+  `POST /follow-ups/generate`, **manager+** via `TaskPolicy::generate`) creates three kinds of task —
+  a **renewal** for each signed contract inside `crm.contracts.expiring_soon_days` (due a week before
+  `end_date`, 09:00 PH), a **check-in** for each client with no communication since it came aboard
+  (older than the new `crm.follow_ups.check_in_days`, default 45, measured from `client_since` when
+  never contacted; churned clients included) and a **stale lead** (`crm.aging.stale_days`) — each
+  owned by the record's own owner and due the next morning, 09:00 PH. `FollowUpSource` names the three
+  and builds the key. A new nullable-unique `activities.source_key` (`renewal:{contract}`, no bucket;
+  `check_in:{company}:{ISO-week}`, `stale_lead:{lead}:{ISO-week}`) makes a repeat run a no-op while
+  the next ISO week may raise the next check-in. It **never invents an owner** and never piles onto
+  work already in hand: a record with no owner, one whose key already stands, or one somebody has an
+  **open hand-written task or scheduled message** on is skipped and reported (its own generated tasks
+  never block the next week). The run returns
+  `{created, skipped, sources:[{key,label,created,skipped,tasks,skips:[{record,reason}]}]}`, each
+  created task dispatches `FollowUpAssigned` with `actor = null` so its owner is told, and
+  `TaskResource` gained `source`/`source_key` (`ScheduledMessageResource` carries them as null for
+  shape parity).
 
 Frontend routes: `/login`, `/leads` (views: All / My Leads / Unassigned / Team / Archived, inline
 owner control, bulk assign, status/rating/aging columns, "Stale only" filter), `/leads/new`,
@@ -330,7 +348,9 @@ over a table of due state, subject, **kind** (Task / Email), record link, owner 
 **Open** / **Cancel** on a scheduled message row (which names its recipient); Everyone / Mine / My
 team
 tabs, state + kind + record-type + search filters and a `?subject_type=&subject_id=` deep link; the
-admin header actions **Dispatch due reminders** and **Dispatch due sends** with the no-timer note),
+manager header action **Generate reminders** with its per-source summary panel (created, skipped and
+why) and the admin ones **Dispatch due reminders** and **Dispatch due sends** with the no-timer note;
+a generated row carries a **Generated** badge naming its source),
 `/follow-ups/new` (put something owed on a lead, account, contact or deal: record picker, title, notes,
 due moment defaulting to tomorrow 09:00, and an assignee picker for manager+) and `/follow-ups/:id`
 (the same form in edit mode — the record shown, not re-pointed — plus the status control). The lead
@@ -358,17 +378,17 @@ module-01 deferral, ADR-0006). `/leads/{id}/status` cannot reach `converted`; co
 path (ADR-0009). `Company::deletionBlockers()` carries both guards (open deal, signed contract) —
 ADR-0010 §6.
 
-**Module 04 is under way — S1, S2 and S3 built.** `resources/specs/12-follow-up-reminders.md` declares four
-slices (S1–S4, ADR-0018) and **S1 (follow-up tasks + the worklist), S2 (scheduled outbound
-messages + the due dispatch) and S3 (notifications & the due run) have landed**; S4 (generated
-reminders) is next. The module adds
+**Module 04 is complete — S1–S4 built.** `resources/specs/12-follow-up-reminders.md` declares four
+slices (S1–S4, ADR-0018) and all four have landed: **S1 (follow-up tasks + the worklist), S2
+(scheduled outbound messages + the due dispatch), S3 (notifications & the due run) and S4 (generated
+reminders)**. The module adds
 **no table**: a follow-up is an `Activity`
 (`type=task` + `due_at` + `open/done/cancelled`) or a `Communication` with the reserved
 `scheduled` status (`scheduled_for`; `occurred_at` is nullable and is stamped when it really
 leaves), and `GET /follow-ups` is one read-only worklist over both — a union of the two, narrowed by
 `filter[kind]`.
-Nothing runs in the background — due sends and
-due reminders are dispatched on demand (`communication:send-due`, `follow-ups:notify-due`) exactly like
+Nothing runs in the background — due sends, due reminders and the generated reminders are dispatched
+on demand (`communication:send-due`, `follow-ups:notify-due`, `follow-ups:generate`) exactly like
 the mocked inbound sync, and `reminded_at`/`source_key` keep repeated runs idempotent.
 
 **Demo accounts** (password `password`, via `php artisan migrate:fresh --seed`):
@@ -407,7 +427,12 @@ activity, so **Send now** demos on one and an admin **Dispatch due sends** sends
 through the mocked gateway live. Module 04 **S3 hands two of those tasks over** the way the API does
 it — Liza's two seeded tasks are dispatched from Sam — so her bell opens with two real assignments
 while Sam's stays empty, and an admin **Dispatch due reminders** on the worklist flags what has come
-due without a second run adding anything.
+due without a second run adding anything. Module 04 **S4 seeds nothing of its own** — it reads the
+data already there, so a manager's **Generate reminders** on a fresh database reports **3 created,
+2 skipped**: a renewal on the signed Harbor contract (Liza), a check-in on Greenfield Hotels and a
+nudge on its stale lead (both Sam), while the unowned Metro Builders lead and the Harbor lead (which
+already owes S1's forklift task) are reported as skipped. A second run creates nothing, so the
+worklist demos both the generator and its idempotence.
 
 ## Conventions that differ from framework defaults
 
@@ -486,9 +511,10 @@ qualification, assignment, lifecycle, company/contact, lead→client conversion 
 module 02 (Opportunity Pipeline Visualization) covers the deal book, the Kanban board, stage
 moves/won-lost and the board forecast. **Module 03** (Communication History) is **complete** — its five
 declared slices (S1 log & history, S2 mocked email send/retry, S3 attachments, S4 threading, S5 templates)
-are all built. **Module 04** (Follow-up Reminders) is **under way** — `resources/specs/12-follow-up-reminders.md`
-declares four slices (ADR-0018) and **S1 (tasks + the worklist), S2 (scheduled outbound messages +
-the due dispatch) and S3 (notifications & the due run) are built**, with S4 next; its worklist
+are all built. **Module 04** (Follow-up Reminders) is **complete** — `resources/specs/12-follow-up-reminders.md`
+declares four slices (ADR-0018) and all four are built: **S1 (tasks + the worklist), S2 (scheduled
+outbound messages + the due dispatch), S3 (notifications & the due run) and S4 (generated renewals,
+check-ins and stale-lead nudges)**; its worklist
 reuses `Activity` and the reserved
 `CommunicationStatus.scheduled` rather than adding a table. Module 05 (client satisfaction, spec `13`)
 follows — both are in **ADR-0014**. Dedup/merge and advanced tiers are module-01 deferrals

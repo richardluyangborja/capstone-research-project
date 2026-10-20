@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\ContractStatus;
+use Carbon\CarbonInterface;
 use Database\Factories\ContractFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
@@ -142,6 +143,21 @@ class Contract extends Model
             $query->whereRaw('LOWER(title) LIKE ?', [$like])
                 ->orWhereRaw('LOWER(reference) LIKE ?', [$like]);
         });
+    }
+
+    /**
+     * Signed contracts inside the renewal window (module 04 slice S4, spec 12 §11) — the
+     * contracts the generator raises a renewal task for. The SQL is the query form of
+     * `isExpiringSoon()`, which the resource reads per row.
+     */
+    public function scopeSignedExpiringSoon(Builder $query, ?CarbonInterface $now = null): Builder
+    {
+        $today = ($now ?? now())->copy()->startOfDay();
+
+        return $query
+            ->where('status', ContractStatus::Signed)
+            ->whereNotNull('end_date')
+            ->whereDate('end_date', '<=', $today->copy()->addDays((int) config('crm.contracts.expiring_soon_days')));
     }
 
     public function isSigned(): bool

@@ -21,6 +21,9 @@ class TaskResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $user = $request->user();
+        $source = $this->source();
+
         return [
             'id' => $this->id,
             'subject' => $this->subject,
@@ -37,13 +40,17 @@ class TaskResource extends JsonResource
                 'value' => $this->status->value,
                 'label' => $this->status->label(),
             ],
+            // Where a generated reminder came from, and the key it stands on — null on a task
+            // somebody wrote by hand (spec 12 §11). A scheduled message is never generated.
+            'source' => $source === null ? null : ['value' => $source->value, 'label' => $source->label()],
+            'source_key' => $this->source_key,
             // A task is not a message: it has no channel to send on and nothing to delete —
             // it is cancelled instead (spec 12 §9). The worklist row carries the same keys for
             // both shapes so the UI never has to guess.
             'channel' => null,
             'recipient' => null,
-            'can_update' => $request->user()?->can('update', $this->resource) ?? false,
-            'can_transition' => $request->user()?->can('transition', $this->resource) ?? false,
+            'can_update' => $user?->can('update', $this->resource) ?? false,
+            'can_transition' => $user?->can('transition', $this->resource) ?? false,
             'can_send' => false,
             'can_delete' => false,
             'created_at' => $this->created_at,

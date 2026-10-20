@@ -78,6 +78,19 @@ class FollowUpController extends Controller
     }
 
     /**
+     * Raise the reminders the records imply (module 04 slice S4, spec 12 §11): renewals for
+     * contracts inside their renewal window, check-ins for clients nobody has contacted, and a
+     * nudge for every stale lead. Manager+ — one run writes across every team — and the in-app
+     * twin of `follow-ups:generate`.
+     */
+    public function generate(): JsonResponse
+    {
+        $this->authorize('generate', Activity::class);
+
+        return response()->json(['data' => Activity::generateFollowUps()]);
+    }
+
+    /**
      * The two shapes as one paged list (rule 2). A task and a scheduled message live in
      * different tables, so the worklist is a union of the two narrowed to a common row — what
      * it is, when it is owed and when it was written — and the ordering (`due` first, the

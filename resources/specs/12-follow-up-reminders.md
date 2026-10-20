@@ -5,12 +5,12 @@ Module 4 (ADR-0014). Entities: `Activity` (extended — `due_at`/`status` finall
 `scheduled_for` in S2), `Lead` (`next_follow_up_at` finally maintained), `Company`, `Contact`,
 `Opportunity`, `Contract`, `User`. ADRs: 0004, 0005, 0007, 0013, 0014, 0016, 0017, **0018**.
 
-> **Slices S1–S3 built; S4 planned.** This is the contract for module 04, shipped one slice per PR
-> (ADR-0016 §2). Its central choice is that **a follow-up is not a new table**: `00-data-model.md`
-> already reserved `Activity.due_at`/`status` and `Lead.next_follow_up_at`, ADR-0017 §3 reserved
-> `CommunicationStatus.scheduled` for exactly this module, and ADR-0018 §1 settles the pair. Nothing
-> runs in the background — due work is pulled on demand, the same stance as the mocked inbound sync
-> (ADR-0017 §4).
+> **Slices S1–S4 built — module 04 is complete.** This is the contract for module 04, shipped one
+> slice per PR (ADR-0016 §2). Its central choice is that **a follow-up is not a new table**:
+> `00-data-model.md` already reserved `Activity.due_at`/`status` and `Lead.next_follow_up_at`,
+> ADR-0017 §3 reserved `CommunicationStatus.scheduled` for exactly this module, and ADR-0018 §1
+> settles the pair. Nothing runs in the background — due work is pulled on demand, the same stance
+> as the mocked inbound sync (ADR-0017 §4).
 
 ## Purpose
 
@@ -241,7 +241,13 @@ status move): a single task with the same fields as a worklist row minus `kind`,
     `stale_lead:{lead}:{ISO-week}` — and the generator only adds a task where no live one holds that
     key, reporting `created` and `skipped` per source. The week bucket is what lets next month's
     check-in exist at all. A record with no owner is **skipped and reported**, not assigned to
-    whoever happened to run it.
+    whoever happened to run it; so is a record somebody already has follow-up work open on by hand
+    (an open task or a scheduled message), because the generator does not pile onto work already in
+    hand — its own tasks never block it, `source_key` governs those. "Quiet" for a check-in means
+    **no communication** since the client came aboard (module 03's last contacted — a `Communication`,
+    not an `Activity`, which would count the seed-time log on every account and make them all look
+    fresh), measured from `client_since` for a client nobody has ever contacted; churned clients are
+    included, because an account gone silent is worth a win-back call.
 12. **`Lead.next_follow_up_at` is that lead's earliest open follow-up** — the sooner of its open
     tasks and its scheduled messages — recomputed on every create, reschedule, transition and send
     that touches a lead, and null when nothing is open. S1 maintained it from the tasks (the
@@ -358,9 +364,12 @@ creates, so a generated reminder reaches its owner exactly like a hand-written o
   then triggered from the worklist during a demo.
 - **S4** seeds nothing of its own: it works off the data already there — the seeded Harbor Logistics
   renewal chain (a contract inside `crm.contracts.expiring_soon_days`), a seeded account that has
-  gone quiet (Greenfield Hotels stays silent through module 03's seed) and a stale lead. The seeder
-  keeps at least one contract expiring inside the window so the renewal source demos on a fresh
-  database.
+  gone quiet (Greenfield Hotels stays silent through module 03's seed) and the stale leads. On a
+  fresh database a manager's **Generate reminders** reports **3 created, 2 skipped**: the renewal on
+  CON-2026-0002, the Greenfield check-in and a nudge on the Greenfield lead; Metro Builders Corp is
+  skipped for having no owner and the Harbor lead because S1's forklift task is already open on it.
+  A second run reports 0 created, so the demo shows both the run and its idempotence. The seeder keeps
+  at least one contract expiring inside the window so the renewal source demos without setup.
 
 ## Acceptance criteria
 
@@ -419,16 +428,19 @@ creates, so a generated reminder reaches its owner exactly like a hand-written o
 
 **S4**
 
-- [ ] `POST /follow-ups/generate` (manager+) creates a renewal task for each signed contract expiring
-      within `crm.contracts.expiring_soon_days`, a check-in task for each client whose last activity is
-      older than `crm.follow_ups.check_in_days`, and a task for each stale lead
-      (`crm.aging.stale_days`), each assigned to the record's own owner.
-- [ ] A second run creates nothing (idempotent by `source_key`); a run in the next ISO week may create
+- [x] `POST /follow-ups/generate` (manager+) creates a renewal task for each signed contract expiring
+      within `crm.contracts.expiring_soon_days` (due a week before its end date, 09:00 PH), a check-in
+      task for each client with no communication since it came aboard — older than
+      `crm.follow_ups.check_in_days`, or never contacted since `client_since` — and a task for each
+      stale lead (`crm.aging.stale_days`), each assigned to the record's own owner and due the next
+      morning, 09:00 PH.
+- [x] A second run creates nothing (idempotent by `source_key`); a run in the next ISO week may create
       the next check-in.
-- [ ] Each created task is reported with its source, and a record with no owner is skipped with a
-      reason instead of being assigned to the caller.
-- [ ] Generated tasks are notified to their new owners and marked as generated in the worklist.
-- [ ] A salesrep cannot generate (403).
+- [x] Each created task is reported with its source, and a record with no owner — or one somebody
+      already has follow-up work open on — is skipped with a reason instead of being assigned to the
+      caller.
+- [x] Generated tasks are notified to their new owners and marked as generated in the worklist.
+- [x] A salesrep cannot generate (403).
 
 ## Open questions
 

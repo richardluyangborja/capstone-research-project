@@ -1,5 +1,11 @@
 import { api } from './api'
-import type { FollowUpsPage, Task, TaskInput, TaskUpdateInput } from '../types'
+import type {
+  FollowUpsPage,
+  GenerateRemindersResult,
+  Task,
+  TaskInput,
+  TaskUpdateInput,
+} from '../types'
 
 export interface FollowUpFilters {
   search?: string
@@ -71,5 +77,15 @@ export const updateTaskStatus = async (id: string, status: string): Promise<Task
  */
 export const dispatchDueFollowUps = async (): Promise<{ notified: number }> => {
   const { data } = await api.post<{ data: { notified: number } }>('/follow-ups/dispatch-due')
+  return data.data
+}
+
+/**
+ * Raise the reminders the records imply (spec 12 §S4, §11): the in-app twin of
+ * `follow-ups:generate`. Manager+ — one run writes across every team — and it reports each
+ * source's created and skipped rows, so "no owner" stays visible instead of silent.
+ */
+export const generateFollowUps = async (): Promise<GenerateRemindersResult> => {
+  const { data } = await api.post<{ data: GenerateRemindersResult }>('/follow-ups/generate')
   return data.data
 }

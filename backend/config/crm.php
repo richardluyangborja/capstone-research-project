@@ -108,4 +108,20 @@ return [
     |
     */
 
+    /*
+    |--------------------------------------------------------------------------
+    | Follow-up reminders (module 04 slice S4, spec 12)
+    |--------------------------------------------------------------------------
+    |
+    | The generated reminders read the thresholds around them: a signed contract inside
+    | `contracts.expiring_soon_days` gets a renewal task, a lead past `aging.stale_days` gets a
+    | nudge, and a client nobody has contacted for `check_in_days` gets a check-in. Raised on
+    | demand by `POST /follow-ups/generate` — nothing runs on a timer in this phase.
+    |
+    */
+
+    'follow_ups' => [
+        'check_in_days' => (int) env('CRM_FOLLOW_UP_CHECK_IN_DAYS', 45),
+    ],
+
 ];

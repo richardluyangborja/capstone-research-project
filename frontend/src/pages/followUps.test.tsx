@@ -5,7 +5,7 @@ import FollowUpForm from './FollowUpForm'
 import FollowUps from './FollowUps'
 import * as followUpApi from '../lib/followUps'
 import * as communicationApi from '../lib/communications'
-import type { FollowUp, FollowUpMessage, FollowUpsPage, Task } from '../types'
+import type { FollowUpMessage, FollowUpTask, FollowUpsPage, Task } from '../types'
 
 // `vi.mock` factories are hoisted above the imports, so fixtures must come from `vi.hoisted`.
 const { overdueTask, page, messagePage, task, session } = vi.hoisted(() => {
@@ -18,6 +18,8 @@ const { overdueTask, page, messagePage, task, session } = vi.hoisted(() => {
     due_at: '2026-10-17T07:00:00.000000Z',
     due: { state: 'overdue' as const, label: 'Overdue', days: -2, overdue: true },
     status: { value: 'open' as const, label: 'Open' },
+    source: null,
+    source_key: null,
     channel: null,
     recipient: null,
     can_update: true,
@@ -28,9 +30,9 @@ const { overdueTask, page, messagePage, task, session } = vi.hoisted(() => {
     updated_at: '2026-10-15T07:00:00.000000Z',
   }
 
-  const overdueTask: FollowUp = { kind: 'task', id: 'task-1', ...base }
+  const overdueTask: FollowUpTask = { kind: 'task', id: 'task-1', ...base }
 
-  const todayTask: FollowUp = {
+  const todayTask: FollowUpTask = {
     kind: 'task',
     id: 'task-2',
     ...base,
@@ -66,6 +68,8 @@ const { overdueTask, page, messagePage, task, session } = vi.hoisted(() => {
     due_at: '2026-10-20T01:00:00.000000Z',
     due: { state: 'upcoming', label: 'Upcoming', days: 1, overdue: false },
     status: { value: 'scheduled', label: 'Scheduled' },
+    source: null,
+    source_key: null,
     channel: 'email',
     recipient: 'Rosa Dela Cruz <rosa@sunrise.test>',
     to_name: 'Rosa Dela Cruz',
@@ -99,6 +103,7 @@ vi.mock('../lib/followUps', () => ({
   updateTask: vi.fn(),
   updateTaskStatus: vi.fn(),
   dispatchDueFollowUps: vi.fn(),
+  generateFollowUps: vi.fn(),
 }))
 
 // The worklist's message actions are the history book's own calls (slice S2).
@@ -389,6 +394,94 @@ describe('the follow-up worklist', () => {
 
     expect(screen.queryByRole('button', { name: 'Dispatch due sends' })).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Dispatch due reminders' })).not.toBeInTheDocument()
+  })
+
+  it('lets a manager raise the reminders the records imply, and reports each source', async () => {
+    vi.mocked(followUpApi.generateFollowUps).mockResolvedValue({
+      created: 2,
+      skipped: 1,
+      sources: [
+        {
+          key: 'renewal',
+          label: 'Renewals',
+          created: 1,
+          skipped: 0,
+          tasks: [
+            {
+              id: 'task-9',
+              subject: 'Renew Forklift operator pooling agreement',
+              record: { type: 'contract', id: 'contract-1', label: 'CON-2026-0002' },
+              owner: { id: 3, name: 'Liza Lopez' },
+              due_at: '2026-11-05T01:00:00.000000Z',
+            },
+          ],
+          skips: [],
+        },
+        {
+          key: 'stale_lead',
+          label: 'Stale leads',
+          created: 1,
+          skipped: 1,
+          tasks: [
+            {
+              id: 'task-10',
+              subject: 'Follow up with Greenfield Hotels',
+              record: { type: 'lead', id: 'lead-1', label: 'Greenfield Hotels' },
+              owner: { id: 2, name: 'Sam Salesrep' },
+              due_at: '2026-10-21T01:00:00.000000Z',
+            },
+          ],
+          skips: [
+            {
+              record: { type: 'lead', id: 'lead-2', label: 'Metro Builders Corp' },
+              reason: 'The record has no owner.',
+            },
+          ],
+        },
+      ],
+    })
+
+    renderWorklist()
+    await screen.findByText('Send the revised rate sheet')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Generate reminders' }))
+
+    await waitFor(() => expect(followUpApi.generateFollowUps).toHaveBeenCalledTimes(1))
+    expect(await screen.findByText('2 reminders raised — 1 record skipped')).toBeInTheDocument()
+    expect(screen.getByText('Renew Forklift operator pooling agreement')).toBeInTheDocument()
+    expect(screen.getByText(/Metro Builders Corp — The record has no owner\./)).toBeInTheDocument()
+    // The new rows are read back from the API rather than guessed at.
+    await waitFor(() => expect(followUpApi.listFollowUps).toHaveBeenCalledTimes(2))
+  })
+
+  it('offers a salesrep no generate: the run writes for every team', async () => {
+    session.role = 'salesrep'
+    renderWorklist()
+    await screen.findByText('Send the revised rate sheet')
+
+    expect(screen.queryByRole('button', { name: 'Generate reminders' })).not.toBeInTheDocument()
+  })
+
+  it('marks a generated row so a rep can tell it from their own', async () => {
+    vi.mocked(followUpApi.listFollowUps).mockResolvedValue({
+      ...page,
+      data: [
+        {
+          ...overdueTask,
+          source: { value: 'renewal', label: 'Renewal' },
+          source_key: 'renewal:contract-1',
+        },
+        page.data[1],
+      ],
+    })
+
+    renderWorklist()
+    await screen.findByText('Send the revised rate sheet')
+
+    const table = screen.getByRole('table')
+
+    expect(within(table).getByText('Generated')).toBeInTheDocument()
+    expect(within(table).getByText('Renewal')).toBeInTheDocument()
   })
 })
 
