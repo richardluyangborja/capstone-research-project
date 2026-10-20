@@ -3,7 +3,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import SurveyInvitations from './SurveyInvitations'
 import CompanySatisfactionPanel from '../components/common/CompanySatisfactionPanel'
-import type { Survey, SurveyInvitation } from '../types'
+import type { CompanySatisfaction, Survey, SurveyInvitation } from '../types'
 
 // Module 05 slice S2 — the invitation book and the account's Satisfaction tab. Both read the same
 // rows; the book is the cross-account view, the tab is the account's own.
@@ -17,6 +17,8 @@ const {
   sendSurveyInvitation,
   listCompanyContacts,
   listCompanyContracts,
+  getCompanySatisfaction,
+  card,
   openInvitation,
   answeredInvitation,
   activeSurvey,
@@ -92,6 +94,31 @@ const {
     updated_at: '2026-10-20T02:00:00.000000Z',
   }
 
+  const card: CompanySatisfaction = {
+    responses: 1,
+    csat: 5,
+    nps: 10,
+    promoters: 1,
+    passives: 0,
+    detractors: 0,
+    answered: 1,
+    attention: 0,
+    invitations: 2,
+    response_rate: 50,
+    latest: {
+      id: 'response-1',
+      survey: { id: 'survey-1', name: 'Post-deployment check-in' },
+      csat: 5,
+      nps: 10,
+      band: 'promoter',
+      band_label: 'Promoter',
+      needs_attention: false,
+      submitted_at: '2026-10-19T02:00:00.000000Z',
+    },
+    trend: [{ submitted_at: '2026-10-19T02:00:00.000000Z', csat: 5, nps: 10 }],
+    recent: [],
+  }
+
   return {
     listSurveyInvitations: vi.fn(),
     listSurveys: vi.fn(),
@@ -101,6 +128,8 @@ const {
     sendSurveyInvitation: vi.fn(),
     listCompanyContacts: vi.fn(),
     listCompanyContracts: vi.fn(),
+    getCompanySatisfaction: vi.fn(),
+    card,
     openInvitation,
     answeredInvitation,
     activeSurvey,
@@ -122,6 +151,10 @@ vi.mock('../lib/contacts', () => ({
 
 vi.mock('../lib/contracts', () => ({
   listCompanyContracts: (...args: unknown[]) => listCompanyContracts(...args),
+}))
+
+vi.mock('../lib/satisfaction', () => ({
+  getCompanySatisfaction: (...args: unknown[]) => getCompanySatisfaction(...args),
 }))
 
 const page = (rows: SurveyInvitation[]) => ({
@@ -202,27 +235,41 @@ describe('the invitation book', () => {
   })
 })
 
+const renderPanel = (canSend: boolean) =>
+  render(
+    <MemoryRouter>
+      <CompanySatisfactionPanel companyId="company-1" canSend={canSend} />
+    </MemoryRouter>,
+  )
+
 describe('the account satisfaction tab', () => {
   beforeEach(() => {
     listCompanySurveyInvitations.mockReset()
     listSurveys.mockReset()
     listCompanyContacts.mockReset()
     listCompanyContracts.mockReset()
+    getCompanySatisfaction.mockReset()
     sendSurveyInvitation.mockReset()
 
     listCompanySurveyInvitations.mockResolvedValue(page([answeredInvitation]))
+    getCompanySatisfaction.mockResolvedValue(card)
     listSurveys.mockResolvedValue({ data: [activeSurvey], meta: { current_page: 1, last_page: 1, total: 1 } })
     listCompanyContacts.mockResolvedValue([])
     listCompanyContracts.mockResolvedValue({ data: [], meta: { total: 0, active: 0 } })
   })
 
   it('shows what the account has been asked and the score that came back', async () => {
-    render(<CompanySatisfactionPanel companyId="company-1" canSend />)
+    renderPanel(true)
 
     expect(await screen.findByText('Post-deployment check-in')).toBeInTheDocument()
-    expect(screen.getByText(/CSAT 5.0 \/ 5/)).toBeInTheDocument()
+    expect(screen.getAllByText(/CSAT 5.0 \/ 5/).length).toBeGreaterThan(0)
     expect(screen.getByText('Submitted')).toBeInTheDocument()
+    expect(screen.getByText('Read every answer')).toHaveAttribute(
+      'href',
+      '/satisfaction/responses?company=company-1',
+    )
     expect(listCompanySurveyInvitations).toHaveBeenCalledWith('company-1')
+    expect(getCompanySatisfaction).toHaveBeenCalledWith('company-1')
   })
 
   it('sends a survey from the dialog and refreshes the account', async () => {
@@ -233,7 +280,7 @@ describe('the account satisfaction tab', () => {
       recipient_email: 'grace@client.test',
     })
 
-    render(<CompanySatisfactionPanel companyId="company-1" canSend />)
+    renderPanel(true)
 
     await screen.findByText('Post-deployment check-in')
 
@@ -268,7 +315,7 @@ describe('the account satisfaction tab', () => {
   })
 
   it('offers no send action to someone who may only read the account', async () => {
-    render(<CompanySatisfactionPanel companyId="company-1" canSend={false} />)
+    renderPanel(false)
 
     await screen.findByText('Post-deployment check-in')
 

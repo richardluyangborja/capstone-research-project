@@ -26,8 +26,10 @@ use App\Http\Controllers\Api\V1\OpportunityController;
 use App\Http\Controllers\Api\V1\OpportunityStageController;
 use App\Http\Controllers\Api\V1\PipelineController;
 use App\Http\Controllers\Api\V1\PublicSurveyController;
+use App\Http\Controllers\Api\V1\SatisfactionController;
 use App\Http\Controllers\Api\V1\SurveyController;
 use App\Http\Controllers\Api\V1\SurveyInvitationController;
+use App\Http\Controllers\Api\V1\SurveyResponseController;
 use App\Http\Controllers\Api\V1\TaskController;
 use App\Http\Controllers\Api\V1\UserController;
 use Illuminate\Support\Facades\Route;
@@ -202,5 +204,12 @@ Route::prefix('v1')->group(function (): void {
         Route::post('survey-invitations/{invitation}/resend', [SurveyInvitationController::class, 'resend']);
         Route::post('surveys/{survey}/invitations', [SurveyInvitationController::class, 'store']);
         Route::get('companies/{company}/survey-invitations', [SurveyInvitationController::class, 'forCompany']);
+
+        // Module 05 slice S3 — what came back. A response has no write route: the client
+        // answered once, and the numbers are derived on read.
+        Route::get('satisfaction/summary', [SatisfactionController::class, 'summary']);
+        Route::get('companies/{company}/satisfaction', [SatisfactionController::class, 'forCompany']);
+        Route::get('survey-responses', [SurveyResponseController::class, 'index']);
+        Route::get('survey-responses/{response}', [SurveyResponseController::class, 'show']);
     });
 });

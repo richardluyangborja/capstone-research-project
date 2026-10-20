@@ -7,10 +7,10 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 /**
- * One submitted answer set (module 05 slice S2, spec 13 §Payloads).
+ * One submitted answer set (module 05 slices S2–S3, spec 13 §Payloads).
  *
- * Slice S2 only needs the receipt the client's page shows and the account tab's row; slice S3
- * builds the response book and detail on the same shape.
+ * The receipt, the book row and the detail all use this shape; the detail adds the answers in
+ * the order the survey asked them, with each question's type so it renders by kind.
  *
  * @mixin SurveyResponse
  */
@@ -27,6 +27,7 @@ class SurveyResponseResource extends JsonResource
             'csat' => $this->csat,
             'nps' => $this->nps,
             'band' => $this->band?->value,
+            'band_label' => $this->band?->label(),
             'needs_attention' => (bool) $this->needs_attention,
             'survey' => $this->whenLoaded('survey', fn (): ?array => $this->survey === null ? null : [
                 'id' => $this->survey->id,
@@ -44,7 +45,10 @@ class SurveyResponseResource extends JsonResource
                 'id' => $this->invitation->id,
                 'reference' => $this->invitation->reference,
             ]),
-            'answers' => SurveyAnswerResource::collection($this->whenLoaded('answers')),
+            'answers' => $this->whenLoaded(
+                'answers',
+                fn () => SurveyAnswerResource::collection($this->answersInOrder()),
+            ),
             'created_at' => $this->created_at,
         ];
     }

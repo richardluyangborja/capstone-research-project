@@ -94,7 +94,7 @@ on the one before:
 | 02 | Opportunity Pipeline Visualization | `Opportunity` record (08) | `10` **(built)** |
 | 03 | Communication History Management | objects from 01–02 | `11` **(built)** |
 | 04 | Follow-up Reminder System | 03 + notifications | `12` **(built)** |
-| 05 | Client Satisfaction & Survey | clients + contacts | `13` (in progress — 4 slices; S1–S2 built) |
+| 05 | Client Satisfaction & Survey | clients + contacts | `13` (in progress — 4 slices; S1–S3 built) |
 
 The AI service (dashboard + management reports + suggestions) is cross-cutting and built after 01–05.
 Duplicate detection/merge and advanced tiers/health are still-open **module-01** deferrals (ADR-0006).
@@ -154,7 +154,7 @@ module 04.
 
 Automatic client aging is **not** here — ADR-0018 §6 keeps it a standalone deferral.
 
-## Module 05 → delivery slices (S1–S2 built; S3–S4 planned — ADR-0019)
+## Module 05 → delivery slices (S1–S3 built; S4 planned — ADR-0019)
 
 The last CRM module (spec `13`): close the loop after the sale.
 
@@ -167,8 +167,12 @@ The last CRM module (spec `13`): close the loop after the sale.
    tokenized public link built from `CRM_SURVEY_URL` (48-char single-use token, `expired` derived on
    read), and the submission is validated by question type, stored once, scored (CSAT/NPS/band) and
    flagged for attention.
-3. **S3 Responses & the satisfaction view** — the response book, the account's satisfaction card and
-   the role-scoped summary (CSAT, NPS, response rate, bands), all derived on read.
+3. **S3 Responses & the satisfaction view** *(built)* — a response is immutable and read back in the
+   order it was asked; the book filters by survey/company/band/attention/date and searches, the
+   account's Satisfaction tab carries its own latest score, split and trend, and the summary derives
+   CSAT, NPS, the response rate (answers over answerable sends — not failed or withdrawn ones) and
+   the attention count for the caller's scope. Nothing is stored twice: the numbers are aggregates
+   over the responses on read.
 4. **S4 Closed-loop follow-through** — an unhappy answer notifies the account owner and raises a
    module-04 follow-up task on the company (`source_key satisfaction:{response}`); the owner resolves
    it with a note.

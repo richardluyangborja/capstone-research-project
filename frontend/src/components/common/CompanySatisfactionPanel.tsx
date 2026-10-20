@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
+import { Link } from 'react-router-dom'
 import { Copy, Loader2, Plus, RotateCw, Send, XCircle } from 'lucide-react'
 import StatusBadge from './StatusBadge'
 import EmptyState from './EmptyState'
 import AlertItem from './AlertItem'
+import BandSplit from './BandSplit'
 import { listCompanyContacts } from '../../lib/contacts'
 import { listCompanyContracts } from '../../lib/contracts'
 import { parseValidationError } from '../../lib/leads'
@@ -13,9 +15,16 @@ import {
   resendSurveyInvitation,
   sendSurveyInvitation,
 } from '../../lib/surveys'
-import { formatCsat, formatNps, surveyInvitationStateMeta } from '../../lib/surveyMeta'
+import { getCompanySatisfaction } from '../../lib/satisfaction'
+import {
+  formatCsat,
+  formatNps,
+  formatNpsScore,
+  formatRate,
+  surveyInvitationStateMeta,
+} from '../../lib/surveyMeta'
 import { formatDateTime } from '../../lib/format'
-import type { Contact, Contract, Survey, SurveyInvitation } from '../../types'
+import type { CompanySatisfaction, Contact, Contract, Survey, SurveyInvitation } from '../../types'
 
 const inputClass =
   'mt-1 w-full rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground outline-none focus:ring-2 focus:ring-ring disabled:opacity-60'
@@ -39,11 +48,11 @@ const emptyForm: SendForm = {
 /**
  * The account's Satisfaction tab (module 05 slices S1–S2, spec 13 §UI).
  *
- * Slice S1 left an empty state pointing at the library; slice S2 makes it the place a survey is
+ * Slice S1 left an empty state pointing at the library; slice S2 made it the place a survey is
  * actually sent from — the right place for the permission, because sending needs the account's
- * `update` right. Each row is one send: the survey, who it went to, its derived state and, once
- * answered, the score that came back. The client's answers themselves are the response book's
- * job (slice S3).
+ * `update` right. Slice S3 adds the account's own numbers at the top: the mean score, the
+ * promoter split and a short trend, with every answer one click away. The client's answers
+ * themselves are read in the response book.
  */
 export default function CompanySatisfactionPanel({
   companyId,
@@ -53,6 +62,7 @@ export default function CompanySatisfactionPanel({
   canSend: boolean
 }) {
   const [invitations, setInvitations] = useState<SurveyInvitation[]>([])
+  const [card, setCard] = useState<CompanySatisfaction | null>(null)
   const [surveys, setSurveys] = useState<Survey[]>([])
   const [contacts, setContacts] = useState<Contact[]>([])
   const [contracts, setContracts] = useState<Contract[]>([])
@@ -71,8 +81,12 @@ export default function CompanySatisfactionPanel({
     setLoading(true)
     setError('')
     try {
-      const response = await listCompanySurveyInvitations(companyId)
+      const [response, satisfaction] = await Promise.all([
+        listCompanySurveyInvitations(companyId),
+        getCompanySatisfaction(companyId),
+      ])
       setInvitations(response.data)
+      setCard(satisfaction)
     } catch {
       setError('Could not load this account’s survey history.')
     } finally {
@@ -223,6 +237,65 @@ export default function CompanySatisfactionPanel({
 
       {notice && <AlertItem variant="success">{notice}</AlertItem>}
       {error && <AlertItem variant="danger">{error}</AlertItem>}
+
+      {card !== null && card.responses > 0 && (
+        <div className="rounded-lg border border-border bg-card p-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-medium text-muted-foreground">
+                {card.responses} {card.responses === 1 ? 'answer' : 'answers'} from{' '}
+                {card.invitations} {card.invitations === 1 ? 'send' : 'sends'}
+              </p>
+              <p className="mt-0.5 text-sm text-foreground">
+                {card.latest === null
+                  ? 'No answer yet'
+                  : `Latest: CSAT ${formatCsat(card.latest.csat)} · NPS ${formatNps(
+                      card.latest.nps,
+                    )} · ${formatDateTime(card.latest.submitted_at)}`}
+              </p>
+            </div>
+            <Link
+              to={`/satisfaction/responses?company=${companyId}`}
+              className="text-xs font-medium text-counts"
+            >
+              Read every answer
+            </Link>
+          </div>
+
+          <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <Metric label="CSAT" value={formatCsat(card.csat)} tone="text-people" />
+            <Metric label="NPS" value={formatNpsScore(card.nps)} tone="text-counts" />
+            <Metric label="Response rate" value={formatRate(card.response_rate)} tone="text-activity" />
+            <Metric label="Needs attention" value={card.attention} tone="text-cost" />
+          </div>
+
+          <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <BandSplit
+              promoters={card.promoters}
+              passives={card.passives}
+              detractors={card.detractors}
+              answered={card.answered}
+            />
+            {card.trend.length > 1 && (
+              <div>
+                <p className="text-xs font-medium text-muted-foreground">CSAT over time</p>
+                <div className="mt-2 flex h-16 items-end gap-1" aria-hidden="true">
+                  {card.trend.map((point) => (
+                    <span
+                      key={point.submitted_at ?? `${point.csat}-${point.nps}`}
+                      title={point.submitted_at ? formatDateTime(point.submitted_at) : undefined}
+                      className="flex-1 rounded-t-sm bg-people"
+                      style={{
+                        height: `${Math.max(6, ((point.csat ?? 0) / 5) * 100)}%`,
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <p className="text-sm text-muted-foreground">Loading survey history…</p>
@@ -459,6 +532,15 @@ export default function CompanySatisfactionPanel({
           </form>
         </div>
       )}
+    </div>
+  )
+}
+
+function Metric({ label, value, tone }: { label: string; value: string | number; tone: string }) {
+  return (
+    <div>
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className={`text-lg font-semibold ${tone}`}>{value}</p>
     </div>
   )
 }

@@ -161,6 +161,17 @@ export default function Surveys() {
           : `${survey.invitations_count} ${survey.invitations_count === 1 ? 'send' : 'sends'}`,
     },
     {
+      key: 'responses',
+      header: 'Answered',
+      className: 'whitespace-nowrap text-muted-foreground',
+      render: (survey) =>
+        survey.responses_count === undefined
+          ? '—'
+          : `${survey.responses_count} ${
+              survey.responses_count === 1 ? 'answer' : 'answers'
+            }`,
+    },
+    {
       key: 'author',
       header: 'Author',
       className: 'text-muted-foreground',

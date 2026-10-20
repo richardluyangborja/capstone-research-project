@@ -34,6 +34,7 @@ class SurveyResource extends JsonResource
             'questions' => SurveyQuestionResource::collection($this->whenLoaded('questions')),
             'questions_count' => $this->whenCounted('questions'),
             'invitations_count' => $this->whenCounted('invitations'),
+            'responses_count' => $this->whenCounted('responses'),
             // The variant S1 left open: once the survey has gone out, the questions are what
             // clients answered and only `duplicate` may change them (spec 13 §Business rules 1).
             'questions_editable' => ! $sent,

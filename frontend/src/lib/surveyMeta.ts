@@ -1,4 +1,9 @@
-import type { Survey, SurveyInvitationStateName, SurveyQuestionTypeName } from '../types'
+import type {
+  Survey,
+  SurveyBandName,
+  SurveyInvitationStateName,
+  SurveyQuestionTypeName,
+} from '../types'
 
 /** How each question type reads in the builder and in the client's preview (spec 13 §S1). */
 export interface SurveyQuestionTypeMeta {
@@ -76,9 +81,33 @@ export const surveyInvitationStates: SurveyInvitationStateName[] = [
   'cancelled',
 ]
 
-/** A rating shows as `4.6 / 5`, an NPS as a whole score, and a missing one as an em dash. */
+/** A rating shows as `4.6 / 5`, an NPS answer as a whole score, a missing one as an em dash. */
 export const formatCsat = (csat: number | null | undefined): string =>
   csat === null || csat === undefined ? '—' : `${csat.toFixed(1)} / 5`
 
 export const formatNps = (nps: number | null | undefined): string =>
   nps === null || nps === undefined ? '—' : String(nps)
+
+/** The org NPS runs −100…100, so its sign is part of the reading: `+40`, `−20`, `0`. */
+export const formatNpsScore = (nps: number | null | undefined): string => {
+  if (nps === null || nps === undefined) return '—'
+
+  return nps > 0 ? `+${nps}` : String(nps)
+}
+
+/** A response rate reads as a share with one decimal, or an em dash before anything was asked. */
+export const formatRate = (rate: number | null | undefined): string =>
+  rate === null || rate === undefined ? '—' : `${rate.toFixed(1)}%`
+
+/** How the three promoter bands read and color (spec 13 §Data model). */
+export const surveyBandMeta: Record<
+  SurveyBandName,
+  { label: string; tone: 'success' | 'neutral' | 'danger' }
+> = {
+  promoter: { label: 'Promoter', tone: 'success' },
+  passive: { label: 'Passive', tone: 'neutral' },
+  detractor: { label: 'Detractor', tone: 'danger' },
+}
+
+/** The three bands in the order a split reads: the good news first. */
+export const surveyBandNames: SurveyBandName[] = ['promoter', 'passive', 'detractor']
