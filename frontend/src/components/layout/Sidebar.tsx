@@ -14,6 +14,7 @@ import {
   LogOut,
   MessageSquare,
   MessagesSquare,
+  Send,
   SquareKanban,
   Target,
   UserCheck,
@@ -89,7 +90,10 @@ const groups: NavGroup[] = [
     // Module 05 (ADR-0014 §1, ADR-0019, ADR-0016). One entry per shipped slice: S1 is the survey
     // library; invitations, the satisfaction view and the closed loop follow.
     label: 'Client Satisfaction & Survey',
-    items: [{ to: '/surveys', label: 'Survey Library', icon: ClipboardList }],
+    items: [
+      { to: '/surveys', label: 'Survey Library', icon: ClipboardList },
+      { to: '/survey-invitations', label: 'Invitations', icon: Send },
+    ],
   },
 ]
 

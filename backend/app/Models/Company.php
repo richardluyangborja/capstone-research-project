@@ -141,6 +141,14 @@ class Company extends Model
     }
 
     /**
+     * The survey invitations sent to this account (module 05 slice S2) — the Satisfaction tab.
+     */
+    public function surveyInvitations(): HasMany
+    {
+        return $this->hasMany(SurveyInvitation::class);
+    }
+
+    /**
      * The live engagement, if any — one client works with several crews over time, but
      * only a signed contract is active (spec 09 §1, §6).
      */

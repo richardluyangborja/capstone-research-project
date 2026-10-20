@@ -60,6 +60,28 @@ class Survey extends Model
     }
 
     /**
+     * The sends (slice S2) and what came back (slice S3).
+     */
+    public function invitations(): HasMany
+    {
+        return $this->hasMany(SurveyInvitation::class);
+    }
+
+    public function responses(): HasMany
+    {
+        return $this->hasMany(SurveyResponse::class);
+    }
+
+    /**
+     * Whether this survey has ever gone out: from then on its question set is frozen, and
+     * `duplicate` is the way to change what is asked (spec 13 §Business rules 3, ADR-0019 §1).
+     */
+    public function hasBeenSent(): bool
+    {
+        return $this->invitations()->exists();
+    }
+
+    /**
      * Who authored it — display only. A survey outlives its author.
      */
     public function author(): BelongsTo

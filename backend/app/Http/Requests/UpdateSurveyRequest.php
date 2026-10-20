@@ -5,6 +5,7 @@ namespace App\Http\Requests;
 use App\Enums\SurveyQuestionType;
 use App\Models\Survey;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 /**
  * Editing a survey (module 05 slice S1, spec 13). Every field is optional — a survey can be
@@ -21,6 +22,33 @@ class UpdateSurveyRequest extends StoreSurveyRequest
 
         return $survey instanceof Survey
             && ($this->user()?->can('update', $survey) ?? false);
+    }
+
+    /**
+     * Once the survey has gone out its questions are what clients answered, so the set is
+     * refused (business rule 1); `name`, `description` and `is_active` stay editable, and
+     * `duplicate` is the way to change what is asked.
+     *
+     * @return array<int, callable>
+     */
+    public function after(): array
+    {
+        return array_merge(parent::after(), [
+            function (Validator $validator): void {
+                $survey = $this->route('survey');
+
+                if (! $survey instanceof Survey || ! $this->has('questions')) {
+                    return;
+                }
+
+                if ($survey->hasBeenSent()) {
+                    $validator->errors()->add(
+                        'questions',
+                        'This survey has already been sent; duplicate it to change the questions.',
+                    );
+                }
+            },
+        ]);
     }
 
     /**

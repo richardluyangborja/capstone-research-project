@@ -22,6 +22,10 @@ class SurveyResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $sent = $this->invitations_count !== null
+            ? $this->invitations_count > 0
+            : $this->hasBeenSent();
+
         return [
             'id' => $this->id,
             'name' => $this->name,
@@ -29,6 +33,10 @@ class SurveyResource extends JsonResource
             'is_active' => (bool) $this->is_active,
             'questions' => SurveyQuestionResource::collection($this->whenLoaded('questions')),
             'questions_count' => $this->whenCounted('questions'),
+            'invitations_count' => $this->whenCounted('invitations'),
+            // The variant S1 left open: once the survey has gone out, the questions are what
+            // clients answered and only `duplicate` may change them (spec 13 §Business rules 1).
+            'questions_editable' => ! $sent,
             'created_by' => $this->created_by,
             'author' => $this->whenLoaded('author', fn (): ?array => $this->author === null ? null : [
                 'id' => $this->author->id,

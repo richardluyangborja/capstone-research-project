@@ -94,7 +94,7 @@ on the one before:
 | 02 | Opportunity Pipeline Visualization | `Opportunity` record (08) | `10` **(built)** |
 | 03 | Communication History Management | objects from 01–02 | `11` **(built)** |
 | 04 | Follow-up Reminder System | 03 + notifications | `12` **(built)** |
-| 05 | Client Satisfaction & Survey | clients + contacts | `13` (in progress — 4 slices; S1 built) |
+| 05 | Client Satisfaction & Survey | clients + contacts | `13` (in progress — 4 slices; S1–S2 built) |
 
 The AI service (dashboard + management reports + suggestions) is cross-cutting and built after 01–05.
 Duplicate detection/merge and advanced tiers/health are still-open **module-01** deferrals (ADR-0006).
@@ -154,16 +154,19 @@ module 04.
 
 Automatic client aging is **not** here — ADR-0018 §6 keeps it a standalone deferral.
 
-## Module 05 → delivery slices (S1 built; S2–S4 planned — ADR-0019)
+## Module 05 → delivery slices (S1–S2 built; S3–S4 planned — ADR-0019)
 
 The last CRM module (spec `13`): close the loop after the sale.
 
 1. **S1 Survey library** *(built)* — reusable templates (`Survey` + ordered `SurveyQuestion`, five question
    types) with activate/retire/restore/duplicate; the question set freezes once a survey has been
    sent.
-2. **S2 Invitations & the public form** — sending a survey to a company goes through the mocked email
-   gateway and writes a `Communication` (module 03); the client answers through a tokenized public
-   link built from `CRM_SURVEY_URL`, and the submission stores the answers with CSAT/NPS/band.
+2. **S2 Invitations & the public form** *(built)* — sending a survey to a company needs that
+   account's `update` right, goes through the mocked email gateway and writes a `Communication`
+   (module 03), so an invitation is cancelled or resent, never deleted; the client answers through a
+   tokenized public link built from `CRM_SURVEY_URL` (48-char single-use token, `expired` derived on
+   read), and the submission is validated by question type, stored once, scored (CSAT/NPS/band) and
+   flagged for attention.
 3. **S3 Responses & the satisfaction view** — the response book, the account's satisfaction card and
    the role-scoped summary (CSAT, NPS, response rate, bands), all derived on read.
 4. **S4 Closed-loop follow-through** — an unhappy answer notifies the account owner and raises a

@@ -4,7 +4,7 @@ Module 5 (ADR-0014). Entities: `Survey`, `SurveyQuestion`, `SurveyInvitation`, `
 `SurveyAnswer` (new); `Communication`, `Activity`, `Company`, `Contact`, `Contract`, `User` (reused).
 ADRs: 0004, 0005, 0007, 0013, 0014, 0016, 0017, 0018, **0019**.
 
-> **Slices S1–S4 declared; S1 built.** The module ships one slice per PR (ADR-0016 §2). The client
+> **Slices S1–S4 declared; S1–S2 built.** The module ships one slice per PR (ADR-0016 §2). The client
 > answers through a **tokenized public link** (no login) that the invitation emails, built from
 > configuration so local and production differ only by an env value (ADR-0019 §4). A survey is a
 > reusable template frozen once it has been sent; an unhappy answer closes the loop automatically
@@ -97,7 +97,7 @@ conventions per `README.md` — `?page=`, `?per_page=`, `?sort=`, `?filter[…]`
 
 | Method | Path | Slice | Description |
 | --- | --- | --- | --- |
-| `GET` | `/surveys` | S1 | The library — `filter[active|retired]`, `search`, with question counts (response counts arrive with S3) |
+| `GET` | `/surveys` | S1 | The library — `filter[active|retired]`, `search`, with question and invitation counts (response counts arrive with S3) and `questions_editable` |
 | `POST` | `/surveys` | S1 | Create a survey **with its questions** |
 | `GET` | `/surveys/{id}` | S1 | One survey — questions in order, invitation/response counts |
 | `PATCH` | `/surveys/{id}` | S1 | Name, description, active state and — until it has been sent — the question set |
@@ -258,13 +258,16 @@ accounts, a manager's team, an admin's all. Force-deleting a survey is admin-onl
 
 | Event | Emitted by | Effect |
 | --- | --- | --- |
-| `SurveyInvitationSent` | sending or resending an invitation | logs the `Communication`, moves `last_activity_at`, writes the timeline mirror (module 03 path) |
-| `SurveyResponseSubmitted` | the public submit | marks the invitation submitted, refreshes the account clock, writes a `system` activity on the company |
+| `SurveyResponseSubmitted` | the public submit | marks the invitation submitted, saves the score and the attention flag, writes a `system` activity on the company |
 | `SurveyResponseFlagged` | a response that needs attention | notifies the account owner and raises the module-04 follow-up task |
 | `SurveyResponseResolved` | `POST /survey-responses/{id}/resolve` | writes a `system` activity on the company with the note |
 
 The email itself is the mocked gateway's, exactly like module 03's sends (ADR-0017 §4): a rejection
-is recorded as a failed communication and a failed invitation, never as an exception.
+is recorded as a failed communication and a failed invitation, never as an exception. Sending and
+resending an invitation raise **no event of their own** — they reuse module 03's `CommunicationSent`
+and `CommunicationFailed`, so the `Communication` row, the timeline mirror and the account clock
+move exactly as a logged email does. That is also why `SurveyResponseSubmitted`, not the send, is
+what marks the invitation `submitted`.
 
 ## Demo data
 
@@ -306,22 +309,22 @@ is recorded as a failed communication and a failed invitation, never as an excep
 
 **S2**
 
-- [ ] Sending requires an active survey with questions and a company the caller may update; the
+- [x] Sending requires an active survey with questions and a company the caller may update; the
       invitation snapshots the recipient and answers 201 with its state.
-- [ ] The send goes through the mocked gateway and writes a `Communication` linked from the
+- [x] The send goes through the mocked gateway and writes a `Communication` linked from the
       invitation; a forced failure (`CRM_EMAIL_SIMULATE_FAILURE=true`) leaves the invitation `failed`
       with its reason, and `resend` retries it.
-- [ ] The public link opens without a token for a valid invitation and returns only that survey's
+- [x] The public link opens without a token for a valid invitation and returns only that survey's
       questions; the URL comes from configuration (the local and production origins differ by env
       only).
-- [ ] A submitted answer set is validated (required questions, rating 1–5, NPS 0–10, only offered
+- [x] A submitted answer set is validated (required questions, rating 1–5, NPS 0–10, only offered
       options), stored once, and the token stops working (410 on a second submit); an unknown token is
       404 and an expired, cancelled or failed one is 410.
-- [ ] A response stores its CSAT, NPS and band; the invitation is `submitted` and the account's
+- [x] A response stores its CSAT, NPS and band; the invitation is `submitted` and the account's
       history shows the email and the response.
-- [ ] Once a survey has been sent, its question set is frozen (422) while name/description/active stay
+- [x] Once a survey has been sent, its question set is frozen (422) while name/description/active stay
       editable.
-- [ ] Cancelling a sent invitation stops the link working; a cancelled invitation cannot be resent.
+- [x] Cancelling a sent invitation stops the link working; a cancelled invitation cannot be resent.
 
 **S3**
 

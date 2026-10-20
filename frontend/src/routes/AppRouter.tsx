@@ -32,8 +32,10 @@ import Opportunities from '../pages/Opportunities'
 import OpportunityDetail from '../pages/OpportunityDetail'
 import Pipeline from '../pages/Pipeline'
 import PublicHome from '../pages/PublicHome'
+import PublicSurvey from '../pages/PublicSurvey'
 import Qualification from '../pages/Qualification'
 import SurveyForm from '../pages/SurveyForm'
+import SurveyInvitations from '../pages/SurveyInvitations'
 import Surveys from '../pages/Surveys'
 
 // CRM dashboard routes are added here as submodules are implemented (see resources/specs/).
@@ -45,6 +47,10 @@ export default function AppRouter() {
       </Route>
 
       <Route path="/login" element={<Login />} />
+
+      {/* The client's survey page (module 05 slice S2): no session, no shell — the token in the
+          link is the credential. */}
+      <Route path="/survey/:token" element={<PublicSurvey />} />
 
       <Route element={<ProtectedRoute />}>
         <Route element={<DashboardLayout />}>
@@ -80,6 +86,7 @@ export default function AppRouter() {
           <Route path="/surveys" element={<Surveys />} />
           <Route path="/surveys/new" element={<SurveyForm />} />
           <Route path="/surveys/:id" element={<SurveyForm />} />
+          <Route path="/survey-invitations" element={<SurveyInvitations />} />
         </Route>
       </Route>
 

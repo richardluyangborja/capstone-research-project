@@ -38,6 +38,21 @@ enum SurveyQuestionType: string
     }
 
     /**
+     * The inclusive range a numeric answer must sit in, or null for a type that is not a number
+     * (spec 13 §Business rules 2 — the scales are fixed in Phase 1).
+     *
+     * @return array{min: int, max: int}|null
+     */
+    public function numericBounds(): ?array
+    {
+        return match ($this) {
+            self::Rating => ['min' => 1, 'max' => 5],
+            self::Nps => ['min' => 0, 'max' => 10],
+            default => null,
+        };
+    }
+
+    /**
      * Whether the answer feeds a score — CSAT from `rating`, NPS from `nps`.
      */
     public function isScored(): bool

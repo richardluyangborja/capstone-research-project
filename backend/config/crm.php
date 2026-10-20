@@ -124,4 +124,26 @@ return [
         'check_in_days' => (int) env('CRM_FOLLOW_UP_CHECK_IN_DAYS', 45),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Client satisfaction & survey (module 05, spec 13, ADR-0019)
+    |--------------------------------------------------------------------------
+    |
+    | An invitation carries a tokenized public link and expires after `invitation_days`. The
+    | link is built from `public_url` — the **frontend** origin, since that is the page the
+    | client opens — never from APP_URL and never hardcoded: local runs on localhost:5173,
+    | production on the real CRM host, and only this value changes.
+    |
+    | `attention_*` is the closed-loop threshold (slice S4): a response at or below either
+    | bound is somebody's job to call back.
+    |
+    */
+
+    'surveys' => [
+        'public_url' => env('CRM_SURVEY_URL', env('FRONTEND_URL', 'http://localhost:5173')),
+        'invitation_days' => (int) env('CRM_SURVEY_INVITATION_DAYS', 14),
+        'attention_csat_max' => (float) env('CRM_SURVEY_ATTENTION_CSAT_MAX', 3),
+        'attention_nps_max' => (int) env('CRM_SURVEY_ATTENTION_NPS_MAX', 6),
+    ],
+
 ];
