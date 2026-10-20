@@ -30,7 +30,7 @@ Deferred **inside** module 01: 5. Duplicate Detection & Merge and advanced tiers
 | `10-opportunity-pipeline-visualization.md` | 2. Opportunity Pipeline Visualization *(done — 1 slice)* |
 | `11-communication-history.md` | 3. Communication History Management *(done — 5 slices)* |
 | `12-follow-up-reminders.md` | 4. Follow-up Reminder System *(done — 4 slices)* |
-| `13-client-satisfaction-survey.md` | 5. Client Satisfaction & Survey *(not yet written)* |
+| `13-client-satisfaction-survey.md` | 5. Client Satisfaction & Survey *(in progress — 4 slices, S1–S4 planned)* |
 
 The AI service (dashboard + management reports + suggestions) is cross-cutting and is built after
 modules 01–05.
