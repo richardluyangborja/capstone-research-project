@@ -47,9 +47,15 @@ pushed (ADR-0017 §4) — and the CRM has no queue worker, cron or scheduler.
 7. **Generated reminders are keyed and idempotent.** Each carries an `activities.source_key`
    (`renewal:{contract}`, `check_in:{company}:{ISO-week}`, `stale_lead:{lead}:{ISO-week}`); the
    generator adds a task only where no live one holds that key, and reports created/skipped per
-   source. Uniqueness is enforced in the generator rather than by a constraint, for the same reason
-   template names are (ADR-0017 §10): the key is only unique among *live* tasks. It never invents an
-   owner — a record with none is skipped and reported.
+   source. The column is a **nullable unique index**, so two concurrent runs cannot both win the same
+   key — a `check_in` key is unique for the life of the row, and the week bucket is what lets the next
+   week's check-in exist at all. It never invents an owner — a record with none is skipped and
+   reported — and it does not pile onto work already in hand: a record somebody has an **open
+   hand-written task or scheduled message** on is skipped too (its own generated tasks never block
+   the next week, the key governs those). "Quiet" for a check-in means **no `Communication`** since
+   the client came aboard — not no `Activity`, which every seeded account would have — measured from
+   `client_since` for an account never contacted, and **churned clients are included**, because an
+   account gone silent is the one worth a win-back call.
 8. **Assignment and visibility follow ADR-0004**, exactly like lead assignment (spec 03): a salesrep
    may only owe themselves, a manager may assign within the team, an admin anyone; the worklist shows
    what the record's own policy allows.

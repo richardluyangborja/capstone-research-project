@@ -162,7 +162,7 @@ contract is created from the deal and the mocked Service handoff still fires on 
 | `subject_type` / `subject_id` | morph | | lead / company / contact / opportunity / contract |
 | `communication_id` | ULID communications | | set when the activity mirrors a logged communication (module 03) |
 | `reminded_at` | timestamp | | when the owner was last told it fell due; cleared on reschedule (module 04) |
-| `source_key` | string | | the generator key of a generated reminder, e.g. `renewal:CON-…` (module 04) |
+| `source_key` | string (unique, nullable) | | the generator key of a generated reminder — `renewal:{contract}`, `check_in:{company}:{ISO-week}`, `stale_lead:{lead}:{ISO-week}`; null on a hand-written task (module 04) |
 
 `Activity` is the **lightweight quick log** (a touch or a task). Detailed, channel-aware history is the
 `Communication` record below — a logged communication also writes an activity (ADR-0017 §2). A `task`

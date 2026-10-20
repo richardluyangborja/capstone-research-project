@@ -56,6 +56,15 @@ class TaskPolicy
     }
 
     /**
+     * Generating reminders writes across every team at once, so it is overseen work rather than
+     * a rep's own housekeeping: a manager or above (spec 12 §Permissions).
+     */
+    public function generate(User $user): bool
+    {
+        return $user->role->isAdmin() || $user->role === Role::Manager;
+    }
+
+    /**
      * Handing a task to someone else — the lead-assignment rule (spec 03 §2): yourself, the
      * team's for a manager, anyone for an admin. Shared with the picker and both write paths so
      * the rule cannot drift.

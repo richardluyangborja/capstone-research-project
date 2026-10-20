@@ -890,6 +890,12 @@ export type FollowUpKind = 'task' | 'message'
 /** The due state, derived on read against the PH business day (spec 12 §7) — never stored. */
 export type FollowUpDueStateName = 'overdue' | 'today' | 'upcoming'
 
+/**
+ * Where a generated reminder came from (slice S4, spec 12 §11) — the prefix of its
+ * `source_key`: a contract renewal, a quiet-client check-in, or a stale lead.
+ */
+export type FollowUpSourceName = 'renewal' | 'check_in' | 'stale_lead'
+
 export interface FollowUpDue {
   state: FollowUpDueStateName
   label: string
@@ -908,6 +914,9 @@ export interface Task {
   due_at: string
   due: FollowUpDue
   status: { value: ActivityStatus; label: string }
+  /** Where a generated reminder came from; null when somebody wrote it by hand (slice S4). */
+  source: { value: FollowUpSourceName; label: string } | null
+  source_key: string | null
   /** Always null for a task: it has no channel to send on (rule 13). */
   channel: CommunicationChannel | null
   /** Always null for a task: it is nobody's message (slice S2). */
@@ -952,6 +961,38 @@ export interface FollowUpCounts {
 }
 
 export type FollowUpsPage = Omit<Paginated<FollowUp>, 'links'> & { counts: FollowUpCounts }
+
+/** A reminder the generator raised on a record (slice S4). */
+export interface GeneratedFollowUp {
+  id: string
+  subject: string
+  record: CommunicationRecordRef
+  owner: { id: number; name: string } | null
+  due_at: string
+}
+
+/** A record the generator could not place, and why. */
+export interface GeneratedFollowUpSkip {
+  record: CommunicationRecordRef
+  reason: string
+}
+
+/** One source's half of the generate summary — renewals, check-ins or stale leads. */
+export interface GeneratedFollowUpSource {
+  key: FollowUpSourceName
+  label: string
+  created: number
+  skipped: number
+  tasks: GeneratedFollowUp[]
+  skips: GeneratedFollowUpSkip[]
+}
+
+/** What `POST /follow-ups/generate` reports (slice S4). */
+export interface GenerateRemindersResult {
+  created: number
+  skipped: number
+  sources: GeneratedFollowUpSource[]
+}
 
 export interface TaskInput {
   subject_type: CommunicationSubjectType

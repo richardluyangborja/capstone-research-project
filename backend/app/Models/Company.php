@@ -26,6 +26,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Throwable;
@@ -202,6 +203,29 @@ class Company extends Model
     public function isClient(): bool
     {
         return $this->status->isClient();
+    }
+
+    /**
+     * When the account was last contacted (module 04 slice S4, spec 12 §11): the newest
+     * communication on the company itself or on its people, deals and contracts — the same
+     * "last contacted" the history book reports. Null when nothing has ever been logged, so the
+     * generator measures the quiet spell from `client_since` instead.
+     */
+    public function lastContactedAt(): ?Carbon
+    {
+        $subjectIds = [
+            $this->getKey(),
+            ...$this->contacts()->pluck('id')->all(),
+            ...$this->opportunities()->pluck('id')->all(),
+            ...$this->contracts()->pluck('id')->all(),
+        ];
+
+        $latest = Communication::query()
+            ->whereIn('subject_id', $subjectIds)
+            ->whereNotNull('occurred_at')
+            ->max('occurred_at');
+
+        return $latest === null ? null : Carbon::parse($latest);
     }
 
     /**

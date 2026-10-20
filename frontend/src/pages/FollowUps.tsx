@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { CalendarPlus, BellRing, MailCheck, Search } from 'lucide-react'
+import { CalendarPlus, BellRing, MailCheck, Search, Sparkles } from 'lucide-react'
 import PageHeader from '../components/common/PageHeader'
 import StatusBadge from '../components/common/StatusBadge'
 import EmptyState from '../components/common/EmptyState'
@@ -11,6 +11,7 @@ import DataTable, { type DataTableColumn } from '../components/common/DataTable'
 import { useAuth } from '../lib/auth-context'
 import {
   dispatchDueFollowUps,
+  generateFollowUps,
   listFollowUps,
   updateTask,
   updateTaskStatus,
@@ -31,7 +32,12 @@ import {
 } from '../lib/followUpMeta'
 import { formatDateTime } from '../lib/format'
 import { parseValidationError } from '../lib/leads'
-import type { CommunicationSubjectType, FollowUp, FollowUpCounts } from '../types'
+import type {
+  CommunicationSubjectType,
+  FollowUp,
+  FollowUpCounts,
+  GenerateRemindersResult,
+} from '../types'
 
 type OwnerTab = 'all' | 'me' | 'team'
 
@@ -69,10 +75,15 @@ export default function FollowUps() {
   const [dispatchNote, setDispatchNote] = useState('')
   const [notifying, setNotifying] = useState(false)
   const [notifyNote, setNotifyNote] = useState('')
+  const [generating, setGenerating] = useState(false)
+  const [generateResult, setGenerateResult] = useState<GenerateRemindersResult | null>(null)
 
   // Both due runs write across every team at once, so they are admin actions — the salesrep's
   // own demo runs `php artisan follow-ups:notify-due` meanwhile (spec 12 §S3, §6).
   const canDispatch = user?.role === 'admin' || user?.role === 'superadmin'
+  // Generating is overseen work rather than housekeeping: a manager or above (spec 12 §S4).
+  const canGenerate =
+    user?.role === 'admin' || user?.role === 'superadmin' || user?.role === 'manager'
 
   const load = useCallback(
     async (targetPage: number) => {
@@ -176,6 +187,25 @@ export default function FollowUps() {
     }
   }
 
+  /**
+   * A manager raises the reminders the records imply (spec 12 §S4, §11). Nothing runs on a timer
+   * in this phase, so the demo clicks this: the summary names each source, and every record the
+   * run could not place, which is what makes a skipped row visible instead of silent.
+   */
+  const onGenerate = async () => {
+    setGenerating(true)
+    setError('')
+    setGenerateResult(null)
+    try {
+      setGenerateResult(await generateFollowUps())
+      await load(1)
+    } catch {
+      setError('Could not generate the reminders.')
+    } finally {
+      setGenerating(false)
+    }
+  }
+
   const columns: DataTableColumn<FollowUp>[] = [
     {
       key: 'due',
@@ -208,6 +238,12 @@ export default function FollowUps() {
           )}
           {row.kind === 'message' && row.recipient && (
             <p className="mt-0.5 text-xs text-muted-foreground">To {row.recipient}</p>
+          )}
+          {row.source && (
+            <span className="mt-1 flex items-center gap-2">
+              <StatusBadge tone="activity">Generated</StatusBadge>
+              <span className="text-xs text-muted-foreground">{row.source.label}</span>
+            </span>
           )}
         </>
       ),
@@ -357,6 +393,17 @@ export default function FollowUps() {
         description="What is owed, by when and by whom — across leads, accounts, contacts and deals."
         actions={
           <>
+            {canGenerate && (
+              <button
+                type="button"
+                onClick={() => void onGenerate()}
+                disabled={generating}
+                className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-60"
+              >
+                <Sparkles className="h-4 w-4" aria-hidden="true" />
+                {generating ? 'Generating…' : 'Generate reminders'}
+              </button>
+            )}
             {canDispatch && (
               <button
                 type="button"
@@ -413,14 +460,81 @@ export default function FollowUps() {
         </div>
       )}
 
-      {canDispatch && (
+      {(canGenerate || canDispatch) && (
         <p className="mb-4 text-xs text-muted-foreground">
-          Nothing runs on a timer in this phase: <strong>Dispatch due reminders</strong> notifies
-          the owners of the follow-ups that have come due, and <strong>Dispatch due sends</strong>{' '}
-          takes the scheduled emails whose moment has passed through the simulated mailbox, right
-          now. A second run of either finds nothing, because each task and message is stamped as it
-          is handled.
+          Nothing runs on a timer in this phase:{' '}
+          {canGenerate && (
+            <>
+              <strong>Generate reminders</strong> raises the renewals, check-ins and stale-lead
+              nudges the records imply — a second run creates nothing, because each reminder holds
+              the key it came from.{' '}
+            </>
+          )}
+          {canDispatch && (
+            <>
+              <strong>Dispatch due reminders</strong> notifies the owners of the follow-ups that
+              have come due, and <strong>Dispatch due sends</strong> takes the scheduled emails
+              whose moment has passed through the simulated mailbox, right now. A second run of
+              either finds nothing, because each task and message is stamped as it is handled.
+            </>
+          )}
         </p>
+      )}
+
+      {generateResult && (
+        <div
+          className="mb-4 rounded-lg border border-border bg-card p-3 text-sm"
+          aria-live="polite"
+        >
+          <div className="mb-2 flex items-start justify-between gap-3">
+            <p className="font-medium text-foreground">
+              {generateResult.created === 0
+                ? 'Nothing new to raise'
+                : `${generateResult.created} ${
+                    generateResult.created === 1 ? 'reminder' : 'reminders'
+                  } raised`}
+              {generateResult.skipped > 0 &&
+                ` — ${generateResult.skipped} ${
+                  generateResult.skipped === 1 ? 'record' : 'records'
+                } skipped`}
+            </p>
+            <button
+              type="button"
+              onClick={() => setGenerateResult(null)}
+              className="text-xs font-medium text-muted-foreground hover:text-foreground"
+            >
+              Dismiss
+            </button>
+          </div>
+          <ul className="space-y-2">
+            {generateResult.sources.map((source) => (
+              <li key={source.key}>
+                <p className="text-foreground">
+                  <span className="font-medium">{source.label}</span>{' '}
+                  <span className="text-muted-foreground">
+                    — {source.created} created, {source.skipped} skipped
+                  </span>
+                </p>
+                {source.tasks.length > 0 && (
+                  <ul className="mt-1 space-y-0.5 text-xs text-muted-foreground">
+                    {source.tasks.map((task) => (
+                      <li key={task.id}>{task.subject}</li>
+                    ))}
+                  </ul>
+                )}
+                {source.skips.length > 0 && (
+                  <ul className="mt-1 space-y-0.5 text-xs text-muted-foreground">
+                    {source.skips.map((skip) => (
+                      <li key={skip.record.id}>
+                        {skip.record.label} — {skip.reason}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
 
       {narrowedToRecord && (

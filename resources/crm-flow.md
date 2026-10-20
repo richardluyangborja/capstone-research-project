@@ -93,7 +93,7 @@ on the one before:
 | 01 | Lead & Client Tracking | — | `01`–`09` **(built)** |
 | 02 | Opportunity Pipeline Visualization | `Opportunity` record (08) | `10` **(built)** |
 | 03 | Communication History Management | objects from 01–02 | `11` **(built)** |
-| 04 | Follow-up Reminder System | 03 + notifications | `12` (in progress — 4 slices, S1–S3 built) |
+| 04 | Follow-up Reminder System | 03 + notifications | `12` **(built)** |
 | 05 | Client Satisfaction & Survey | clients + contacts | `13` |
 
 The AI service (dashboard + management reports + suggestions) is cross-cutting and built after 01–05.
@@ -131,7 +131,7 @@ mocked Service handoff still fires only on `mark-signed` (ADR-0015 §4).
 slice ships as its own PR (ADR-0016). Nothing scheduled runs — due work is dispatched on demand in
 module 04.
 
-## Module 04 → delivery slices (in progress — S1–S3 built, ADR-0018)
+## Module 04 → delivery slices (built — S1–S4, ADR-0018)
 
 1. **S1 Follow-up tasks & the worklist** *(built)* — a to-do you owe (`Activity`, `type = task`, with the
    `due_at` and `open`/`done`/`cancelled` status the model already reserved), the one worklist that
@@ -146,9 +146,11 @@ module 04.
    idempotent, a reschedule re-arms the reminder, and an admin **Dispatch due reminders** (or
    `follow-ups:notify-due`) flags what has come due. A send that fails with nobody watching tells the
    author.
-4. **S4 Generated renewal & check-in reminders** — the renewals deferral ADR-0013 §3 parked here:
-   tasks generated from contracts expiring inside `crm.contracts.expiring_soon_days`, clients quiet
-   past `crm.follow_ups.check_in_days` and stale leads, keyed by `source_key` so a run is idempotent.
+4. **S4 Generated renewal & check-in reminders** *(built)* — the renewals deferral ADR-0013 §3 parked
+   here: tasks generated from contracts expiring inside `crm.contracts.expiring_soon_days`, clients
+   with no communication since they came aboard (older than `crm.follow_ups.check_in_days`, churned
+   ones included) and stale leads, keyed by `source_key` so a run is idempotent, with every skipped
+   record reported and its reason (no owner, already standing, somebody already has work open on it).
 
 Automatic client aging is **not** here — ADR-0018 §6 keeps it a standalone deferral.
 
