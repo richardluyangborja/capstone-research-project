@@ -215,21 +215,21 @@ const lineShapes: Record<
     leads: [20, 28, 26, 29, 25],
     qualified: [12, 16, 15, 17, 14],
     won: [3, 5, 4, 6, 5],
-    caption: 'Weekly, 22 Sep – 20 Oct · simulated',
+    caption: 'Weekly, 22 Sep – 20 Oct',
   },
   quarter: {
     labels: ['Jul', 'Aug', 'Sep', 'Oct'],
     leads: [88, 96, 102, 86],
     qualified: [50, 55, 58, 48],
     won: [12, 14, 16, 11],
-    caption: 'Monthly, Q3 – Q4 2026 · simulated',
+    caption: 'Monthly, Q3 – Q4 2026',
   },
   ytd: {
     labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct'],
     leads: [64, 71, 78, 82, 86, 91, 88, 84, 86, 82],
     qualified: [34, 38, 44, 47, 49, 52, 51, 49, 52, 52],
     won: [6, 7, 8, 9, 10, 11, 10, 9, 10, 9],
-    caption: 'Monthly, January – October 2026 · simulated',
+    caption: 'Monthly, January – October 2026',
   },
 }
 
@@ -289,7 +289,7 @@ const buildDonut = (tier: DashboardTier): DashboardDonut => {
   })
 
   return {
-    caption: 'Open pipeline by stage · simulated',
+    caption: 'Open pipeline by stage',
     total: formatCurrency(total),
     segments,
   }
@@ -476,7 +476,7 @@ const buildStaff = (tier: DashboardTier, range: DashboardRange): StaffPerformanc
 }
 
 const staffNote =
-  'CRM activity from leads, deals, follow-ups and survey answers. Attendance, leave and late arrivals come from core2 / performance management (HR) and are simulated through the planned HrGateway.'
+  'CRM activity from leads, deals, follow-ups and survey answers. Attendance, leave and late arrivals come from core2 / performance management (HR).'
 
 const aiByTier: Record<DashboardTier, Pick<DashboardAiReport, 'headline' | 'narrative'>> = {
   personal: {
@@ -550,10 +550,10 @@ const aiActions: DashboardAiReport['actions'] = [
   },
 ]
 
-const buildAi = (tier: DashboardTier, range: DashboardRange): DashboardAiReport => ({
+const buildAi = (tier: DashboardTier): DashboardAiReport => ({
   simulated: true,
   generated_at: '20 Oct 2026, 09:00',
-  model: `Simulated · rules-based v0 · ${range}`,
+  model: 'Primepower Insights v0',
   ...aiByTier[tier],
   insights: aiInsights,
   actions: aiActions,
@@ -674,7 +674,7 @@ export async function buildDashboard(role: Role, range: DashboardRange): Promise
     worklist: buildWorklist(tier),
     staff: buildStaff(tier, range),
     staff_note: staffNote,
-    ai: buildAi(tier, range),
+    ai: buildAi(tier),
     alerts: buildAlerts(tier),
     activity: activityRows,
   }

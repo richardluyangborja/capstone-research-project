@@ -25,9 +25,9 @@ opened is a dead end; this spec forbids dead ends.
 
 | Slice | Branch | Facet | Demo |
 | --- | --- | --- | --- |
-| **D1** *(built)* | `feature/dashboard-management-reports` | Dashboard home, simulated | log in as each role → KPIs, charts, needs-attention table, staff scorecard, simulated AI report; switch the period |
+| **D1** *(built)* | `feature/dashboard-management-reports` | Dashboard home, simulated | log in as each role → KPIs, charts, needs-attention table, staff scorecard, AI management report; switch the period |
 | **D2** | `feature/dashboard-data` | Real endpoints + wiring | the same page reads `/api/v1/dashboard`; every fixture field is replaced by a query; empty/loading/error states |
-| **D3** | `feature/ai-reports` | The Python service | the AI panel calls the service; a timeout falls back to the rules template; the badge says which source answered |
+| **D3** | `feature/ai-reports` | The Python service | the AI panel calls the service; a timeout falls back to the rules template; `source` records which path answered |
 
 D2 is purely additive: the components already consume the final shape. D3 changes only the
 `ai` block.
@@ -40,13 +40,14 @@ Dashboard Home Layout"). The dashboard keeps that spine and adds the two blocks 
 needs (the worklist and the staff scorecard):
 
 1. **Header** — greeting, scope line (`Org-wide` / team / `Your book`), last-updated line, period
-   toggle (`Last 30 days` / `This quarter` / `Year to date`), `Simulated data` badge.
+   toggle (`Last 30 days` / `This quarter` / `Year to date`).
 2. **KPI row 1 (primary)** — New leads · Qualified leads · Open pipeline · Revenue won.
 3. **KPI row 2 (secondary)** — Win rate · Active clients · Follow-ups due · Needs attention.
 4. **Charts** — `Acquisition & conversion` (line: leads / qualified / won) and `Open pipeline`
    (donut by stage). Both carry a caption and a link to their module page.
 5. **AI management report** — headline, narrative, three insight cards, four suggested actions;
-   every item links to a page. Labelled **Simulated AI**.
+   every item links to a page. Presented as the product's AI report — the simulation is recorded
+   here and in ADR-0020, never in the UI.
 6. **Needs attention + right rail** — a worklist table (priority, subject, type, owner, action) and
    two cards: **Alerts** (`AlertItem`s with links) and **Recent activity** (linked rows).
 7. **Staff performance** — CRM output beside core2 HR figures (attendance, leave, late arrivals),
@@ -70,13 +71,14 @@ Worklist rows, alerts and staff rows carry a `minTier` (`personal` < `team` < `o
 when the session tier is at or above it. In D2 the server applies the same filter — the client must
 never be the only gate.
 
-## Simulated data (D1 policy)
+## Mock data (D1 policy)
 
 1. **One source.** `frontend/src/mocks/dashboard.ts` builds every block; `getDashboard(role,
    range)` in `frontend/src/lib/dashboard.ts` is the only accessor the page imports. D2 replaces the
    accessor body with HTTP calls and deletes the fixture file. No component knows the difference.
-2. **Badged, twice.** The header carries `Simulated data`; the AI panel carries `Simulated AI`.
-   Neither badge may be removed until D2/D3 replace the source.
+2. **Documented, not surfaced.** The repo (this spec, ADR-0020 and the accessor docblock) records
+   that D1 is mock data; the page carries **no** simulation badge, banner or disclaimer. The UI is
+   presentation-ready product UI. D2 removes the fixtures, not the documentation.
 3. **No fixture ids in links.** A fixture row links to a module page or a filtered book
    (`/pipeline`, `/satisfaction/responses?attention=true`), never to `/companies/{fixture-id}` —
    so a mocked row can never 404. D2's real payload sends record hrefs.
@@ -227,8 +229,9 @@ Rules:
    computed in Laravel from the same numbers. The panel always renders something.
 2. **Never invent a record.** Every insight/action `href` is a real route chosen from a fixed set;
    the model writes prose, not URLs. The same rule as D1 fixtures.
-3. **Labelled.** `source !== "model"` keeps the `Simulated AI` badge; a real model run shows
-   `AI-generated · <model>` and its timestamp. No unlabelled generated text.
+3. **Source recorded.** `source` (`model|rules`) is carried in the payload for diagnostics and the
+   repo record. The UI shows no simulation label; `model` and `generated_at` are the only visible
+   provenance.
 4. **No personal data in the prompt** beyond what the caller may see; the service is stateless.
 
 D1 ships the rules template as static fixtures (the same text shape), so the UI is already final.
@@ -261,7 +264,8 @@ pre-filtered; `/satisfaction/responses?company=` already existed (S3).
       scorecard row and only personal worklist rows; a manager sees the team; an admin the org.
 - [x] Header states the scope, the last update and a working period toggle (`30d` / `quarter` /
       `ytd`); switching re-reads the fixtures without a page reload.
-- [x] `Simulated data` and `Simulated AI` badges are visible; no figure is presented as live.
+- [x] No simulation badge, banner or disclaimer appears in the UI; the D1 mock status is recorded
+      in this spec, ADR-0020 and the accessor docblock only.
 - [x] 4 primary + 4 secondary KPI cards, all clickable, each with a hint and a trend.
 - [x] Line chart (3 series) + donut (4 stages) render from tokens, with labelled axes/legend and
       accessible names; no chart library added.
@@ -288,7 +292,7 @@ pre-filtered; `/satisfaction/responses?company=` already existed (S3).
 ### D3 — future
 
 - [ ] The `ai/` service implements `POST /reports/dashboard` with the documented payload.
-- [ ] Laravel times out in ≤3s and falls back to the rules template; `source` drives the badge.
+- [ ] Laravel times out in ≤3s and falls back to the rules template; `source` records the path.
 - [ ] No personal data leaves the CRM beyond the caller's scope.
 
 ## Out of scope

@@ -34,7 +34,9 @@ describe('dashboard home (simulated)', () => {
 
     expect(await screen.findByText(/Good (morning|afternoon|evening), Maria/)).toBeInTheDocument()
     expect(screen.getByText(/Business Development team/)).toBeInTheDocument()
-    expect(screen.getByText('Simulated data')).toBeInTheDocument()
+
+    // The D1 mock is documented in the repo, not surfaced in the UI.
+    expect(screen.queryByText(/simulated/i)).not.toBeInTheDocument()
 
     // Manager, last 30 days: 54 new leads and ₱4.12M open pipeline.
     expect(screen.getByText('54')).toBeInTheDocument()
@@ -85,11 +87,10 @@ describe('dashboard home (simulated)', () => {
     )
   })
 
-  it('labels the AI report as simulated and links its insights and actions', async () => {
+  it('renders the AI report and links its insights and actions', async () => {
     renderDashboard()
 
-    expect(await screen.findByText('Simulated AI')).toBeInTheDocument()
-    expect(screen.getByText('AI management report')).toBeInTheDocument()
+    expect(await screen.findByText('AI management report')).toBeInTheDocument()
     expect(screen.getByText('Sunrise is the loudest signal')).toBeInTheDocument()
 
     const readLinks = screen.getAllByRole('link', { name: /Read the answer/ })
