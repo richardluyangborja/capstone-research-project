@@ -16,8 +16,10 @@ Lead ──(convert)──► Company ──► CompanySite
                       │  └── parent (branches)
                       ├──► Opportunity ──► Contract
                       ├──► Contact
+                      ├──► SurveyInvitation ──► SurveyResponse ──► SurveyAnswer
                       └──► Activity / Attachment   (polymorphic)
 Opportunity ──► Contract ──(signed)──► Company becomes "Client"
+Survey ──► SurveyQuestion
 ```
 
 `Client` is **not** a table — it is `Company.status ∈ {onboarding, active, at_risk, dormant, churned}`.
@@ -44,6 +46,9 @@ Opportunity ──► Contract ──(signed)──► Company becomes "Client"
 | `CommunicationDirection` | `inbound`, `outbound` *(module 03)* |
 | `CommunicationStatus` | `draft`, `scheduled`*, `sent`, `received`, `failed`, `logged` *(module 03; *reserved for module 04)* |
 | `CommunicationOutcome` | `connected`, `no_answer`, `voicemail`, `busy`, `other` *(module 03, calls)* |
+| `SurveyQuestionType` | `rating`, `nps`, `single_choice`, `multi_choice`, `text` *(module 05)* |
+| `SurveyInvitationStatus` | `sent`, `failed`, `submitted`, `cancelled` — `expired` is derived on read *(module 05)* |
+| `SurveyBand` | `promoter`, `passive`, `detractor` — from the NPS answer, 9–10 / 7–8 / 0–6 *(module 05)* |
 
 ## Lead
 
@@ -249,10 +254,39 @@ display, and downloaded only through `GET /api/v1/attachments/{id}/file`. There 
 file lives only as long as the row. Once the table exists, contracts and contacts can move onto it;
 nothing is scheduled to.
 
+## Survey (module 05, spec 13)
+
+The survey library: reusable templates whose questions are asked through a tokenized public link
+(ADR-0019). Soft deletes; the name is unique among live rows.
+
+**Survey** — `name` ✓ (live-unique), `description`, `is_active` ✓ (default false; only an active survey
+can be sent), `created_by`. A survey is frozen structurally once an invitation exists.
+
+**SurveyQuestion** — `survey_id` ✓, `type` `SurveyQuestionType` ✓, `prompt` ✓, `help`, `required` ✓
+(default true), `position` ✓ (1..n), `options` (json, 2–10 for the two choice types; null for the
+others). At most one `nps` question per survey. `rating` is 1–5 and `nps` 0–10, fixed in Phase 1.
+
+**SurveyInvitation** — `reference` `SRV-YYYY-NNNN`, `survey_id` ✓, `company_id` ✓, `contact_id`,
+`contract_id` (what prompted it), `communication_id` (the logged email, module 03), `token` ✓
+(unique, 48 random characters — never the ULID), `recipient_name` / `recipient_email` (snapshot),
+`message`, `status` `SurveyInvitationStatus` ✓, `failed_reason`, `sent_at`, `expires_at` (default
+`sent_at + crm.surveys.invitation_days`), `submitted_at`. No soft delete: an invitation is cancelled.
+
+**SurveyResponse** — `invitation_id` ✓ (unique), `survey_id` ✓, `company_id` ✓, `contact_id`,
+`submitted_at` ✓, `csat` decimal(3,2) (mean of the rating answers), `nps` int 0–10, `band`
+`SurveyBand`, `needs_attention` ✓ (bool, from `crm.surveys.attention_*`), `resolved_at`,
+`resolved_by`, `resolution_note`. Immutable — no update or delete route.
+
+**SurveyAnswer** — `response_id` ✓, `question_id` ✓ (unique together), `value_number` (rating/NPS),
+`value_text` (text), `value_options` (json, the selected options).
+
 ## Indexes / constraints (highlights)
 
-- Unique: `leads.reference`, `companies.reference`, `opportunities.reference`, `contracts.reference`.
+- Unique: `leads.reference`, `companies.reference`, `opportunities.reference`, `contracts.reference`,
+  `survey_invitations.reference`, `survey_invitations.token`, `survey_responses.invitation_id`,
+  `survey_answers.response_id+question_id`.
 - Index: `leads.status`, `leads.owner_id`, `companies.status`, `companies.owner_id`,
   `opportunities.stage`, `contracts.status`, `contracts.company_id`, `contracts.end_date`,
-  `activities.subject_type+subject_id`.
+  `activities.subject_type+subject_id`, `survey_invitations.status+expires_at`,
+  `survey_invitations.company_id`, `survey_responses.company_id`, `survey_responses.submitted_at`.
 - `companies.name` — soft-unique (warn, don't hard-fail).

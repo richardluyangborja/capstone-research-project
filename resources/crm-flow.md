@@ -94,7 +94,7 @@ on the one before:
 | 02 | Opportunity Pipeline Visualization | `Opportunity` record (08) | `10` **(built)** |
 | 03 | Communication History Management | objects from 01–02 | `11` **(built)** |
 | 04 | Follow-up Reminder System | 03 + notifications | `12` **(built)** |
-| 05 | Client Satisfaction & Survey | clients + contacts | `13` |
+| 05 | Client Satisfaction & Survey | clients + contacts | `13` (in progress — 4 slices, S1–S4 planned) |
 
 The AI service (dashboard + management reports + suggestions) is cross-cutting and built after 01–05.
 Duplicate detection/merge and advanced tiers/health are still-open **module-01** deferrals (ADR-0006).
@@ -154,6 +154,24 @@ module 04.
 
 Automatic client aging is **not** here — ADR-0018 §6 keeps it a standalone deferral.
 
+## Module 05 → delivery slices (planned — S1–S4, ADR-0019)
+
+The last CRM module (spec `13`): close the loop after the sale.
+
+1. **S1 Survey library** — reusable templates (`Survey` + ordered `SurveyQuestion`, five question
+   types) with activate/retire/restore/duplicate; the question set freezes once a survey has been
+   sent.
+2. **S2 Invitations & the public form** — sending a survey to a company goes through the mocked email
+   gateway and writes a `Communication` (module 03); the client answers through a tokenized public
+   link built from `CRM_SURVEY_URL`, and the submission stores the answers with CSAT/NPS/band.
+3. **S3 Responses & the satisfaction view** — the response book, the account's satisfaction card and
+   the role-scoped summary (CSAT, NPS, response rate, bands), all derived on read.
+4. **S4 Closed-loop follow-through** — an unhappy answer notifies the account owner and raises a
+   module-04 follow-up task on the company (`source_key satisfaction:{response}`); the owner resolves
+   it with a note.
+
+Automatic sends (on signing/renewal/churn) and reminder emails are deliberately unbuilt (ADR-0019).
+
 ## Role data visibility (ADR-0004)
 
 Enforced server-side.
@@ -201,10 +219,11 @@ Recorded as ADRs in `decisions/` (read them before changing the design):
 - `decisions/0016-delivery-cadence-and-slices.md` — module specs ship as declared delivery slices
 - `decisions/0017-communication-history-model.md` — `Communication` vs `Activity`, mocked email, scoping
 - `decisions/0018-follow-up-reminder-model.md` — follow-ups as tasks + scheduled messages, on-demand dispatch
+- `decisions/0019-client-satisfaction-conventions.md` — surveys as templates, tokenized public form, CSAT/NPS, closed loop
 
-Still open / to be decided later: satisfaction survey structure (`specs/13`) and
-dedup/merge rules (module-01 deferrals). Follow-up/reminder rules are settled by
-`specs/12-follow-up-reminders.md` (ADR-0018), except automatic client aging (still deferred). The
-contract and billing data model is settled — see
+Still open / to be decided later: dedup/merge rules (module-01 deferrals). The satisfaction survey
+structure is settled by `specs/13-client-satisfaction-survey.md` (ADR-0019). Follow-up/reminder rules
+are settled by `specs/12-follow-up-reminders.md` (ADR-0018), except automatic client aging (still
+deferred). The contract and billing data model is settled — see
 `specs/00-data-model.md` (Contract), `specs/09-client-account-lifecycle.md` and ADR-0013; the deal
 pipeline is specified in `specs/10-opportunity-pipeline-visualization.md` (ADR-0015).

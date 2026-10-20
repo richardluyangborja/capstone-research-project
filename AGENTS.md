@@ -516,7 +516,12 @@ declares four slices (ADR-0018) and all four are built: **S1 (tasks + the workli
 outbound messages + the due dispatch), S3 (notifications & the due run) and S4 (generated renewals,
 check-ins and stale-lead nudges)**; its worklist
 reuses `Activity` and the reserved
-`CommunicationStatus.scheduled` rather than adding a table. Module 05 (client satisfaction, spec `13`)
-follows — both are in **ADR-0014**. Dedup/merge and advanced tiers are module-01 deferrals
+`CommunicationStatus.scheduled` rather than adding a table. **Module 05** (Client Satisfaction &
+Survey) is **in progress** — `resources/specs/13-client-satisfaction-survey.md` declares four slices
+(ADR-0016, ADR-0019): **S1 survey library, S2 invitations + the tokenized public form, S3 responses
+& scoring, S4 closed-loop follow-through**; the module adds five tables (`surveys`,
+`survey_questions`, `survey_invitations`, `survey_responses`, `survey_answers`) and reuses module 03
+for delivery and module 04 for the follow-up an unhappy answer raises. The roadmap is **ADR-0014**.
+Dedup/merge and advanced tiers are module-01 deferrals
 (ADR-0006), and automatic client aging stays one too (ADR-0018 §6). Other departments are consumed via
 **mocked integrations** (ADR-0005), not built here.
