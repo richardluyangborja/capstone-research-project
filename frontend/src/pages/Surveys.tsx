@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ClipboardList, CopyPlus, RotateCcw, Search, Trash2 } from 'lucide-react'
+import { ClipboardList, CopyPlus, RotateCcw, Search, Send, Trash2 } from 'lucide-react'
 import PageHeader from '../components/common/PageHeader'
 import StatusBadge from '../components/common/StatusBadge'
 import EmptyState from '../components/common/EmptyState'
@@ -152,6 +152,15 @@ export default function Surveys() {
       ),
     },
     {
+      key: 'invitations',
+      header: 'Sent',
+      className: 'whitespace-nowrap text-muted-foreground',
+      render: (survey) =>
+        survey.invitations_count === undefined
+          ? '—'
+          : `${survey.invitations_count} ${survey.invitations_count === 1 ? 'send' : 'sends'}`,
+    },
+    {
       key: 'author',
       header: 'Author',
       className: 'text-muted-foreground',
@@ -215,15 +224,24 @@ export default function Surveys() {
         title="Surveys"
         description="The questions we ask a client after a deployment, at a review, or at the end — sent as a link, answered without an account."
         actions={
-          isManagerOrAbove ? (
+          <div className="flex flex-wrap items-center gap-2">
             <Link
-              to="/surveys/new"
-              className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground"
+              to="/survey-invitations"
+              className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
             >
-              <ClipboardList className="h-4 w-4" aria-hidden="true" />
-              New survey
+              <Send className="h-4 w-4" aria-hidden="true" />
+              Invitations
             </Link>
-          ) : undefined
+            {isManagerOrAbove && (
+              <Link
+                to="/surveys/new"
+                className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground"
+              >
+                <ClipboardList className="h-4 w-4" aria-hidden="true" />
+                New survey
+              </Link>
+            )}
+          </div>
         }
       />
 

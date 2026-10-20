@@ -1,4 +1,4 @@
-import type { Survey, SurveyQuestionTypeName } from '../types'
+import type { Survey, SurveyInvitationStateName, SurveyQuestionTypeName } from '../types'
 
 /** How each question type reads in the builder and in the client's preview (spec 13 §S1). */
 export interface SurveyQuestionTypeMeta {
@@ -54,3 +54,31 @@ export const surveyStateMeta: Record<
 
 export const surveyStateOf = (survey: Survey): SurveyState =>
   survey.deleted_at !== null ? 'retired' : survey.is_active ? 'active' : 'inactive'
+
+/** How an invitation state reads and colors (spec 13 §UI, slice S2). */
+export const surveyInvitationStateMeta: Record<
+  SurveyInvitationStateName,
+  { label: string; tone: 'counts' | 'success' | 'neutral' | 'danger' }
+> = {
+  sent: { label: 'Awaiting a reply', tone: 'counts' },
+  expired: { label: 'Expired', tone: 'neutral' },
+  failed: { label: 'Failed to send', tone: 'danger' },
+  submitted: { label: 'Submitted', tone: 'success' },
+  cancelled: { label: 'Cancelled', tone: 'neutral' },
+}
+
+/** The states the book can filter by, in the order a person looks for them. */
+export const surveyInvitationStates: SurveyInvitationStateName[] = [
+  'sent',
+  'submitted',
+  'expired',
+  'failed',
+  'cancelled',
+]
+
+/** A rating shows as `4.6 / 5`, an NPS as a whole score, and a missing one as an em dash. */
+export const formatCsat = (csat: number | null | undefined): string =>
+  csat === null || csat === undefined ? '—' : `${csat.toFixed(1)} / 5`
+
+export const formatNps = (nps: number | null | undefined): string =>
+  nps === null || nps === undefined ? '—' : String(nps)

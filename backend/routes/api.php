@@ -25,7 +25,9 @@ use App\Http\Controllers\Api\V1\OpportunityActivityController;
 use App\Http\Controllers\Api\V1\OpportunityController;
 use App\Http\Controllers\Api\V1\OpportunityStageController;
 use App\Http\Controllers\Api\V1\PipelineController;
+use App\Http\Controllers\Api\V1\PublicSurveyController;
 use App\Http\Controllers\Api\V1\SurveyController;
+use App\Http\Controllers\Api\V1\SurveyInvitationController;
 use App\Http\Controllers\Api\V1\TaskController;
 use App\Http\Controllers\Api\V1\UserController;
 use Illuminate\Support\Facades\Route;
@@ -42,6 +44,11 @@ Route::prefix('v1')->group(function (): void {
     Route::get('/health', fn () => response()->json(['status' => 'ok']));
 
     Route::post('/auth/login', [AuthController::class, 'login']);
+
+    // Module 05 slice S2 — the client's page. The token in the link is the credential, so these
+    // two live outside the JWT group and are throttled: an unknown token is 404, a dead one 410.
+    Route::get('public/surveys/{token}', [PublicSurveyController::class, 'show'])->middleware('throttle:30,1');
+    Route::post('public/surveys/{token}/responses', [PublicSurveyController::class, 'submit'])->middleware('throttle:10,1');
 
     Route::middleware('auth:api')->group(function (): void {
         Route::get('/auth/me', [AuthController::class, 'me']);
@@ -185,5 +192,15 @@ Route::prefix('v1')->group(function (): void {
         Route::post('surveys/{survey}/duplicate', [SurveyController::class, 'duplicate']);
         Route::apiResource('surveys', SurveyController::class)
             ->only(['index', 'store', 'show', 'update', 'destroy']);
+
+        // Module 05 slice S2 — invitations. Sending needs the account's update right and is a real
+        // history record (module 03's gateway + `Communication`); an invitation is cancelled or
+        // resent, never deleted.
+        Route::get('survey-invitations', [SurveyInvitationController::class, 'index']);
+        Route::get('survey-invitations/{invitation}', [SurveyInvitationController::class, 'show']);
+        Route::post('survey-invitations/{invitation}/cancel', [SurveyInvitationController::class, 'cancel']);
+        Route::post('survey-invitations/{invitation}/resend', [SurveyInvitationController::class, 'resend']);
+        Route::post('surveys/{survey}/invitations', [SurveyInvitationController::class, 'store']);
+        Route::get('companies/{company}/survey-invitations', [SurveyInvitationController::class, 'forCompany']);
     });
 });

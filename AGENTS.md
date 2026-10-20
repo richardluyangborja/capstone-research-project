@@ -303,7 +303,31 @@ Laravel's own and is separate from `frontend/`.
   surveys — a validation rule, because retiring is a soft delete — and `restore` re-checks it (422);
   `duplicate` copies the questions into a new inactive survey under the next free "… (copy n)" name,
   the way to version one. **Manager+ authors/edits/retires/restores/duplicates; every role reads**
-  (ADR-0019 §8). Events: none yet (sending arrives with S2).
+  (ADR-0019 §8). Events: none of its own.
+- **Module 05 slice S2 — invitations & the tokenized public form:** `GET /survey-invitations`
+  (index/show, `filter[state|survey|company]` + `search`, scoped by the account),
+  `POST /surveys/{survey}/invitations`, `POST /survey-invitations/{id}/cancel|resend`,
+  `GET /companies/{company}/survey-invitations`, and the CRM's one unauthenticated surface —
+  `GET /public/surveys/{token}` + `POST /public/surveys/{token}/responses` (throttled, outside
+  `auth:api`). Sending needs the **account's** `update` right, not the survey's, and **rides module
+  03**: the mocked `EmailGateway` hands the message out and a `Communication` keeps it, so there is no
+  `SurveyInvitationSent` event, a gateway rejection is a `failed` invitation (still 201) that `resend`
+  retries, and the account's clock/mirror move through `CommunicationSent` as for any logged email.
+  One `Communication` per invitation, refilled with a fresh window on `resend`. The token is 48 chars,
+  single-use and **never the ULID**; the link origin is `crm.surveys.public_url` (`CRM_SURVEY_URL` →
+  `FRONTEND_URL` → localhost). Stored statuses are `sent|failed|submitted|cancelled`; `expired` is
+  derived from `expires_at` (`isAnswerable()`), and cancel/resend are 422 on a submitted or cancelled
+  row (withdrawing is the sender's, or manager+). An invitation is **history — cancelled or resent,
+  never deleted**. The client's page returns only that survey's questions (rating 1–5, NPS 0–10,
+  options as offered); a submission is validated per question type (required, ranges, offered options;
+  errors keyed `answers.{questionId}`), stored **once** by `SurveyResponse::record()`, scored there
+  (CSAT = mean rating, NPS = the promoter answer, band 9–10/7–8/0–6) and flagged `needs_attention` at
+  or below `crm.surveys.attention_csat_max` (3) or `attention_nps_max` (6) — the flag S4 acts on. Then
+  the token dies: a second submit is 410, an unknown token 404, submitted/expired/cancelled/failed
+  410. `SurveyResponseSubmitted` writes a `system` activity on the account. The question set freezes
+  the moment an invitation exists (422 when `questions` is sent at all — name/description/active still
+  save), and `SurveyResource` carries `invitations_count` + `questions_editable`. **Not built here:**
+  the response book (S3) and the attention notification/task + resolve (S4).
 
 Frontend routes: `/login`, `/leads` (views: All / My Leads / Unassigned / Team / Archived, inline
 owner control, bulk assign, status/rating/aging columns, "Stale only" filter), `/leads/new`,
@@ -315,7 +339,10 @@ wizard), `/qualification` (worklist), `/assignment` (unassigned queue, team work
 the account), `/companies` (account book: status/tier filters and
 pagination), `/companies/new` (manual creation), `/companies/:id` (Overview / Contacts / Sites /
 Opportunities (row links + "Add deal", engagements summary links to the board) / Contracts /
-Activities tabs; sites and branch links are manager-only,
+Communications / Satisfaction / Activities tabs; the Satisfaction tab lists the account's survey
+sends (state, recipient, sent/closes, **Copy link**, **Resend**, **Withdraw**, the score once
+answered) and, for whoever may update the account, **Send survey** opens the dialog — active survey,
+contact (or a typed address), optional contract and note — and reports a mocked rejection; sites and branch links are manager-only,
 contacts are editable by whoever owns the account, the Overview carries the client-lifecycle panel,
 the failed-handoff retry banner and the manager-only billing snapshot), `/contacts` (global contact
 book: search + role/status/
@@ -369,10 +396,15 @@ list carries a **Next follow-up** column, leads/accounts/deals carry a **Follow-
 contracts tab offers a per-contract one, and the three timelines mark an owed task with its due state
 and due moment. The topbar bell lists the assignment and due notifications, each opening the item it
 is about (the follow-up, the message, or the lead it hangs off). `/surveys` (the library: search +
-active/draft/retired filters, question count and author per row, **Duplicate** / **Retire** /
-**Restore**, **New survey** for manager+), `/surveys/new` and `/surveys/:id` (the form plus the
-**question builder** — add/move/remove, type, prompt, help, required, options for the choice types —
-with a live **Preview** of the client's page; a retired survey opens read-only). The sidebar
+active/draft/retired filters, question and **send** counts, author per row, **Duplicate** / **Retire** /
+**Restore**, **New survey** for manager+ and an **Invitations** link), `/surveys/new` and
+`/surveys/:id` (the form plus the **question builder** — add/move/remove, type, prompt, help,
+required, options for the choice types — with a live **Preview** of the client's page; a retired
+survey opens read-only and a **sent** one shows its questions locked with *Duplicate into an editable
+copy* and still saves its wording), `/survey-invitations` (the book: state/survey filters + search,
+**Copy link**, **Resend**, **Withdraw**), and `/survey/:token` — the client's page, **outside the
+dashboard shell and without login**, rendering the questions by type (1–5 row, 0–10 NPS row, radios,
+checkboxes, textarea) with a thank-you state and a plain reason for a dead link. The sidebar
 is **grouped by module** — module 01's submodules under `Lead & Client Tracking`, module 02's screens
 under `Opportunity Pipeline Visualization`, module 03's slices under `Communication History
 Management`, module 04's under `Follow-up Reminder System`, module 05's under `Client Satisfaction &
@@ -451,7 +483,13 @@ already owes S1's forklift task) are reported as skipped. A second run creates n
 worklist demos both the generator and its idempotence. **Module 05 S1 seeds the survey library** —
 three active surveys (post-deployment check-in, quarterly account review, exit survey), a **draft**
 pilot and a **retired** referral pulse — so the book's state filters, **Duplicate** and **Restore**
-demo from real rows; invitations, responses and their outcomes are seeded by S2–S4.
+demo from real rows. **Module 05 S2 seeds five invitations and two responses** the way the API
+writes them (a real `Communication` each, responses through `SurveyResponse::record()`, dates
+backdated): a submitted check-in for Harbor (CSAT 5 / NPS 10) and for Sunrise (CSAT 2 / NPS 4, the
+attention item S4 will act on, flagged at submit), an **open** one for BPO — its link is the live demo
+of the public form — an **expired** one for Greenfield Hotels and a **cancelled** quarterly review for
+Sunrise, so every state is on the page. S3 reuses those two answers for its summary; S4 marks the
+Sunrise one as resolved-later work.
 
 ## Conventions that differ from framework defaults
 
@@ -538,8 +576,8 @@ reuses `Activity` and the reserved
 `CommunicationStatus.scheduled` rather than adding a table. **Module 05** (Client Satisfaction &
 Survey) is **in progress** — `resources/specs/13-client-satisfaction-survey.md` declares four slices
 (ADR-0016, ADR-0019): **S1 survey library, S2 invitations + the tokenized public form, S3 responses
-& scoring, S4 closed-loop follow-through**; **S1 (the survey library) is built**, S2–S4 follow. The
-module adds five tables (`surveys`,
+& scoring, S4 closed-loop follow-through**; **S1 (the survey library) and S2 (the invitations and the
+tokenized public form) are built**, S3–S4 follow. The module adds five tables (`surveys`,
 `survey_questions`, `survey_invitations`, `survey_responses`, `survey_answers`) and reuses module 03
 for delivery and module 04 for the follow-up an unhappy answer raises. The roadmap is **ADR-0014**.
 Dedup/merge and advanced tiers are module-01 deferrals

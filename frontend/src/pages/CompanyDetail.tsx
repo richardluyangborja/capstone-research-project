@@ -8,6 +8,7 @@ import AlertItem from '../components/common/AlertItem'
 import EmptyState from '../components/common/EmptyState'
 import DataTable, { type DataTableColumn } from '../components/common/DataTable'
 import CommunicationList from '../components/common/CommunicationList'
+import CompanySatisfactionPanel from '../components/common/CompanySatisfactionPanel'
 import {
   createCompanySite,
   deleteCompany,
@@ -74,6 +75,7 @@ type TabKey =
   | 'opportunities'
   | 'contracts'
   | 'communications'
+  | 'satisfaction'
   | 'activities'
 
 const tabKeys: TabKey[] = [
@@ -83,6 +85,7 @@ const tabKeys: TabKey[] = [
   'opportunities',
   'contracts',
   'communications',
+  'satisfaction',
   'activities',
 ]
 
@@ -749,13 +752,16 @@ export default function CompanyDetail() {
   }
 
   const statusMeta = companyStatusMeta[company.status]
-  const tabs: { key: TabKey; label: string; count: number }[] = [
+  const tabs: { key: TabKey; label: string; count?: number }[] = [
     { key: 'overview', label: 'Overview', count: company.counts.branches },
     { key: 'contacts', label: 'Contacts', count: company.counts.contacts },
     { key: 'sites', label: 'Sites', count: company.counts.sites },
     { key: 'opportunities', label: 'Opportunities', count: company.counts.opportunities },
     { key: 'contracts', label: 'Contracts', count: company.counts.contracts },
     { key: 'communications', label: 'Communications', count: company.counts.communications },
+    // Satisfaction has no count in the account payload: its sends are fetched by the panel
+    // itself (module 05 slice S2).
+    { key: 'satisfaction', label: 'Satisfaction' },
     { key: 'activities', label: 'Activities', count: company.counts.activities },
   ]
 
@@ -1142,13 +1148,15 @@ export default function CompanyDetail() {
               }`}
             >
               {entry.label}
-              <span
-                className={`rounded px-1.5 text-xs ${
-                  active ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
-                }`}
-              >
-                {entry.count}
-              </span>
+              {entry.count !== undefined && (
+                <span
+                  className={`rounded px-1.5 text-xs ${
+                    active ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
+                  }`}
+                >
+                  {entry.count}
+                </span>
+              )}
             </button>
           )
         })}
@@ -2359,6 +2367,10 @@ export default function CompanyDetail() {
             canLog={company.can_update}
           />
         </FormCard>
+      )}
+
+      {tab === 'satisfaction' && (
+        <CompanySatisfactionPanel companyId={company.id} canSend={company.can_update} />
       )}
 
       {tab === 'activities' && (

@@ -1042,8 +1042,8 @@ export interface SurveyQuestionInput {
 
 /**
  * A reusable satisfaction survey (module 05 slice S1) — the house's wording and its ordered
- * question set. Sending and responses arrive in slices S2–S3; until then the library is all there
- * is, and a survey is a draft until it is activated.
+ * question set. Slice S2 sends it as an invitation and freezes the questions once it has gone out,
+ * so `questions_editable` is what the form reads; `duplicate` is the way to change them.
  */
 export interface Survey {
   id: string
@@ -1052,6 +1052,9 @@ export interface Survey {
   is_active: boolean
   questions?: SurveyQuestion[]
   questions_count?: number
+  invitations_count?: number
+  /** False once any invitation exists (spec 13 §Business rules 1). */
+  questions_editable?: boolean
   created_by: number | null
   author: { id: number; name: string } | null
   can_update: boolean
@@ -1070,4 +1073,132 @@ export interface SurveyInput {
   description?: string | null
   is_active?: boolean
   questions?: SurveyQuestionInput[]
+}
+
+/** What an invitation reads as today — `expired` is derived from its window, not stored. */
+export type SurveyInvitationStateName =
+  | 'sent'
+  | 'expired'
+  | 'failed'
+  | 'submitted'
+  | 'cancelled'
+
+/** The scored band of a promoter answer (9–10 / 7–8 / 0–6). */
+export type SurveyBandName = 'promoter' | 'passive' | 'detractor'
+
+/** One answer inside a response, with the question it belongs to. */
+export interface SurveyAnswer {
+  id: string
+  question_id: string
+  question?: {
+    id: string
+    type: SurveyQuestionTypeName | null
+    prompt: string
+    options: string[] | null
+  } | null
+  value_number: number | null
+  value_text: string | null
+  value_options: string[] | null
+}
+
+/**
+ * What a client answered (module 05 slice S2) — scored at submission. The response book and the
+ * account card build on this shape in slice S3.
+ */
+export interface SurveyResponseSummary {
+  id: string
+  submitted_at: string | null
+  csat: number | null
+  nps: number | null
+  band: SurveyBandName | null
+  needs_attention: boolean
+  survey?: { id: string; name: string } | null
+  company?: { id: string; name: string } | null
+  contact?: { id: string; name: string } | null
+  invitation?: { id: string; reference: string } | null
+  answers?: SurveyAnswer[]
+  created_at: string
+}
+
+/**
+ * One send of a survey (module 05 slice S2). `state` is the derived reading; `public_url` travels
+ * only while the client can still use it.
+ */
+export interface SurveyInvitation {
+  id: string
+  reference: string
+  survey?: { id: string; name: string; description: string | null } | null
+  company?: { id: string; name: string } | null
+  contact?: { id: string; name: string; email: string | null } | null
+  contract?: { id: string; title: string; reference: string } | null
+  recipient_name: string | null
+  recipient_email: string
+  message: string | null
+  status: string | null
+  state: SurveyInvitationStateName
+  state_label: string
+  failed_reason: string | null
+  sent_at: string | null
+  expires_at: string | null
+  submitted_at: string | null
+  public_url?: string
+  communication?: {
+    id: string
+    reference: string
+    subject: string | null
+    status: string | null
+    external_id: string | null
+  } | null
+  response?: SurveyResponseSummary | null
+  can_cancel: boolean
+  can_resend: boolean
+  created_at: string
+  updated_at: string
+}
+
+export type SurveyInvitationsPage = Omit<Paginated<SurveyInvitation>, 'links'>
+
+/** What sending a survey needs: the account, and optionally a person, a contract and a note. */
+export interface SurveyInvitationInput {
+  company_id: string
+  contact_id?: string | null
+  contract_id?: string | null
+  recipient_name?: string | null
+  recipient_email?: string | null
+  message?: string | null
+}
+
+/**
+ * The client's page (module 05 slice S2). It carries the survey being asked and the greeting's
+ * account name — never the account's other data (spec 13 §Business rules 6).
+ */
+export interface PublicSurvey {
+  survey: {
+    id: string
+    name: string
+    description: string | null
+    questions: PublicSurveyQuestion[]
+  }
+  company: { name: string }
+  contact: { name: string } | null
+  expires_at: string | null
+}
+
+/** One question on the client's page: the type, and the range or options it accepts. */
+export interface PublicSurveyQuestion {
+  id: string
+  type: SurveyQuestionTypeName
+  prompt: string
+  help: string | null
+  required: boolean
+  options: string[]
+  bounds: { min: number; max: number } | null
+}
+
+/** One answer as the public form submits it — only the column its type uses is filled. */
+export interface PublicSurveyAnswerInput {
+  question_id: string
+  value_number?: number | null
+  value_text?: string | null
+  value_options?: string[] | null
 }

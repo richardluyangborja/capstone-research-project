@@ -1,10 +1,10 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowDown, ArrowLeft, ArrowUp, Plus, Save, Trash2 } from 'lucide-react'
+import { ArrowDown, ArrowLeft, ArrowUp, CopyPlus, Plus, Save, Trash2 } from 'lucide-react'
 import PageHeader from '../components/common/PageHeader'
 import FormCard from '../components/common/FormCard'
 import AlertItem from '../components/common/AlertItem'
-import { createSurvey, getSurvey, updateSurvey } from '../lib/surveys'
+import { createSurvey, duplicateSurvey, getSurvey, updateSurvey } from '../lib/surveys'
 import { surveyQuestionTypeMeta, surveyQuestionTypes } from '../lib/surveyMeta'
 import { parseValidationError } from '../lib/leads'
 import type { Survey, SurveyQuestionInput, SurveyQuestionTypeName } from '../types'
@@ -46,6 +46,7 @@ export default function SurveyForm() {
   const [questions, setQuestions] = useState<QuestionDraft[]>([draft()])
 
   const [retired, setRetired] = useState(false)
+  const [frozen, setFrozen] = useState(false)
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(editing)
   const [message, setMessage] = useState('')
@@ -72,6 +73,7 @@ export default function SurveyForm() {
           })),
         )
         setRetired(survey.deleted_at !== null)
+        setFrozen(survey.questions_editable === false)
       } catch {
         setMessage(
           'Could not load that survey. It may have been retired — look it up in the library and restore it first.',
@@ -115,8 +117,25 @@ export default function SurveyForm() {
     setQuestions((current) => current.filter((question) => question.key !== key))
   }
 
-  const onSubmit = async (event: FormEvent) => {
-    event.preventDefault()
+  /**
+   * A frozen survey cannot change its questions, so the way to version it is a copy — the same
+   * path the library offers (spec 13 §Business rules 1, ADR-0019 §1).
+   */
+  const onDuplicate = async () => {
+    if (!id) return
+    setSaving(true)
+    setMessage('')
+    try {
+      const copy = await duplicateSurvey(id)
+      navigate(`/surveys/${copy.id}`)
+    } catch {
+      setMessage('Could not duplicate that survey.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const onSubmit = async (event: FormEvent) => {    event.preventDefault()
     setMessage('')
     setErrors({})
 
@@ -124,18 +143,22 @@ export default function SurveyForm() {
       name: name.trim(),
       description: description.trim() || null,
       is_active: isActive,
-      questions: questions.map((question): SurveyQuestionInput => {
-        const input: SurveyQuestionInput = {
-          type: question.type,
-          prompt: question.prompt.trim(),
-          help: question.help.trim() || null,
-          required: question.required,
-        }
-        if (surveyQuestionTypeMeta[question.type].hasOptions) {
-          input.options = question.options.map((option) => option.trim()).filter(Boolean)
-        }
-        return input
-      }),
+      ...(frozen
+        ? {}
+        : {
+            questions: questions.map((question): SurveyQuestionInput => {
+              const input: SurveyQuestionInput = {
+                type: question.type,
+                prompt: question.prompt.trim(),
+                help: question.help.trim() || null,
+                required: question.required,
+              }
+              if (surveyQuestionTypeMeta[question.type].hasOptions) {
+                input.options = question.options.map((option) => option.trim()).filter(Boolean)
+              }
+              return input
+            }),
+          }),
     }
 
     setSaving(true)
@@ -250,6 +273,26 @@ export default function SurveyForm() {
                 <p className="mb-3 text-sm text-destructive">{errors.questions.join(' ')}</p>
               )}
 
+              {frozen && !retired && (
+                <div className="mb-4">
+                  <AlertItem variant="info" title="Questions frozen">
+                    <p>
+                      This survey has already been sent, so these questions are what clients
+                      answered. Duplicate it to change what is asked — what it gathered stays here.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => void onDuplicate()}
+                      disabled={saving}
+                      className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-counts disabled:opacity-60"
+                    >
+                      <CopyPlus className="h-3.5 w-3.5" aria-hidden="true" />
+                      Duplicate into an editable copy
+                    </button>
+                  </AlertItem>
+                </div>
+              )}
+
               {questions.length === 0 && (
                 <p className="text-sm text-muted-foreground">
                   No questions yet — add one, or the survey cannot be activated.
@@ -270,7 +313,7 @@ export default function SurveyForm() {
                         <button
                           type="button"
                           onClick={() => move(index, -1)}
-                          disabled={index === 0 || retired}
+                          disabled={index === 0 || retired || frozen}
                           aria-label={`Move question ${index + 1} up`}
                           className="rounded-md p-1 text-muted-foreground hover:bg-muted disabled:opacity-40"
                         >
@@ -279,7 +322,7 @@ export default function SurveyForm() {
                         <button
                           type="button"
                           onClick={() => move(index, 1)}
-                          disabled={index === questions.length - 1 || retired}
+                          disabled={index === questions.length - 1 || retired || frozen}
                           aria-label={`Move question ${index + 1} down`}
                           className="rounded-md p-1 text-muted-foreground hover:bg-muted disabled:opacity-40"
                         >
@@ -288,7 +331,7 @@ export default function SurveyForm() {
                         <button
                           type="button"
                           onClick={() => removeQuestion(question.key)}
-                          disabled={retired}
+                          disabled={retired || frozen}
                           aria-label={`Remove question ${index + 1}`}
                           className="rounded-md p-1 text-destructive hover:bg-muted disabled:opacity-40"
                         >
@@ -304,7 +347,7 @@ export default function SurveyForm() {
                           onChange={(event) =>
                             changeType(question, event.target.value as SurveyQuestionTypeName)
                           }
-                          disabled={retired}
+                          disabled={retired || frozen}
                           className={inputClass}
                         >
                           {surveyQuestionTypes.map((type) => (
@@ -322,7 +365,7 @@ export default function SurveyForm() {
                             updateQuestion(question.key, { prompt: event.target.value })
                           }
                           placeholder="How satisfied are you with the deployment?"
-                          disabled={retired}
+                          disabled={retired || frozen}
                           className={inputClass}
                         />
                       </Field>
@@ -336,7 +379,7 @@ export default function SurveyForm() {
                             updateQuestion(question.key, { help: event.target.value })
                           }
                           placeholder="0 = not at all likely, 10 = extremely likely."
-                          disabled={retired}
+                          disabled={retired || frozen}
                           className={inputClass}
                         />
                       </Field>
@@ -366,7 +409,7 @@ export default function SurveyForm() {
                                   updateQuestion(question.key, { options: next })
                                 }}
                                 placeholder={`Option ${optionIndex + 1}`}
-                                disabled={retired}
+                                disabled={retired || frozen}
                                 className={inputClass}
                               />
                               <button
@@ -378,7 +421,7 @@ export default function SurveyForm() {
                                     ),
                                   })
                                 }
-                                disabled={question.options.length <= 2 || retired}
+                                disabled={question.options.length <= 2 || retired || frozen}
                                 aria-label={`Remove option ${optionIndex + 1} of question ${index + 1}`}
                                 className="rounded-md p-1 text-destructive hover:bg-muted disabled:opacity-40"
                               >
@@ -394,7 +437,7 @@ export default function SurveyForm() {
                               options: [...question.options, ''],
                             })
                           }
-                          disabled={question.options.length >= 10 || retired}
+                          disabled={question.options.length >= 10 || retired || frozen}
                           className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-counts disabled:opacity-50"
                         >
                           <Plus className="h-3.5 w-3.5" aria-hidden="true" />
@@ -410,7 +453,7 @@ export default function SurveyForm() {
                         onChange={(event) =>
                           updateQuestion(question.key, { required: event.target.checked })
                         }
-                        disabled={retired}
+                        disabled={retired || frozen}
                         className="h-4 w-4 rounded border-input"
                       />
                       Required — the client cannot submit without answering
@@ -422,7 +465,7 @@ export default function SurveyForm() {
               <button
                 type="button"
                 onClick={() => setQuestions((current) => [...current, draft()])}
-                disabled={questions.length >= 30 || retired}
+                disabled={questions.length >= 30 || retired || frozen}
                 className="mt-4 inline-flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-50"
               >
                 <Plus className="h-4 w-4" aria-hidden="true" />
@@ -453,7 +496,7 @@ export default function SurveyForm() {
         <aside>
           <FormCard
             title="Preview"
-            description="How the questions read on the client’s page — the link itself arrives in slice S2."
+            description="How the questions read on the client’s page."
           >
             {name.trim() && (
               <p className="text-base font-semibold text-foreground">{name.trim()}</p>

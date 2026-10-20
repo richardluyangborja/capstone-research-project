@@ -38,7 +38,7 @@ class SurveyController extends Controller
 
         $surveys = Survey::query()
             ->with('author:id,name')
-            ->withCount('questions')
+            ->withCount(['questions', 'invitations'])
             // `filter[active]=false` is a real request, so the key's presence decides — not its truthiness.
             ->when(array_key_exists('active', $filters), fn ($query) => $query->where(
                 'is_active',
@@ -210,11 +210,12 @@ class SurveyController extends Controller
 
     /**
      * The relations a payload needs: the author always, the question count on a row and the
-     * questions themselves on the detail the form and the preview read.
+     * questions themselves on the detail the form and the preview read. The invitation count is
+     * what makes `questions_editable` answerable without a second query.
      */
     private function withBookRelations(Survey $survey, bool $withQuestions = false): Survey
     {
-        $survey->load('author:id,name')->loadCount('questions');
+        $survey->load('author:id,name')->loadCount(['questions', 'invitations']);
 
         return $withQuestions ? $survey->load('questions') : $survey;
     }
