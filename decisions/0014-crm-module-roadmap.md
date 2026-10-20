@@ -25,6 +25,8 @@ module 01. That overloaded term makes "what is left?" ambiguous as we plan the n
 
    The AI service (dashboard + management reports + suggestions, `resources/system-ai-feature.md`) is
    **cross-cutting**, not a sixth module: it consumes the data modules 01–05 produce and is built last.
+   **ADR-0020** pulls its dashboard layer (spec `14`, D1) ahead of module 05 S4 for the presentation
+   and defers S4; the Python service itself stays last (D3).
 
 2. **Ordering rationale.** Module 02 goes first because submodule 08 deliberately created the
    `Opportunity` record but left its pipeline out (ADR-0012 §1) — it is the only dangling thread and

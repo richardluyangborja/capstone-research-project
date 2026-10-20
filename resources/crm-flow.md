@@ -94,9 +94,10 @@ on the one before:
 | 02 | Opportunity Pipeline Visualization | `Opportunity` record (08) | `10` **(built)** |
 | 03 | Communication History Management | objects from 01–02 | `11` **(built)** |
 | 04 | Follow-up Reminder System | 03 + notifications | `12` **(built)** |
-| 05 | Client Satisfaction & Survey | clients + contacts | `13` (in progress — 4 slices; S1–S3 built) |
+| 05 | Client Satisfaction & Survey | clients + contacts | `13` (in progress — 4 slices; S1–S3 built, S4 deferred behind the dashboard) |
+| — | Dashboard & management reports (cross-cutting) | 01–05 | `14` (D1 built with simulated data; D2/D3 planned) |
 
-The AI service (dashboard + management reports + suggestions) is cross-cutting and built after 01–05.
+The AI service (dashboard + management reports + suggestions) is cross-cutting, not a sixth module (ADR-0014). Its **dashboard layer** is pulled ahead of module 05 S4 for the presentation and ships **D1 with simulated data** (spec `14`, ADR-0020); the Python service is the last slice (D3).
 Duplicate detection/merge and advanced tiers/health are still-open **module-01** deferrals (ADR-0006).
 
 ## Module 02 → submodules (built, ADR-0015)
@@ -154,7 +155,7 @@ module 04.
 
 Automatic client aging is **not** here — ADR-0018 §6 keeps it a standalone deferral.
 
-## Module 05 → delivery slices (S1–S3 built; S4 planned — ADR-0019)
+## Module 05 → delivery slices (S1–S3 built; S4 deferred — ADR-0019, ADR-0020)
 
 The last CRM module (spec `13`): close the loop after the sale.
 
@@ -173,11 +174,25 @@ The last CRM module (spec `13`): close the loop after the sale.
    CSAT, NPS, the response rate (answers over answerable sends — not failed or withdrawn ones) and
    the attention count for the caller's scope. Nothing is stored twice: the numbers are aggregates
    over the responses on read.
-4. **S4 Closed-loop follow-through** — an unhappy answer notifies the account owner and raises a
-   module-04 follow-up task on the company (`source_key satisfaction:{response}`); the owner resolves
-   it with a note.
+4. **S4 Closed-loop follow-through** *(deferred behind the dashboard, ADR-0020)* — an unhappy answer
+   notifies the account owner and raises a module-04 follow-up task on the company
+   (`source_key satisfaction:{response}`); the owner resolves it with a note.
 
 Automatic sends (on signing/renewal/churn) and reminder emails are deliberately unbuilt (ADR-0019).
+
+## Dashboard & management reports (D1 built, simulated — ADR-0020)
+
+The cross-cutting read layer over modules 01–05 (`specs/14`, ADR-0020), pulled ahead of module 05 S4
+for the presentation. **D1** ships `/dashboard` with **simulated data**: one deterministic fixture
+module (`frontend/src/mocks/dashboard.ts`) behind a single accessor (`getDashboard(role, range)`),
+badged `Simulated data` / `Simulated AI`. It is role-aware — a salesrep reads their book, a manager
+the team, an admin the org — and reuses `DashboardShell`; four primary + four secondary KPI cards, a
+line chart and a donut, a needs-attention table, alerts, recent activity, a staff scorecard and the AI
+management report all link to existing module pages. The scorecard pairs CRM output with **core2 HR**
+figures (attendance, leave, late arrivals) through the planned `HrGateway` mock; missing HR data reads
+`—`, never `0`. **D2** replaces the fixtures with `/api/v1/dashboard`, `/dashboard/worklist` and
+`/dashboard/staff-performance` (contract in spec 14 §"Data contract"); **D3** wires the `ai/` service
+with a 3-second timeout and a rules-based fallback. No table and no backend change in D1.
 
 ## Role data visibility (ADR-0004)
 

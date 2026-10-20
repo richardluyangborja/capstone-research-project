@@ -30,10 +30,13 @@ Deferred **inside** module 01: 5. Duplicate Detection & Merge and advanced tiers
 | `10-opportunity-pipeline-visualization.md` | 2. Opportunity Pipeline Visualization *(done — 1 slice)* |
 | `11-communication-history.md` | 3. Communication History Management *(done — 5 slices)* |
 | `12-follow-up-reminders.md` | 4. Follow-up Reminder System *(done — 4 slices)* |
-| `13-client-satisfaction-survey.md` | 5. Client Satisfaction & Survey *(in progress — 4 slices; S1–S3 built)* |
+| `13-client-satisfaction-survey.md` | 5. Client Satisfaction & Survey *(in progress — 4 slices; S1–S3 built, S4 deferred)* |
+| `14-dashboard-management-reports.md` | Cross-cutting. Dashboard & management reports *(D1 built with simulated data; D2/D3 planned)* |
 
 The AI service (dashboard + management reports + suggestions) is cross-cutting and is built after
-modules 01–05.
+modules 01–05. Its dashboard layer was pulled ahead of module 05 S4 for the presentation and ships
+**D1 with simulated data** (spec `14`, ADR-0020); **D2** wires the real endpoints and **D3** the
+Python service, which stays last.
 
 From module 02 on, the delivery unit is the **slice**, not the spec file: each spec declares its slices
 with their own acceptance criteria and each ships as its own PR (ADR-0016). Module 01 predates this and
