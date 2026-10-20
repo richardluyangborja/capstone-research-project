@@ -10,12 +10,7 @@ import { listSurveyResponses } from '../lib/satisfaction'
 import { listSurveys } from '../lib/surveys'
 import { formatCsat, formatNps, surveyBandMeta, surveyBandNames } from '../lib/surveyMeta'
 import { formatDateTime } from '../lib/format'
-import type {
-  Survey,
-  SurveyBandName,
-  SurveyResponseFilters,
-  SurveyResponseSummary,
-} from '../types'
+import type { Survey, SurveyBandName, SurveyResponseFilters, SurveyResponseSummary } from '../types'
 
 /**
  * The response book (module 05 slice S3, spec 13 §S3): every answer in view, newest first.
@@ -32,8 +27,16 @@ export default function SurveyResponses() {
   const [surveys, setSurveys] = useState<Survey[]>([])
   const [search, setSearch] = useState('')
   const [survey, setSurvey] = useState(searchParams.get('survey') ?? '')
-  const [band, setBand] = useState<SurveyBandName | ''>('')
-  const [attention, setAttention] = useState<'true' | 'false' | ''>('')
+  const [band, setBand] = useState<SurveyBandName | ''>(
+    (searchParams.get('band') as SurveyBandName | null) ?? '',
+  )
+  const [attention, setAttention] = useState<'true' | 'false' | ''>(
+    searchParams.get('attention') === 'true'
+      ? 'true'
+      : searchParams.get('attention') === 'false'
+        ? 'false'
+        : '',
+  )
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [page, setPage] = useState(1)
@@ -194,7 +197,10 @@ export default function SurveyResponses() {
         <div className="mb-4">
           <AlertItem variant="info">
             Showing one account’s answers.{' '}
-            <Link to="/satisfaction/responses" className="inline-flex items-center gap-1 font-medium">
+            <Link
+              to="/satisfaction/responses"
+              className="inline-flex items-center gap-1 font-medium"
+            >
               <X className="h-3.5 w-3.5" aria-hidden="true" />
               Read every account
             </Link>

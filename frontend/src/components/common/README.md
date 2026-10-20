@@ -20,7 +20,9 @@ check this list first:
 - `LostReasonDialog` — reason prompt before a deal is marked lost (module 02) — **done**
 - `CommunicationList` — one record's communication history + the log entry point (module 03, shared by the account tab and the lead/deal sections) — **done**
 - `RescheduleDialog` — the due-date prompt on the follow-up worklist and task page (module 04) — **done**
-- `ChartCard` — line + donut chart wrapper — pending
+- `ChartCard` — chart wrapper (title, description, action, footer) — **done**
+- `LineChart` — token-only SVG line chart, multi-series, accessible — **done** (spec 14)
+- `DonutChart` — token-only SVG donut with a clickable legend — **done** (spec 14)
 - `DataTable` — list/tables with filters slot, pagination, bulk actions — **done**
 
 Rules: tokens/utilities only (no hardcoded hex or arbitrary px); icons from `lucide-react`; render

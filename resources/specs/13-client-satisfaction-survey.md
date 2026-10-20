@@ -4,7 +4,8 @@ Module 5 (ADR-0014). Entities: `Survey`, `SurveyQuestion`, `SurveyInvitation`, `
 `SurveyAnswer` (new); `Communication`, `Activity`, `Company`, `Contact`, `Contract`, `User` (reused).
 ADRs: 0004, 0005, 0007, 0013, 0014, 0016, 0017, 0018, **0019**.
 
-> **Slices S1–S4 declared; S1–S3 built.** The module ships one slice per PR (ADR-0016 §2). The client
+> **Slices S1–S4 declared; S1–S3 built, S4 deferred behind the dashboard (ADR-0020).** The module
+> ships one slice per PR (ADR-0016 §2). The client
 > answers through a **tokenized public link** (no login) that the invitation emails, built from
 > configuration so local and production differ only by an env value (ADR-0019 §4). A survey is a
 > reusable template frozen once it has been sent; an unhappy answer closes the loop automatically
@@ -40,11 +41,12 @@ coherent.
 | **S1** *(built)* | `feature/survey-library` | Surveys & the question bank | author a post-deployment check-in (rating + NPS + comment), activate it, retire it, restore it |
 | **S2** | `feature/survey-invitations` | Invitations & the public form | send the check-in to a client → open the emailed link in a browser → answer → the invitation is `submitted` and the account history shows the email |
 | **S3** | `feature/satisfaction-views` | Responses, scoring & the satisfaction view | the response book with CSAT/NPS bands, the account's satisfaction card and the org summary |
-| **S4** | `feature/satisfaction-follow-through` | Closed-loop follow-through | an unhappy answer raises a task + a bell notification; the owner resolves it with a note |
+| **S4** *(deferred — ADR-0020)* | `feature/satisfaction-follow-through` | Closed-loop follow-through | an unhappy answer raises a task + a bell notification; the owner resolves it with a note |
 
 S1 is the library every later slice reads from. S2 makes the round trip work and freezes a survey the
 moment it goes out. S3 turns answers into the numbers a manager acts on. S4 makes an unhappy number
-*somebody's job*.
+*somebody's job*; it is deferred behind the dashboard layer for the presentation (ADR-0020) and is
+still fully specified below.
 
 ## Data model
 
