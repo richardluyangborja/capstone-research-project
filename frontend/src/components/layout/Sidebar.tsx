@@ -7,6 +7,7 @@ import {
   ClipboardCheck,
   ClipboardList,
   FileText,
+  Gauge,
   Handshake,
   History,
   Inbox,
@@ -87,12 +88,14 @@ const groups: NavGroup[] = [
     items: [{ to: '/follow-ups', label: 'Follow-up Reminders', icon: CalendarClock }],
   },
   {
-    // Module 05 (ADR-0014 §1, ADR-0019, ADR-0016). One entry per shipped slice: S1 is the survey
-    // library; invitations, the satisfaction view and the closed loop follow.
+    // Module 05 (ADR-0014 §1, ADR-0019, ADR-0016). One entry per shipped slice: S1 the library,
+    // S2 the invitations, S3 the answers and the satisfaction view; the closed loop follows.
     label: 'Client Satisfaction & Survey',
     items: [
       { to: '/surveys', label: 'Survey Library', icon: ClipboardList },
       { to: '/survey-invitations', label: 'Invitations', icon: Send },
+      { to: '/satisfaction', label: 'Satisfaction', icon: Gauge, end: true },
+      { to: '/satisfaction/responses', label: 'Responses', icon: MessagesSquare },
     ],
   },
 ]

@@ -38,7 +38,7 @@ class SurveyController extends Controller
 
         $surveys = Survey::query()
             ->with('author:id,name')
-            ->withCount(['questions', 'invitations'])
+            ->withCount(['questions', 'invitations', 'responses'])
             // `filter[active]=false` is a real request, so the key's presence decides — not its truthiness.
             ->when(array_key_exists('active', $filters), fn ($query) => $query->where(
                 'is_active',
@@ -215,7 +215,7 @@ class SurveyController extends Controller
      */
     private function withBookRelations(Survey $survey, bool $withQuestions = false): Survey
     {
-        $survey->load('author:id,name')->loadCount(['questions', 'invitations']);
+        $survey->load('author:id,name')->loadCount(['questions', 'invitations', 'responses']);
 
         return $withQuestions ? $survey->load('questions') : $survey;
     }

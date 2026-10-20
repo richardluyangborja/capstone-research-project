@@ -1053,6 +1053,7 @@ export interface Survey {
   questions?: SurveyQuestion[]
   questions_count?: number
   invitations_count?: number
+  responses_count?: number
   /** False once any invitation exists (spec 13 §Business rules 1). */
   questions_editable?: boolean
   created_by: number | null
@@ -1111,6 +1112,7 @@ export interface SurveyResponseSummary {
   csat: number | null
   nps: number | null
   band: SurveyBandName | null
+  band_label?: string | null
   needs_attention: boolean
   survey?: { id: string; name: string } | null
   company?: { id: string; name: string } | null
@@ -1118,6 +1120,57 @@ export interface SurveyResponseSummary {
   invitation?: { id: string; reference: string } | null
   answers?: SurveyAnswer[]
   created_at: string
+}
+
+/** The response book's filters (module 05 slice S3, spec 13 §S3). */
+export interface SurveyResponseFilters {
+  survey?: string
+  company?: string
+  band?: SurveyBandName | ''
+  attention?: 'true' | 'false' | ''
+  date_from?: string
+  date_to?: string
+  search?: string
+  page?: number
+}
+
+/**
+ * The satisfaction numbers every view shares (module 05 slice S3). Nothing here is stored: CSAT
+ * is the mean of the responses' own scores, NPS is promoters − detractors over the answers that
+ * carried the promoter question, and the rate pairs answers with answerable invitations.
+ */
+export interface SatisfactionMetrics {
+  responses: number
+  csat: number | null
+  nps: number | null
+  promoters: number
+  passives: number
+  detractors: number
+  answered: number
+  attention: number
+  invitations: number
+  response_rate: number | null
+}
+
+/** The org summary: the numbers plus the latest answers, which the page lists. */
+export interface SatisfactionSummary extends SatisfactionMetrics {
+  recent: SurveyResponseSummary[]
+}
+
+/** The account's card: the same numbers, its latest answer and a short trend (oldest first). */
+export interface CompanySatisfaction extends SatisfactionMetrics {
+  latest: {
+    id: string
+    survey: { id: string; name: string } | null
+    csat: number | null
+    nps: number | null
+    band: SurveyBandName | null
+    band_label: string | null
+    needs_attention: boolean
+    submitted_at: string | null
+  } | null
+  trend: { submitted_at: string | null; csat: number | null; nps: number | null }[]
+  recent: SurveyResponseSummary[]
 }
 
 /**

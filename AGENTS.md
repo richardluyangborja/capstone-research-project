@@ -327,7 +327,22 @@ Laravel's own and is separate from `frontend/`.
   410. `SurveyResponseSubmitted` writes a `system` activity on the account. The question set freezes
   the moment an invitation exists (422 when `questions` is sent at all — name/description/active still
   save), and `SurveyResource` carries `invitations_count` + `questions_editable`. **Not built here:**
-  the response book (S3) and the attention notification/task + resolve (S4).
+  the closed loop — the attention notification, the follow-up task and resolve (S4).
+- **Module 05 slice S3 — the response book & the satisfaction view:** `GET /survey-responses`
+  (`filter[survey|company|band|attention|date_from|date_to]` + `search`, scoped by the account's
+  visibility), `GET /survey-responses/{id}` (the answers in asked order, each with its question),
+  `GET /satisfaction/summary` and `GET /companies/{id}/satisfaction`. A response is immutable — no
+  update, no delete route (ADR-0019 §7). Nothing is stored twice: `SurveyResponse::metrics()` derives
+  CSAT (the mean of the stored per-response scores), NPS (promoter share − detractor share over the
+  answers that carried the promoter question, rounded), the band counts and the attention count in
+  SQL, and the controller pairs in the **response rate** — submitted answers ÷ answerable sends,
+  where a failed or withdrawn invitation is not in the denominator (an `expired` one is: it was
+  answerable while its window was open). A response with no NPS answer is excluded from NPS and the
+  bands but still counts for CSAT and the book. The `SurveyResponsePolicy` only delegates to the
+  account, so the detail is 403 outside the caller's scope and the book lists what they may see (a
+  salesrep their own accounts, a manager the team's, an admin all). `SurveyResource` gained
+  `responses_count`. **Not built here:** the attention notification + module-04 task and the resolve
+  note (S4).
 
 Frontend routes: `/login`, `/leads` (views: All / My Leads / Unassigned / Team / Archived, inline
 owner control, bulk assign, status/rating/aging columns, "Stale only" filter), `/leads/new`,
@@ -339,9 +354,10 @@ wizard), `/qualification` (worklist), `/assignment` (unassigned queue, team work
 the account), `/companies` (account book: status/tier filters and
 pagination), `/companies/new` (manual creation), `/companies/:id` (Overview / Contacts / Sites /
 Opportunities (row links + "Add deal", engagements summary links to the board) / Contracts /
-Communications / Satisfaction / Activities tabs; the Satisfaction tab lists the account's survey
-sends (state, recipient, sent/closes, **Copy link**, **Resend**, **Withdraw**, the score once
-answered) and, for whoever may update the account, **Send survey** opens the dialog — active survey,
+Communications / Satisfaction / Activities tabs; the Satisfaction tab carries the account's card
+(latest CSAT/NPS, the four numbers, the promoter split, a CSAT trend, **Read every answer**) and
+lists its survey sends (state, recipient, sent/closes, **Copy link**, **Resend**, **Withdraw**, the
+score once answered) and, for whoever may update the account, **Send survey** opens the dialog — active survey,
 contact (or a typed address), optional contract and note — and reports a mocked rejection; sites and branch links are manager-only,
 contacts are editable by whoever owns the account, the Overview carries the client-lifecycle panel,
 the failed-handoff retry banner and the manager-only billing snapshot), `/contacts` (global contact
@@ -402,7 +418,11 @@ active/draft/retired filters, question and **send** counts, author per row, **Du
 required, options for the choice types — with a live **Preview** of the client's page; a retired
 survey opens read-only and a **sent** one shows its questions locked with *Duplicate into an editable
 copy* and still saves its wording), `/survey-invitations` (the book: state/survey filters + search,
-**Copy link**, **Resend**, **Withdraw**), and `/survey/:token` — the client's page, **outside the
+**Copy link**, **Resend**, **Withdraw**), `/satisfaction` (the summary: four cards — CSAT, NPS,
+response rate, needs attention — the promoter split and the latest answers), `/satisfaction/responses`
+(the book: survey/band/attention/date filters, search and a `?company=` deep link) and
+`/satisfaction/responses/:id` (one answer read back in the asked order, with its score block, the
+send and the attention notice), and `/survey/:token` — the client's page, **outside the
 dashboard shell and without login**, rendering the questions by type (1–5 row, 0–10 NPS row, radios,
 checkboxes, textarea) with a thank-you state and a plain reason for a dead link. The sidebar
 is **grouped by module** — module 01's submodules under `Lead & Client Tracking`, module 02's screens
@@ -576,8 +596,9 @@ reuses `Activity` and the reserved
 `CommunicationStatus.scheduled` rather than adding a table. **Module 05** (Client Satisfaction &
 Survey) is **in progress** — `resources/specs/13-client-satisfaction-survey.md` declares four slices
 (ADR-0016, ADR-0019): **S1 survey library, S2 invitations + the tokenized public form, S3 responses
-& scoring, S4 closed-loop follow-through**; **S1 (the survey library) and S2 (the invitations and the
-tokenized public form) are built**, S3–S4 follow. The module adds five tables (`surveys`,
+& scoring, S4 closed-loop follow-through**; **S1 (the survey library), S2 (the invitations and the
+tokenized public form) and S3 (the response book and the satisfaction view) are built**; S4
+follows. The module adds five tables (`surveys`,
 `survey_questions`, `survey_invitations`, `survey_responses`, `survey_answers`) and reuses module 03
 for delivery and module 04 for the follow-up an unhappy answer raises. The roadmap is **ADR-0014**.
 Dedup/merge and advanced tiers are module-01 deferrals

@@ -4,7 +4,7 @@ Module 5 (ADR-0014). Entities: `Survey`, `SurveyQuestion`, `SurveyInvitation`, `
 `SurveyAnswer` (new); `Communication`, `Activity`, `Company`, `Contact`, `Contract`, `User` (reused).
 ADRs: 0004, 0005, 0007, 0013, 0014, 0016, 0017, 0018, **0019**.
 
-> **Slices S1–S4 declared; S1–S2 built.** The module ships one slice per PR (ADR-0016 §2). The client
+> **Slices S1–S4 declared; S1–S3 built.** The module ships one slice per PR (ADR-0016 §2). The client
 > answers through a **tokenized public link** (no login) that the invitation emails, built from
 > configuration so local and production differ only by an env value (ADR-0019 §4). A survey is a
 > reusable template frozen once it has been sent; an unhappy answer closes the loop automatically
@@ -233,16 +233,20 @@ accounts, a manager's team, an admin's all. Force-deleting a survey is admin-onl
 
 **S3 — responses & the satisfaction view**
 
-- `/satisfaction` — the summary: CSAT, NPS, response rate and needs-attention cards over the latest
-  window, the band split, and the recent responses (company, survey, CSAT, NPS band, date) linking to
-  their detail; scope tabs (Everyone / Mine / My team) for a manager.
-- `/satisfaction/responses` — the book: company, survey, contact, CSAT, band, submitted date, the
-  attention flag; filters by survey, company, band, attention and date range, plus search.
-- `/satisfaction/responses/:id` — one response: the answers in the order asked (numbers rendered as
-  stars or a 0–10 scale, options as chips, text as written), who it came from, the invitation it
-  answers, and — from S4 — the resolution panel.
-- The account page's **Satisfaction** tab carries the card (latest CSAT/NPS, bands, a small trend)
-  beside the sends.
+- `/satisfaction` — the summary: CSAT, NPS, response rate and needs-attention cards, the band split,
+  and the recent responses (company, survey, CSAT, NPS band, attention, date) linking to their detail.
+  The numbers cover **every answer in the caller's scope** — a salesrep counts their own accounts, a
+  manager the team's, an admin everything — so the page states whose answers it is reading instead of
+  offering an Everyone/Mine/My-team switch (role scoping already decides; see §Permissions).
+- `/satisfaction/responses` — the book: company, contact, survey, CSAT, band, the attention flag,
+  the send and the submitted date; filters by survey, band, attention and date range plus search, and
+  a `?company=` deep link (the account card's "read every answer"), which shows the one-account state
+  without a company picker.
+- `/satisfaction/responses/:id` — one response: the answers in the order asked (a rating as `4 / 5`,
+  the NPS answer as `0–10`, options as a list, text as written), who it came from, the score block and
+  the invitation it answers, and — from S4 — the resolution panel.
+- The account page's **Satisfaction** tab carries the card (latest CSAT/NPS, the four numbers, the
+  band split and a small CSAT trend) beside the sends, with every answer one link away.
 
 **S4 — closed-loop follow-through**
 
@@ -328,14 +332,14 @@ what marks the invitation `submitted`.
 
 **S3**
 
-- [ ] The response book filters by survey, company, band, attention and date, searches across the
+- [x] The response book filters by survey, company, band, attention and date, searches across the
       company/contact/survey, and is scoped to the caller's accounts.
-- [ ] A response detail shows its answers in the order asked with the right value per type.
-- [ ] The account card reports latest CSAT/NPS, the band counts, the trend and recent responses; the
+- [x] A response detail shows its answers in the order asked with the right value per type.
+- [x] The account card reports latest CSAT/NPS, the band counts, the trend and recent responses; the
       summary reports response rate, CSAT, NPS, bands and the attention count for the caller's scope.
-- [ ] CSAT is the mean of the rating answers and NPS the promoter−detractor split, computed on read;
+- [x] CSAT is the mean of the rating answers and NPS the promoter−detractor split, computed on read;
       a response with no NPS answer is excluded from NPS but still counts for CSAT and the book.
-- [ ] Rendered dates are `Asia/Manila` and `DD MMM YYYY`; CSAT shows `4.6 / 5`.
+- [x] Rendered dates are `Asia/Manila` and `DD MMM YYYY`; CSAT shows `4.6 / 5`.
 
 **S4**
 

@@ -33,9 +33,12 @@ import OpportunityDetail from '../pages/OpportunityDetail'
 import Pipeline from '../pages/Pipeline'
 import PublicHome from '../pages/PublicHome'
 import PublicSurvey from '../pages/PublicSurvey'
+import Satisfaction from '../pages/Satisfaction'
 import Qualification from '../pages/Qualification'
 import SurveyForm from '../pages/SurveyForm'
 import SurveyInvitations from '../pages/SurveyInvitations'
+import SurveyResponseDetail from '../pages/SurveyResponseDetail'
+import SurveyResponses from '../pages/SurveyResponses'
 import Surveys from '../pages/Surveys'
 
 // CRM dashboard routes are added here as submodules are implemented (see resources/specs/).
@@ -87,6 +90,9 @@ export default function AppRouter() {
           <Route path="/surveys/new" element={<SurveyForm />} />
           <Route path="/surveys/:id" element={<SurveyForm />} />
           <Route path="/survey-invitations" element={<SurveyInvitations />} />
+          <Route path="/satisfaction" element={<Satisfaction />} />
+          <Route path="/satisfaction/responses" element={<SurveyResponses />} />
+          <Route path="/satisfaction/responses/:id" element={<SurveyResponseDetail />} />
         </Route>
       </Route>
 

@@ -149,6 +149,14 @@ class Company extends Model
     }
 
     /**
+     * What the account has answered (module 05 slices S2–S3) — the satisfaction card's source.
+     */
+    public function surveyResponses(): HasMany
+    {
+        return $this->hasMany(SurveyResponse::class);
+    }
+
+    /**
      * The live engagement, if any — one client works with several crews over time, but
      * only a signed contract is active (spec 09 §1, §6).
      */
