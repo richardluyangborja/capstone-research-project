@@ -37,9 +37,10 @@ Two constraints shape the decision:
    seeded demo names, and **never put a fixture id in a link** — every row links to an existing
    module page, so a mocked row cannot 404.
 
-3. **Simulation is disclosed, in the UI and in the spec.** The header shows `Simulated data` and the
-   AI panel shows `Simulated AI`. Neither badge comes off until its source is real. The fixtures are
-   documented as presentation fiction, not seed-derived data.
+3. **Simulation is documented, not surfaced.** The repo (this ADR, spec 14 and the accessor
+   docblock) records that D1 is mock data; the dashboard carries **no** simulation badge, banner or
+   disclaimer. The UI is presentation-ready product UI. The fixtures are documented as presentation
+   fiction, not seed-derived data, and D2 deletes the fixtures, not the documentation.
 
 4. **One role-aware dashboard, not per-role pages.** The route, layout and components are shared;
    only the data scope changes (`personal` → salesrep, `team` → manager, `org` → admin/superadmin).

@@ -18,9 +18,8 @@ const csatTone = (csat: number | null) => {
 }
 
 /**
- * The staff scorecard (spec 14 §6): CRM output beside core2 HR figures. HR data is simulated
- * behind the future `HrGateway`; the badge and the footnote say so, so nobody mistakes it for a
- * real HR read.
+ * The staff scorecard (spec 14 §6): CRM output beside core2 HR figures. HR data stands in for the
+ * future `HrGateway` mock (documented in spec 14 / ADR-0020); the footnote names the source.
  */
 export default function StaffPerformanceTable({ rows, note, caption }: StaffPerformanceTableProps) {
   const columns: DataTableColumn<StaffPerformanceRow>[] = [

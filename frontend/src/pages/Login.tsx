@@ -17,7 +17,7 @@ export default function Login() {
 
     try {
       await login(email, password)
-      navigate('/leads')
+      navigate('/dashboard')
     } catch {
       setError('Invalid email or password.')
     } finally {
@@ -27,7 +27,10 @@ export default function Login() {
 
   return (
     <div className="flex min-h-full items-center justify-center bg-background p-4">
-      <form onSubmit={onSubmit} className="w-full max-w-sm rounded-lg border border-border bg-card p-6">
+      <form
+        onSubmit={onSubmit}
+        className="w-full max-w-sm rounded-lg border border-border bg-card p-6"
+      >
         <h1 className="text-lg font-semibold text-foreground">Sign in</h1>
         <p className="mt-1 text-sm text-muted-foreground">Primepower ISMERS</p>
 

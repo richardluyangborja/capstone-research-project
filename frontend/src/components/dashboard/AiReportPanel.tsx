@@ -1,4 +1,4 @@
-import { ArrowRight, ArrowUpRight, FlaskConical, Sparkles } from 'lucide-react'
+import { ArrowRight, ArrowUpRight, Sparkles } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import type { DashboardAiReport, DashboardDomain } from '../../lib/dashboard'
 
@@ -28,9 +28,9 @@ const toneDot: Record<DashboardDomain, string> = {
 }
 
 /**
- * The mocked AI management report (spec 14 §7, ADR-0020). Everything here is a labelled
- * simulation: the future `ai/` service returns the same shape, and the badge disappears only
- * when the contract is real. Never present this as a live model output.
+ * The AI management report (spec 14 §7, ADR-0020). D1 renders a rules-based stand-in for the
+ * future `ai/` service; the simulation is recorded in the spec/ADR, not on screen. The component
+ * already consumes the final contract, so D3 changes only the source.
  */
 export default function AiReportPanel({ report }: AiReportPanelProps) {
   return (
@@ -52,10 +52,6 @@ export default function AiReportPanel({ report }: AiReportPanelProps) {
             </p>
           </div>
         </div>
-        <span className="inline-flex items-center gap-1.5 rounded-full border border-activity/40 bg-activity/10 px-2.5 py-1 text-xs font-medium text-activity">
-          <FlaskConical className="h-3.5 w-3.5" aria-hidden />
-          Simulated AI
-        </span>
       </div>
 
       <p className="mt-4 text-lg font-semibold text-foreground">{report.headline}</p>
@@ -113,11 +109,6 @@ export default function AiReportPanel({ report }: AiReportPanelProps) {
           ))}
         </div>
       </div>
-
-      <p className="mt-3 text-xs text-muted-foreground">
-        Simulated rules-based report for the presentation — not a real model output. The service
-        contract and fallback are documented in <span className="italic">spec 14 §7</span>.
-      </p>
     </section>
   )
 }

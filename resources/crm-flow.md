@@ -185,7 +185,8 @@ Automatic sends (on signing/renewal/churn) and reminder emails are deliberately 
 The cross-cutting read layer over modules 01–05 (`specs/14`, ADR-0020), pulled ahead of module 05 S4
 for the presentation. **D1** ships `/dashboard` with **simulated data**: one deterministic fixture
 module (`frontend/src/mocks/dashboard.ts`) behind a single accessor (`getDashboard(role, range)`),
-badged `Simulated data` / `Simulated AI`. It is role-aware — a salesrep reads their book, a manager
+with the simulation recorded in spec 14 / ADR-0020 rather than shown on the page. It is role-aware —
+a salesrep reads their book, a manager
 the team, an admin the org — and reuses `DashboardShell`; four primary + four secondary KPI cards, a
 line chart and a donut, a needs-attention table, alerts, recent activity, a staff scorecard and the AI
 management report all link to existing module pages. The scorecard pairs CRM output with **core2 HR**

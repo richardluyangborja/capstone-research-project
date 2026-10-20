@@ -14,8 +14,9 @@ import { buildDashboard } from '../mocks/dashboard'
  *   GET /api/v1/dashboard/staff-performance?range=…      → staff (CRM) + HR figures via HrGateway
  *   POST /ai/reports/dashboard  (Python service)         → ai (falls back to the rules template)
  *
- * The AI report is labelled *Simulated* in the UI until the `ai/` service is agreed and built
- * (resources/system-ai-feature.md). No component may present it as a real model output.
+ * The AI report is a rules-based stand-in until the `ai/` service is agreed and built
+ * (resources/system-ai-feature.md). The simulation is documented in spec 14 / ADR-0020 and is
+ * deliberately not surfaced in the UI.
  */
 
 export type DashboardRange = '30d' | 'quarter' | 'ytd'
@@ -167,7 +168,7 @@ export interface DashboardActivityRow {
 }
 
 export interface DashboardData {
-  /** The UI renders a "Simulated data" badge whenever this is true. */
+  /** Source flag for the D2 payload, docs and tests — never rendered in the UI. */
   simulated: true
   range: DashboardRange
   updated_at: string

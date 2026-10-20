@@ -348,13 +348,14 @@ Laravel's own and is separate from `frontend/`.
   layer over modules 01–05 (`resources/specs/14-dashboard-management-reports.md`, ADR-0020), pulled
   ahead of module 05 S4 for the presentation. `/dashboard` is role-aware (salesrep → own book,
   manager → team, admin → org) and shares `DashboardShell`; the header carries a working period
-  toggle (30 days / quarter / year to date), a `Simulated data` badge and the scope line. Blocks:
+  toggle (30 days / quarter / year to date) and the scope line (the mock data is documented here
+  and in spec 14, never surfaced on the page). Blocks:
   4 primary + 4 secondary KPI cards (all clickable, with trend + hint), a line chart
   (leads/qualified/won) and a donut (open pipeline by stage), a **needs-attention worklist**
   (severity, subject + detail, type, owner, action), alerts, recent activity, a **staff scorecard**
   pairing CRM output with **core2 HR** figures (attendance, leave, late arrivals via the planned
-  `HrGateway` mock; missing reads `—`, never `0`), and the **Simulated AI management report**
-  (headline, narrative, 3 insights, 4 actions — all linked). **No backend change:** every number
+  `HrGateway` mock; missing reads `—`, never `0`), and the **AI management report** (headline,
+  narrative, 3 insights, 4 actions — all linked; rules-based in D1). **No backend change:** every number
   comes from `frontend/src/mocks/dashboard.ts` behind `getDashboard(role, range)` in
   `frontend/src/lib/dashboard.ts` — the single swap point documented in spec 14 §"Data contract"
   (D2 endpoints `/dashboard`, `/dashboard/worklist`, `/dashboard/staff-performance`; D3 the `ai/`
@@ -366,7 +367,8 @@ Laravel's own and is separate from `frontend/`.
 
 Frontend routes: `/dashboard` (the role-aware home: greeting + scope + period toggle, 8 KPI cards,
 line + donut charts, needs-attention table, alerts/activity, staff scorecard with core2 HR figures
-and the **Simulated AI** management report — all simulated in D1), `/login`, `/leads` (views: All / My Leads / Unassigned / Team / Archived, inline
+and the **AI management report** — all simulated in D1, with no in-app simulation badge), `/login`,
+`/leads` (views: All / My Leads / Unassigned / Team / Archived, inline
 owner control, bulk assign, status/rating/aging columns, "Stale only" filter), `/leads/new`,
 `/leads/:id` (qualification panel + lifecycle control + ownership + activity form + timeline +
 "Convert to client" when convertible, converted banner), `/leads/:id/convert` (3-step conversion
@@ -627,7 +629,8 @@ for delivery and module 04 for the follow-up an unhappy answer raises. The roadm
 **The dashboard layer** (`specs/14`, ADR-0020) is **D1 built with simulated data** — a role-aware
 `/dashboard` over modules 01–05 with KPI cards, line + donut charts, a needs-attention worklist,
 alerts/activity, a staff scorecard carrying core2 HR figures through the planned `HrGateway` mock,
-and the labelled **Simulated AI** management report; all fixtures sit behind one documented accessor,
+and the **AI management report**; the D1 simulation is documented (spec 14, ADR-0020) but not shown
+in the UI, and all fixtures sit behind one documented accessor,
 and D2/D3 wire the real endpoints and the `ai/` service.
 Dedup/merge and advanced tiers are module-01 deferrals
 (ADR-0006), and automatic client aging stays one too (ADR-0018 §6). Other departments are consumed via

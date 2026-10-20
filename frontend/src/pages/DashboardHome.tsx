@@ -8,7 +8,6 @@ import {
   BadgeDollarSign,
   CalendarClock,
   ClipboardList,
-  FlaskConical,
   Percent,
   Target,
   TriangleAlert,
@@ -201,13 +200,6 @@ export default function DashboardHome() {
                 )
               })}
             </div>
-            <span
-              className="inline-flex items-center gap-1.5 rounded-full border border-activity/40 bg-activity/10 px-2.5 py-1 text-xs font-medium text-activity"
-              title="Every figure on this page is simulated for the presentation (spec 14, ADR-0020)."
-            >
-              <FlaskConical className="h-3.5 w-3.5" aria-hidden />
-              Simulated data
-            </span>
           </div>
         }
       />
@@ -399,12 +391,6 @@ export default function DashboardHome() {
                   : 'Everyone'
             }
           />
-
-          <p className="text-xs text-muted-foreground">
-            Dashboard figures are simulated for the presentation. Every block maps to a documented
-            endpoint (spec 14, ADR-0020), so wiring the real data is a one-file change — see{' '}
-            <span className="italic">frontend/src/lib/dashboard.ts</span>.
-          </p>
         </>
       )}
     </div>
