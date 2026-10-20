@@ -33,6 +33,8 @@ import OpportunityDetail from '../pages/OpportunityDetail'
 import Pipeline from '../pages/Pipeline'
 import PublicHome from '../pages/PublicHome'
 import Qualification from '../pages/Qualification'
+import SurveyForm from '../pages/SurveyForm'
+import Surveys from '../pages/Surveys'
 
 // CRM dashboard routes are added here as submodules are implemented (see resources/specs/).
 export default function AppRouter() {
@@ -75,6 +77,9 @@ export default function AppRouter() {
           <Route path="/follow-ups" element={<FollowUps />} />
           <Route path="/follow-ups/new" element={<FollowUpForm />} />
           <Route path="/follow-ups/:id" element={<FollowUpForm />} />
+          <Route path="/surveys" element={<Surveys />} />
+          <Route path="/surveys/new" element={<SurveyForm />} />
+          <Route path="/surveys/:id" element={<SurveyForm />} />
         </Route>
       </Route>
 

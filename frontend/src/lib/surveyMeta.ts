@@ -1,0 +1,56 @@
+import type { Survey, SurveyQuestionTypeName } from '../types'
+
+/** How each question type reads in the builder and in the client's preview (spec 13 §S1). */
+export interface SurveyQuestionTypeMeta {
+  label: string
+  hint: string
+  /** The two types that need an options list; the other three must not carry one. */
+  hasOptions: boolean
+}
+
+export const surveyQuestionTypeMeta: Record<SurveyQuestionTypeName, SurveyQuestionTypeMeta> = {
+  rating: {
+    label: 'Rating (1–5)',
+    hint: 'A satisfaction score — the account’s CSAT is the average of these answers.',
+    hasOptions: false,
+  },
+  nps: {
+    label: 'Net promoter (0–10)',
+    hint: 'The recommendation question. A survey can ask it once.',
+    hasOptions: false,
+  },
+  single_choice: {
+    label: 'Single choice',
+    hint: 'One option from a list.',
+    hasOptions: true,
+  },
+  multi_choice: {
+    label: 'Multiple choice',
+    hint: 'Any number of options.',
+    hasOptions: true,
+  },
+  text: {
+    label: 'Free text',
+    hint: 'A comment, in the client’s own words.',
+    hasOptions: false,
+  },
+}
+
+export const surveyQuestionTypes = Object.keys(
+  surveyQuestionTypeMeta,
+) as SurveyQuestionTypeName[]
+
+/** The three states a library row can be in — a draft, sendable, or retired (soft-deleted). */
+export type SurveyState = 'active' | 'inactive' | 'retired'
+
+export const surveyStateMeta: Record<
+  SurveyState,
+  { label: string; tone: 'success' | 'neutral' | 'danger' }
+> = {
+  active: { label: 'Active', tone: 'success' },
+  inactive: { label: 'Draft', tone: 'neutral' },
+  retired: { label: 'Retired', tone: 'danger' },
+}
+
+export const surveyStateOf = (survey: Survey): SurveyState =>
+  survey.deleted_at !== null ? 'retired' : survey.is_active ? 'active' : 'inactive'

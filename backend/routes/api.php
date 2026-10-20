@@ -25,6 +25,7 @@ use App\Http\Controllers\Api\V1\OpportunityActivityController;
 use App\Http\Controllers\Api\V1\OpportunityController;
 use App\Http\Controllers\Api\V1\OpportunityStageController;
 use App\Http\Controllers\Api\V1\PipelineController;
+use App\Http\Controllers\Api\V1\SurveyController;
 use App\Http\Controllers\Api\V1\TaskController;
 use App\Http\Controllers\Api\V1\UserController;
 use Illuminate\Support\Facades\Route;
@@ -176,5 +177,13 @@ Route::prefix('v1')->group(function (): void {
         Route::post('follow-ups/generate', [FollowUpController::class, 'generate']);
         Route::patch('tasks/{task}/status', [TaskController::class, 'updateStatus']);
         Route::apiResource('tasks', TaskController::class)->only(['store', 'show', 'update']);
+
+        // Module 05 slice S1 — the survey library. A survey is house wording like a message
+        // template: every role reads, manager+ authors. Sending (S2) hangs off the company, not
+        // off the survey, because it needs that account's update right.
+        Route::post('surveys/{id}/restore', [SurveyController::class, 'restore']);
+        Route::post('surveys/{survey}/duplicate', [SurveyController::class, 'duplicate']);
+        Route::apiResource('surveys', SurveyController::class)
+            ->only(['index', 'store', 'show', 'update', 'destroy']);
     });
 });

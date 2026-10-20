@@ -4,7 +4,7 @@ Module 5 (ADR-0014). Entities: `Survey`, `SurveyQuestion`, `SurveyInvitation`, `
 `SurveyAnswer` (new); `Communication`, `Activity`, `Company`, `Contact`, `Contract`, `User` (reused).
 ADRs: 0004, 0005, 0007, 0013, 0014, 0016, 0017, 0018, **0019**.
 
-> **Slices S1–S4 planned; S1 built.** The module ships one slice per PR (ADR-0016 §2). The client
+> **Slices S1–S4 declared; S1 built.** The module ships one slice per PR (ADR-0016 §2). The client
 > answers through a **tokenized public link** (no login) that the invitation emails, built from
 > configuration so local and production differ only by an env value (ADR-0019 §4). A survey is a
 > reusable template frozen once it has been sent; an unhappy answer closes the loop automatically
@@ -37,7 +37,7 @@ coherent.
 
 | Slice | Branch | Facet | Demo |
 | --- | --- | --- | --- |
-| **S1** | `feature/survey-library` | Surveys & the question bank | author a post-deployment check-in (rating + NPS + comment), activate it, retire it, restore it |
+| **S1** *(built)* | `feature/survey-library` | Surveys & the question bank | author a post-deployment check-in (rating + NPS + comment), activate it, retire it, restore it |
 | **S2** | `feature/survey-invitations` | Invitations & the public form | send the check-in to a client → open the emailed link in a browser → answer → the invitation is `submitted` and the account history shows the email |
 | **S3** | `feature/satisfaction-views` | Responses, scoring & the satisfaction view | the response book with CSAT/NPS bands, the account's satisfaction card and the org summary |
 | **S4** | `feature/satisfaction-follow-through` | Closed-loop follow-through | an unhappy answer raises a task + a bell notification; the owner resolves it with a note |
@@ -97,7 +97,7 @@ conventions per `README.md` — `?page=`, `?per_page=`, `?sort=`, `?filter[…]`
 
 | Method | Path | Slice | Description |
 | --- | --- | --- | --- |
-| `GET` | `/surveys` | S1 | The library — `filter[active]`, `search`, with question/response counts |
+| `GET` | `/surveys` | S1 | The library — `filter[active|retired]`, `search`, with question counts (response counts arrive with S3) |
 | `POST` | `/surveys` | S1 | Create a survey **with its questions** |
 | `GET` | `/surveys/{id}` | S1 | One survey — questions in order, invitation/response counts |
 | `PATCH` | `/surveys/{id}` | S1 | Name, description, active state and — until it has been sent — the question set |
@@ -293,16 +293,16 @@ is recorded as a failed communication and a failed invitation, never as an excep
 
 **S1**
 
-- [ ] A manager can create, edit, duplicate, retire and restore a survey; a salesrep can read one but
+- [x] A manager can create, edit, duplicate, retire and restore a survey; a salesrep can read one but
       not change it (403).
-- [ ] A survey keeps its questions in the order given, of the five types; a choice question without
+- [x] A survey keeps its questions in the order given, of the five types; a choice question without
       2–10 options, a second NPS question or a question with no prompt is 422.
-- [ ] A survey can be activated only when it has at least one question; an inactive survey answers 422
+- [x] A survey can be activated only when it has at least one question; an inactive survey answers 422
       on send (S2).
-- [ ] The name is unique among live surveys; a soft-deleted name may be reused, and restore of a row
+- [x] The name is unique among live surveys; a soft-deleted name may be reused, and restore of a row
       whose name is now taken is 422.
-- [ ] Retiring a survey keeps its invitations and responses readable; restore brings it back.
-- [ ] The question set is editable until the survey has been sent (S2 adds the freeze).
+- [x] Retiring a survey keeps its invitations and responses readable; restore brings it back.
+- [x] The question set is editable until the survey has been sent (S2 adds the freeze).
 
 **S2**
 
