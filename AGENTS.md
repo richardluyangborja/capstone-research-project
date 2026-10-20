@@ -293,6 +293,17 @@ Laravel's own and is separate from `frontend/`.
   created task dispatches `FollowUpAssigned` with `actor = null` so its owner is told, and
   `TaskResource` gained `source`/`source_key` (`ScheduledMessageResource` carries them as null for
   shape parity).
+- **Module 05 slice S1 — the survey library:** `/api/v1/surveys` (index/store/show/update/destroy +
+  `POST /surveys/{id}/restore|duplicate`) holds reusable `Survey` templates and their ordered
+  `SurveyQuestion` set — five types (`rating` 1–5, `nps` 0–10 with **at most one per survey**,
+  `single_choice`, `multi_choice`, `text`; the choice types carry 2–10 options and the others take
+  none). A survey is a **draft** (`is_active` false) until activated and cannot be active without a
+  question; questions arrive with the survey and are replaced wholesale on edit, the array order being
+  the asking order (S2 freezes the set once an invitation exists). The name is unique among **live**
+  surveys — a validation rule, because retiring is a soft delete — and `restore` re-checks it (422);
+  `duplicate` copies the questions into a new inactive survey under the next free "… (copy n)" name,
+  the way to version one. **Manager+ authors/edits/retires/restores/duplicates; every role reads**
+  (ADR-0019 §8). Events: none yet (sending arrives with S2).
 
 Frontend routes: `/login`, `/leads` (views: All / My Leads / Unassigned / Team / Archived, inline
 owner control, bulk assign, status/rating/aging columns, "Stale only" filter), `/leads/new`,
@@ -357,10 +368,15 @@ due moment defaulting to tomorrow 09:00, and an assignee picker for manager+) an
 list carries a **Next follow-up** column, leads/accounts/deals carry a **Follow-up** quick action, the
 contracts tab offers a per-contract one, and the three timelines mark an owed task with its due state
 and due moment. The topbar bell lists the assignment and due notifications, each opening the item it
-is about (the follow-up, the message, or the lead it hangs off). The sidebar
+is about (the follow-up, the message, or the lead it hangs off). `/surveys` (the library: search +
+active/draft/retired filters, question count and author per row, **Duplicate** / **Retire** /
+**Restore**, **New survey** for manager+), `/surveys/new` and `/surveys/:id` (the form plus the
+**question builder** — add/move/remove, type, prompt, help, required, options for the choice types —
+with a live **Preview** of the client's page; a retired survey opens read-only). The sidebar
 is **grouped by module** — module 01's submodules under `Lead & Client Tracking`, module 02's screens
 under `Opportunity Pipeline Visualization`, module 03's slices under `Communication History
-Management`, module 04's under `Follow-up Reminder System`. Account + logout live in the sidebar footer;
+Management`, module 04's under `Follow-up Reminder System`, module 05's under `Client Satisfaction &
+Survey`. Account + logout live in the sidebar footer;
 the brand is
 "Primepower Manpower Services / Customer Relationship Management".
 
@@ -432,7 +448,10 @@ data already there, so a manager's **Generate reminders** on a fresh database re
 2 skipped**: a renewal on the signed Harbor contract (Liza), a check-in on Greenfield Hotels and a
 nudge on its stale lead (both Sam), while the unowned Metro Builders lead and the Harbor lead (which
 already owes S1's forklift task) are reported as skipped. A second run creates nothing, so the
-worklist demos both the generator and its idempotence.
+worklist demos both the generator and its idempotence. **Module 05 S1 seeds the survey library** —
+three active surveys (post-deployment check-in, quarterly account review, exit survey), a **draft**
+pilot and a **retired** referral pulse — so the book's state filters, **Duplicate** and **Restore**
+demo from real rows; invitations, responses and their outcomes are seeded by S2–S4.
 
 ## Conventions that differ from framework defaults
 
@@ -519,7 +538,8 @@ reuses `Activity` and the reserved
 `CommunicationStatus.scheduled` rather than adding a table. **Module 05** (Client Satisfaction &
 Survey) is **in progress** — `resources/specs/13-client-satisfaction-survey.md` declares four slices
 (ADR-0016, ADR-0019): **S1 survey library, S2 invitations + the tokenized public form, S3 responses
-& scoring, S4 closed-loop follow-through**; the module adds five tables (`surveys`,
+& scoring, S4 closed-loop follow-through**; **S1 (the survey library) is built**, S2–S4 follow. The
+module adds five tables (`surveys`,
 `survey_questions`, `survey_invitations`, `survey_responses`, `survey_answers`) and reuses module 03
 for delivery and module 04 for the follow-up an unhappy answer raises. The roadmap is **ADR-0014**.
 Dedup/merge and advanced tiers are module-01 deferrals

@@ -5,6 +5,7 @@ import {
   CalendarClock,
   ChevronDown,
   ClipboardCheck,
+  ClipboardList,
   FileText,
   Handshake,
   History,
@@ -83,6 +84,12 @@ const groups: NavGroup[] = [
     // and the worklist; the scheduled-message and notification slices follow.
     label: 'Follow-up Reminder System',
     items: [{ to: '/follow-ups', label: 'Follow-up Reminders', icon: CalendarClock }],
+  },
+  {
+    // Module 05 (ADR-0014 §1, ADR-0019, ADR-0016). One entry per shipped slice: S1 is the survey
+    // library; invitations, the satisfaction view and the closed loop follow.
+    label: 'Client Satisfaction & Survey',
+    items: [{ to: '/surveys', label: 'Survey Library', icon: ClipboardList }],
   },
 ]
 

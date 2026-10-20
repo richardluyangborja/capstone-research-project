@@ -1010,3 +1010,64 @@ export interface TaskUpdateInput {
   due_at?: string
   owner_id?: number
 }
+
+// --- Module 05: client satisfaction & survey --------------------------------
+
+/** The five ways a survey asks a question (spec 13, slice S1). */
+export type SurveyQuestionTypeName = 'rating' | 'nps' | 'single_choice' | 'multi_choice' | 'text'
+
+/** One question in a survey, in the order it is asked. */
+export interface SurveyQuestion {
+  id: string
+  type: { value: SurveyQuestionTypeName; label: string }
+  prompt: string
+  help: string | null
+  required: boolean
+  position: number
+  /** The choices for the two choice types; `[]` for the rest. */
+  options: string[]
+}
+
+/**
+ * A question as the form sends it: no id and no position — the array order is the asking order,
+ * and the set is replaced wholesale while the survey has never been sent (spec 13 §S1).
+ */
+export interface SurveyQuestionInput {
+  type: SurveyQuestionTypeName
+  prompt: string
+  help?: string | null
+  required?: boolean
+  options?: string[]
+}
+
+/**
+ * A reusable satisfaction survey (module 05 slice S1) — the house's wording and its ordered
+ * question set. Sending and responses arrive in slices S2–S3; until then the library is all there
+ * is, and a survey is a draft until it is activated.
+ */
+export interface Survey {
+  id: string
+  name: string
+  description: string | null
+  is_active: boolean
+  questions?: SurveyQuestion[]
+  questions_count?: number
+  created_by: number | null
+  author: { id: number; name: string } | null
+  can_update: boolean
+  can_delete: boolean
+  can_restore: boolean
+  can_duplicate: boolean
+  deleted_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type SurveysPage = Omit<Paginated<Survey>, 'links'>
+
+export interface SurveyInput {
+  name: string
+  description?: string | null
+  is_active?: boolean
+  questions?: SurveyQuestionInput[]
+}
