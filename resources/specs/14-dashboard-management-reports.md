@@ -7,8 +7,8 @@ treats as an HTTP contract with a documented fallback.
 
 > **Status: D1 built with simulated data.** The dashboard home ships first, for presentation, with
 > all numbers read from one fixture module. D2 (real endpoints) and D3 (the `ai/` service) are
-> declared but not built. Module 05's S4 (closed-loop follow-through) is deliberately deferred
-> behind this slice (ADR-0020 §1).
+> declared but not built. Module 05's S4 (closed-loop follow-through) shipped after D1, without a
+> dashboard rewrite (ADR-0020 §1).
 
 ## Purpose
 
@@ -302,13 +302,11 @@ pre-filtered; `/satisfaction/responses?company=` already existed (S3).
 - Real core2/HR connectivity — the seam is a deterministic mock (`HrGateway`).
 - A dedicated `/reports` page: D1 is the dashboard home; a fuller management-report page, if the
   client wants one, is a D4 candidate (the AI panel already carries the report content).
-- Module 05 S4 (closed-loop follow-through) — deferred behind D1 by ADR-0020; its attention
-  notification and resolve flow remain specified in `13-client-satisfaction-survey.md`.
 
 ## Impact on other specs
 
-- `13` §S4 is **deferred**, not dropped: the dashboard already reads the attention flag and links
-  to the filtered book, so S4 lands without a dashboard rewrite.
+- `13` §S4 shipped after D1: the dashboard already reads the attention flag and links to the
+  filtered book, so the closed loop landed without a dashboard rewrite.
 - The design system gains `ChartCard`, `LineChart` and `DonutChart` in `components/common/`
   (usable by any later report page).
 - `00-data-model.md` is untouched: no table, no column.

@@ -360,8 +360,8 @@ Laravel's own and is separate from `frontend/`.
   `can_resolve`.
 
 - **Module 06 — Dashboard & Management Reports (D1 — built, simulated):** the cross-cutting read
-  layer over modules 01–05 (`resources/specs/14-dashboard-management-reports.md`, ADR-0020), pulled
-  ahead of module 05 S4 for the presentation. `/dashboard` is role-aware (salesrep → own book,
+  layer over modules 01–05 (`resources/specs/14-dashboard-management-reports.md`, ADR-0020), shipped
+  as D1 after module 05 S3 and before S4 for the presentation. `/dashboard` is role-aware (salesrep → own book,
   manager → team, admin → org) and shares `DashboardShell`; the header carries a working period
   toggle (30 days / quarter / year to date) and the scope line (the mock data is documented here
   and in spec 14, never surfaced on the page). Blocks:
