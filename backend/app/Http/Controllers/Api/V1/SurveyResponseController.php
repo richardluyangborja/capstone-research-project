@@ -2,11 +2,14 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Events\SurveyResponseResolved;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\ResolveSurveyResponseRequest;
 use App\Http\Resources\SurveyResponseResource;
 use App\Models\SurveyResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Validation\ValidationException;
 
 /**
  * The response book and one answer set (module 05 slice S3, spec 13, ADR-0019 §6–7).
@@ -57,9 +60,52 @@ class SurveyResponseController extends Controller
             'contact:id,name,email',
             'invitation:id,reference,status,sent_at,submitted_at,recipient_name,recipient_email',
             'answers.question',
+            'resolvedBy:id,name',
         ]);
 
         return new SurveyResponseResource($response);
+    }
+
+    /**
+     * Close the loop on an unhappy answer with a note (slice S4, spec 13 §Business rules 8).
+     *
+     * The flag is not cleared: the answer was unhappy, and the resolution is what says it was
+     * dealt with. Resolving twice is a 422, not a second note, because there is one closed-loop
+     * record per response.
+     */
+    public function resolve(
+        ResolveSurveyResponseRequest $request,
+        SurveyResponse $response,
+    ): SurveyResponseResource {
+        $this->authorize('resolve', $response);
+
+        if (! $response->needs_attention) {
+            throw ValidationException::withMessages([
+                'response' => ['This response did not need attention.'],
+            ]);
+        }
+
+        if ($response->resolved_at !== null) {
+            throw ValidationException::withMessages([
+                'response' => ['This response has already been resolved.'],
+            ]);
+        }
+
+        $response->forceFill([
+            'resolved_at' => now(),
+            'resolved_by' => $request->user()->id,
+            'resolution_note' => $request->validated('note'),
+        ])->save();
+
+        SurveyResponseResolved::dispatch($response, $request->user());
+
+        return new SurveyResponseResource($response->load([
+            ...$this->bookRelations(),
+            'contact:id,name,email',
+            'invitation:id,reference,status,sent_at,submitted_at,recipient_name,recipient_email',
+            'answers.question',
+            'resolvedBy:id,name',
+        ]));
     }
 
     /**
@@ -73,8 +119,10 @@ class SurveyResponseController extends Controller
         return [
             'survey:id,name',
             'company:id,name,owner_id',
+            'company.owner:id,team_id',
             'contact:id,name',
             'invitation:id,reference',
+            'resolvedBy:id,name',
         ];
     }
 }

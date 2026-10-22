@@ -37,6 +37,21 @@ export const getSurveyResponse = async (id: string): Promise<SurveyResponseSumma
   return data.data
 }
 
+/**
+ * Close the loop on an unhappy answer (module 05 slice S4): the note is the record of what was
+ * done. The owner or a manager may resolve; resolving twice is rejected by the API.
+ */
+export const resolveSurveyResponse = async (
+  id: string,
+  note: string,
+): Promise<SurveyResponseSummary> => {
+  const { data } = await api.post<{ data: SurveyResponseSummary }>(
+    `/survey-responses/${id}/resolve`,
+    { note },
+  )
+  return data.data
+}
+
 /** The org rollup the satisfaction page is built on — scoped by the caller's accounts. */
 export const getSatisfactionSummary = async (): Promise<SatisfactionSummary> => {
   const { data } = await api.get<{ data: SatisfactionSummary }>('/satisfaction/summary')

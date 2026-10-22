@@ -9,92 +9,107 @@ import type { SatisfactionSummary, SurveyResponseSummary } from '../types'
 // Module 05 slice S3 — the summary, the response book and one answer read back. The pages only
 // read, so the mocks are the four calls they make.
 
-const { getSatisfactionSummary, listSurveyResponses, getSurveyResponse, listSurveys, summary, answer } =
-  vi.hoisted(() => {
-    const answer: SurveyResponseSummary = {
-      id: 'response-1',
-      submitted_at: '2026-10-19T02:00:00.000000Z',
-      csat: 2,
-      nps: 4,
-      band: 'detractor',
-      band_label: 'Detractor',
-      needs_attention: true,
-      survey: { id: 'survey-1', name: 'Post-deployment check-in' },
-      company: { id: 'company-1', name: 'Sunrise Foods Inc' },
-      contact: { id: 'contact-1', name: 'Grace Lim' },
-      invitation: { id: 'invitation-2', reference: 'SRV-2026-0002' },
-      answers: [
-        {
-          id: 'answer-1',
-          question_id: 'q-rating',
-          question: {
-            id: 'q-rating',
-            type: 'rating',
-            prompt: 'How satisfied are you with the deployment?',
-            options: null,
-          },
-          value_number: 2,
-          value_text: null,
-          value_options: null,
+const {
+  getSatisfactionSummary,
+  listSurveyResponses,
+  getSurveyResponse,
+  resolveSurveyResponse,
+  listSurveys,
+  summary,
+  answer,
+} = vi.hoisted(() => {
+  const answer: SurveyResponseSummary = {
+    id: 'response-1',
+    submitted_at: '2026-10-19T02:00:00.000000Z',
+    csat: 2,
+    nps: 4,
+    band: 'detractor',
+    band_label: 'Detractor',
+    needs_attention: true,
+    resolved: false,
+    resolved_at: null,
+    resolved_by: null,
+    resolution_note: null,
+    can_resolve: true,
+    survey: { id: 'survey-1', name: 'Post-deployment check-in' },
+    company: { id: 'company-1', name: 'Sunrise Foods Inc' },
+    contact: { id: 'contact-1', name: 'Grace Lim' },
+    invitation: { id: 'invitation-2', reference: 'SRV-2026-0002' },
+    answers: [
+      {
+        id: 'answer-1',
+        question_id: 'q-rating',
+        question: {
+          id: 'q-rating',
+          type: 'rating',
+          prompt: 'How satisfied are you with the deployment?',
+          options: null,
         },
-        {
-          id: 'answer-2',
-          question_id: 'q-nps',
-          question: {
-            id: 'q-nps',
-            type: 'nps',
-            prompt: 'How likely are you to recommend us?',
-            options: null,
-          },
-          value_number: 4,
-          value_text: null,
-          value_options: null,
+        value_number: 2,
+        value_text: null,
+        value_options: null,
+      },
+      {
+        id: 'answer-2',
+        question_id: 'q-nps',
+        question: {
+          id: 'q-nps',
+          type: 'nps',
+          prompt: 'How likely are you to recommend us?',
+          options: null,
         },
-        {
-          id: 'answer-3',
-          question_id: 'q-text',
-          question: {
-            id: 'q-text',
-            type: 'text',
-            prompt: 'Anything we should know?',
-            options: null,
-          },
-          value_number: null,
-          value_text: 'The replacement crew arrived without the site briefing.',
-          value_options: null,
+        value_number: 4,
+        value_text: null,
+        value_options: null,
+      },
+      {
+        id: 'answer-3',
+        question_id: 'q-text',
+        question: {
+          id: 'q-text',
+          type: 'text',
+          prompt: 'Anything we should know?',
+          options: null,
         },
-      ],
-      created_at: '2026-10-19T02:00:00.000000Z',
-    }
+        value_number: null,
+        value_text: 'The replacement crew arrived without the site briefing.',
+        value_options: null,
+      },
+    ],
+    created_at: '2026-10-19T02:00:00.000000Z',
+  }
 
-    const summary: SatisfactionSummary = {
-      responses: 3,
-      csat: 3.5,
-      nps: 40,
-      promoters: 2,
-      passives: 0,
-      detractors: 1,
-      answered: 3,
-      attention: 1,
-      invitations: 5,
-      response_rate: 60,
-      recent: [answer],
-    }
+  const summary: SatisfactionSummary = {
+    responses: 3,
+    csat: 3.5,
+    nps: 40,
+    promoters: 2,
+    passives: 0,
+    detractors: 1,
+    answered: 3,
+    attention: 1,
+    invitations: 5,
+    response_rate: 60,
+    recent: [answer],
+    attention_responses: [answer],
+  }
 
-    return {
-      getSatisfactionSummary: vi.fn(),
-      listSurveyResponses: vi.fn(),
-      getSurveyResponse: vi.fn(),
-      listSurveys: vi.fn(),
-      summary,
-      answer,
-    }
-  })
+  return {
+    getSatisfactionSummary: vi.fn(),
+    listSurveyResponses: vi.fn(),
+    getSurveyResponse: vi.fn(),
+    resolveSurveyResponse: vi.fn(),
+    listSurveys: vi.fn(),
+    summary,
+    answer,
+  }
+})
 
 vi.mock('../lib/satisfaction', () => ({
   getSatisfactionSummary: (...args: unknown[]) => getSatisfactionSummary(...args),
   listSurveyResponses: (...args: unknown[]) => listSurveyResponses(...args),
   getSurveyResponse: (...args: unknown[]) => getSurveyResponse(...args),
+  resolveSurveyResponse: (...args: unknown[]) => resolveSurveyResponse(...args),
 }))
 
 vi.mock('../lib/surveys', () => ({
@@ -128,9 +143,23 @@ describe('the satisfaction summary', () => {
     expect(screen.getByText('2 · 67%')).toBeInTheDocument()
     expect(screen.getByText('1 · 33%')).toBeInTheDocument()
 
-    expect(screen.getByText('Sunrise Foods Inc')).toBeInTheDocument()
-    expect(screen.getByText('Grace Lim')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /Read/ })).toHaveAttribute(
+    expect(screen.getAllByText('Sunrise Foods Inc').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Grace Lim').length).toBeGreaterThan(0)
+    expect(screen.getByRole('link', { name: 'Read' })).toHaveAttribute(
+      'href',
+      '/satisfaction/responses/response-1',
+    )
+  })
+
+  it('lists who is still waiting on a call back', async () => {
+    render(
+      <MemoryRouter>
+        <Satisfaction />
+      </MemoryRouter>,
+    )
+
+    expect(await screen.findByText('Waiting on a call back')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Read & resolve/ })).toHaveAttribute(
       'href',
       '/satisfaction/responses/response-1',
     )
@@ -214,11 +243,31 @@ describe('the response book', () => {
       expect.objectContaining({ company: 'company-1' }),
     )
   })
+
+  it('marks an answer resolved once the loop is closed', async () => {
+    listSurveyResponses.mockResolvedValue(
+      page([
+        {
+          ...structuredClone(answer),
+          resolved: true,
+          resolved_at: '2026-10-20T03:00:00.000000Z',
+          resolved_by: { id: 2, name: 'Maria Santos' },
+          resolution_note: 'Called Grace and confirmed the Monday crew.',
+          can_resolve: false,
+        },
+      ]),
+    )
+
+    renderBook()
+
+    expect(await screen.findByText('Resolved')).toBeInTheDocument()
+  })
 })
 
 describe('one answer read back', () => {
   beforeEach(() => {
     getSurveyResponse.mockReset()
+    resolveSurveyResponse.mockReset()
     getSurveyResponse.mockResolvedValue(structuredClone(answer))
   })
 
@@ -252,6 +301,32 @@ describe('one answer read back', () => {
 
     expect(within(alert).getByText('This client needs a call back')).toBeInTheDocument()
     expect(within(alert).getByText(/CSAT at or below 3, or a detractor score/)).toBeInTheDocument()
+  })
+
+  it('closes the loop with a note and shows who resolved it', async () => {
+    resolveSurveyResponse.mockResolvedValue({
+      ...structuredClone(answer),
+      resolved: true,
+      resolved_at: '2026-10-20T03:00:00.000000Z',
+      resolved_by: { id: 2, name: 'Maria Santos' },
+      resolution_note: 'Called Grace and confirmed the Monday crew.',
+      can_resolve: false,
+    })
+
+    renderDetail()
+
+    fireEvent.change(await screen.findByLabelText('Resolution note'), {
+      target: { value: 'Called Grace and confirmed the Monday crew.' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Resolve response' }))
+
+    expect(await screen.findByText('The loop is closed')).toBeInTheDocument()
+    expect(screen.getByText('Called Grace and confirmed the Monday crew.')).toBeInTheDocument()
+    expect(screen.getByText(/Maria Santos/)).toBeInTheDocument()
+    expect(resolveSurveyResponse).toHaveBeenCalledWith(
+      'response-1',
+      'Called Grace and confirmed the Monday crew.',
+    )
   })
 
   it('says so when the answer cannot be opened', async () => {

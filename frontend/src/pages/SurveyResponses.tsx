@@ -138,7 +138,9 @@ export default function SurveyResponses() {
       key: 'attention',
       header: 'Follow-through',
       render: (response) =>
-        response.needs_attention ? (
+        response.resolved ? (
+          <StatusBadge tone="success">Resolved</StatusBadge>
+        ) : response.needs_attention ? (
           <StatusBadge tone="danger">Needs attention</StatusBadge>
         ) : (
           <span className="text-muted-foreground">—</span>
@@ -264,8 +266,8 @@ export default function SurveyResponses() {
           className="rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground outline-none focus:ring-2 focus:ring-ring"
         >
           <option value="">Every answer</option>
-          <option value="true">Needs attention</option>
-          <option value="false">Settled</option>
+          <option value="true">Unresolved attention</option>
+          <option value="false">No attention needed</option>
         </select>
 
         <label className="flex items-center gap-2 text-xs text-muted-foreground">

@@ -1,11 +1,11 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft, MessagesSquare, TriangleAlert } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, MessagesSquare, TriangleAlert } from 'lucide-react'
 import PageHeader from '../components/common/PageHeader'
 import FormCard from '../components/common/FormCard'
 import StatusBadge from '../components/common/StatusBadge'
 import AlertItem from '../components/common/AlertItem'
-import { getSurveyResponse } from '../lib/satisfaction'
+import { getSurveyResponse, resolveSurveyResponse } from '../lib/satisfaction'
 import { formatCsat, formatNps, surveyBandMeta } from '../lib/surveyMeta'
 import { formatDateTime } from '../lib/format'
 import type { SurveyAnswer, SurveyResponseSummary } from '../types'
@@ -24,17 +24,20 @@ const answerText = (answer: SurveyAnswer): string => {
 }
 
 /**
- * One answer set, read back in the order the survey asked (module 05 slice S3, spec 13 §S3).
+ * One answer set, read back in the order the survey asked (module 05 slices S3–S4, spec 13).
  *
  * The score block says what the numbers mean; the questions below say what the client actually
- * said, in their own words where the survey asked for them. An answer marked for attention is
- * flagged here — the call-back itself is slice S4's work.
+ * said. An answer that crossed the unhappy line carries the closed-loop panel: the account owner
+ * (or a manager) writes down what was done, and the response keeps that record.
  */
 export default function SurveyResponseDetail() {
   const { id } = useParams<{ id: string }>()
   const [response, setResponse] = useState<SurveyResponseSummary | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [note, setNote] = useState('')
+  const [resolving, setResolving] = useState(false)
+  const [resolveError, setResolveError] = useState('')
 
   const load = useCallback(async () => {
     if (!id) return
@@ -52,6 +55,24 @@ export default function SurveyResponseDetail() {
   useEffect(() => {
     void load()
   }, [load])
+
+  const onResolve = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+
+    if (!id || note.trim() === '') return
+
+    setResolving(true)
+    setResolveError('')
+
+    try {
+      setResponse(await resolveSurveyResponse(id, note.trim()))
+      setNote('')
+    } catch {
+      setResolveError('Could not resolve that answer. Please try again.')
+    } finally {
+      setResolving(false)
+    }
+  }
 
   if (loading) {
     return <p className="text-sm text-muted-foreground">Reading the answer…</p>
@@ -72,6 +93,8 @@ export default function SurveyResponseDetail() {
     )
   }
 
+  const needsClosure = response.needs_attention && !response.resolved
+
   return (
     <div>
       <PageHeader
@@ -90,14 +113,26 @@ export default function SurveyResponseDetail() {
         }
       />
 
-      {response.needs_attention && (
+      {needsClosure && (
         <div className="mb-4">
           <AlertItem variant="warning" title="This client needs a call back">
             <span className="inline-flex items-center gap-2">
               <TriangleAlert className="h-4 w-4" aria-hidden="true" />
-              The answer crossed the unhappy line (CSAT at or below 3, or a detractor score). The
-              follow-up becomes a task on the account in the next slice; until then, read it and
-              reach out.
+              The answer crossed the unhappy line (CSAT at or below 3, or a detractor score). A
+              call-back task is on the account and the owner has been told. Reach out, then close
+              the loop with a note.
+            </span>
+          </AlertItem>
+        </div>
+      )}
+
+      {response.resolved && (
+        <div className="mb-4">
+          <AlertItem variant="success" title="The loop is closed">
+            <span className="inline-flex items-center gap-2">
+              <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+              Somebody reached out and recorded what was done. The answer stays on the account as
+              history.
             </span>
           </AlertItem>
         </div>
@@ -114,7 +149,10 @@ export default function SurveyResponseDetail() {
             ) : (
               <ol className="flex flex-col gap-4">
                 {(response.answers ?? []).map((answer, index) => (
-                  <li key={answer.id} className="border-b border-border pb-4 last:border-0 last:pb-0">
+                  <li
+                    key={answer.id}
+                    className="border-b border-border pb-4 last:border-0 last:pb-0"
+                  >
                     <p className="text-sm font-medium text-foreground">
                       {index + 1}. {answer.question?.prompt ?? 'Question'}
                     </p>
@@ -129,6 +167,62 @@ export default function SurveyResponseDetail() {
         </div>
 
         <div className="flex flex-col gap-6">
+          {needsClosure && response.can_resolve && (
+            <FormCard
+              title="Close the loop"
+              description="What was done about this answer — a call, a credit, a crew change. The note is the record."
+            >
+              <form onSubmit={onResolve} className="flex flex-col gap-3">
+                <label className="flex flex-col gap-1 text-sm">
+                  <span className="font-medium text-foreground">Resolution note</span>
+                  <textarea
+                    value={note}
+                    onChange={(event) => setNote(event.target.value)}
+                    rows={4}
+                    maxLength={2000}
+                    placeholder="Called Grace, apologised for the late replacements and confirmed the crew for Monday."
+                    className="w-full rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground outline-none focus:ring-2 focus:ring-ring"
+                  />
+                </label>
+
+                {resolveError && (
+                  <p role="alert" className="text-sm text-destructive">
+                    {resolveError}
+                  </p>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={resolving || note.trim() === ''}
+                  className="inline-flex items-center justify-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <CheckCircle2 className="h-4 w-4" aria-hidden="true" />
+                  {resolving ? 'Resolving…' : 'Resolve response'}
+                </button>
+              </form>
+            </FormCard>
+          )}
+
+          {needsClosure && !response.can_resolve && (
+            <FormCard title="Close the loop">
+              <p className="text-sm text-muted-foreground">
+                Only the account owner or a manager can close this loop.
+              </p>
+            </FormCard>
+          )}
+
+          {response.resolved && (
+            <FormCard title="Resolution" description="Who closed the loop, and what was done.">
+              <p className="whitespace-pre-wrap text-sm text-foreground">
+                {response.resolution_note}
+              </p>
+              <p className="mt-3 text-xs text-muted-foreground">
+                Resolved {formatDateTime(response.resolved_at)} by{' '}
+                {response.resolved_by?.name ?? 'a former user'}
+              </p>
+            </FormCard>
+          )}
+
           <FormCard title="The score">
             <dl className="flex flex-col gap-3 text-sm">
               <div className="flex items-center justify-between gap-3">

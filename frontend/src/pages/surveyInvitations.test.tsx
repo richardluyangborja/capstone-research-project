@@ -71,6 +71,11 @@ const {
       nps: 10,
       band: 'promoter',
       needs_attention: false,
+      resolved: false,
+      resolved_at: null,
+      resolved_by: null,
+      resolution_note: null,
+      can_resolve: false,
       created_at: '2026-10-19T02:00:00.000000Z',
     },
   }
@@ -170,7 +175,10 @@ describe('the invitation book', () => {
     resendSurveyInvitation.mockReset()
 
     listSurveyInvitations.mockResolvedValue(page([openInvitation, answeredInvitation]))
-    listSurveys.mockResolvedValue({ data: [activeSurvey], meta: { current_page: 1, last_page: 1, total: 1 } })
+    listSurveys.mockResolvedValue({
+      data: [activeSurvey],
+      meta: { current_page: 1, last_page: 1, total: 1 },
+    })
   })
 
   const renderBook = () =>
@@ -231,7 +239,9 @@ describe('the invitation book', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Withdraw' }))
 
     await waitFor(() => expect(cancelSurveyInvitation).toHaveBeenCalledWith('invitation-1'))
-    expect(await screen.findByText(/the link sent to grace@harbor.test no longer works/)).toBeInTheDocument()
+    expect(
+      await screen.findByText(/the link sent to grace@harbor.test no longer works/),
+    ).toBeInTheDocument()
   })
 })
 
@@ -253,7 +263,10 @@ describe('the account satisfaction tab', () => {
 
     listCompanySurveyInvitations.mockResolvedValue(page([answeredInvitation]))
     getCompanySatisfaction.mockResolvedValue(card)
-    listSurveys.mockResolvedValue({ data: [activeSurvey], meta: { current_page: 1, last_page: 1, total: 1 } })
+    listSurveys.mockResolvedValue({
+      data: [activeSurvey],
+      meta: { current_page: 1, last_page: 1, total: 1 },
+    })
     listCompanyContacts.mockResolvedValue([])
     listCompanyContracts.mockResolvedValue({ data: [], meta: { total: 0, active: 0 } })
   })
