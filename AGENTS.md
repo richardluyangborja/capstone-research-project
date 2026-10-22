@@ -326,8 +326,8 @@ Laravel's own and is separate from `frontend/`.
   the token dies: a second submit is 410, an unknown token 404, submitted/expired/cancelled/failed
   410. `SurveyResponseSubmitted` writes a `system` activity on the account. The question set freezes
   the moment an invitation exists (422 when `questions` is sent at all — name/description/active still
-  save), and `SurveyResource` carries `invitations_count` + `questions_editable`. **Not built here:**
-  the closed loop — the attention notification, the follow-up task and resolve (S4).
+  save), and `SurveyResource` carries `invitations_count` + `questions_editable`. The closed loop that
+  acts on the flag is slice S4 (below).
 - **Module 05 slice S3 — the response book & the satisfaction view:** `GET /survey-responses`
   (`filter[survey|company|band|attention|date_from|date_to]` + `search`, scoped by the account's
   visibility), `GET /survey-responses/{id}` (the answers in asked order, each with its question),
@@ -341,8 +341,23 @@ Laravel's own and is separate from `frontend/`.
   bands but still counts for CSAT and the book. The `SurveyResponsePolicy` only delegates to the
   account, so the detail is 403 outside the caller's scope and the book lists what they may see (a
   salesrep their own accounts, a manager the team's, an admin all). `SurveyResource` gained
-  `responses_count`. **Not built here:** the attention notification + module-04 task and the resolve
-  note (S4 — deferred behind the dashboard, ADR-0020).
+  `responses_count`.
+- **Module 05 slice S4 — closed-loop follow-through:** an unhappy answer raises the loop inside
+  `SurveyResponse::record()`: `SurveyResponseFlagged` → `RaiseSurveyFollowUp` sends **one** database
+  notification to the account owner (type `survey_attention`, carrying a `url` to the response) and
+  creates **one** `Activity` task on the company, owned by that owner, due next morning 09:00 PH, with
+  `source_key satisfaction:{response}`. A repeated flag is a no-op (the key guards it), an account
+  with no owner is left alone, and the task subject names the score
+  (`Call back Sunrise Foods Inc — CSAT 2 / 5`). `POST /survey-responses/{id}/resolve` (owner or
+  manager+, `SurveyResponsePolicy::resolve` delegating to the account's `update` right) requires a
+  `note`; a second resolve and a response that did not need attention are 422. Resolution records
+  `resolved_at` / `resolved_by` / `resolution_note` without clearing `needs_attention`, and
+  `SurveyResponseResolved` writes a `system` activity with the note. **Resolving does not complete the
+  task** — the call may happen later, so the worklist stays honest. `attention` now means
+  **unresolved**: the summary count and `filter[attention]=true` use `scopeUnresolvedAttention`,
+  `/satisfaction` carries `attention_responses` (the unresolved call-back list), and
+  `SurveyResponseResource` exposes `resolved`, `resolved_at`, `resolved_by`, `resolution_note` and
+  `can_resolve`.
 
 - **Module 06 — Dashboard & Management Reports (D1 — built, simulated):** the cross-cutting read
   layer over modules 01–05 (`resources/specs/14-dashboard-management-reports.md`, ADR-0020), pulled
@@ -443,10 +458,13 @@ required, options for the choice types — with a live **Preview** of the client
 survey opens read-only and a **sent** one shows its questions locked with *Duplicate into an editable
 copy* and still saves its wording), `/survey-invitations` (the book: state/survey filters + search,
 **Copy link**, **Resend**, **Withdraw**), `/satisfaction` (the summary: four cards — CSAT, NPS,
-response rate, needs attention — the promoter split and the latest answers), `/satisfaction/responses`
-(the book: survey/band/attention/date filters, search and a `?company=` deep link) and
+response rate, needs attention — the promoter split, the unresolved call-back list and the latest
+answers), `/satisfaction/responses`
+(the book: survey/band/attention/date filters, search and a `?company=` deep link; a resolved answer
+is badged) and
 `/satisfaction/responses/:id` (one answer read back in the asked order, with its score block, the
-send and the attention notice), and `/survey/:token` — the client's page, **outside the
+send, the attention notice and the **Resolve** panel — a required note for the owner/manager+, then
+when/by whom/by note), and `/survey/:token` — the client's page, **outside the
 dashboard shell and without login**, rendering the questions by type (1–5 row, 0–10 NPS row, radios,
 checkboxes, textarea) with a thank-you state and a plain reason for a dead link. The sidebar
 is **grouped by module** — module 01's submodules under `Lead & Client Tracking`, module 02's screens
@@ -518,7 +536,7 @@ account, so the "visible with the record, owed by someone else" split shows too)
 activity, so **Send now** demos on one and an admin **Dispatch due sends** sends the overdue one
 through the mocked gateway live. Module 04 **S3 hands two of those tasks over** the way the API does
 it — Liza's two seeded tasks are dispatched from Sam — so her bell opens with two real assignments
-while Sam's stays empty, and an admin **Dispatch due reminders** on the worklist flags what has come
+while Sam's holds the survey attention item (below), and an admin **Dispatch due reminders** on the worklist flags what has come
 due without a second run adding anything. Module 04 **S4 seeds nothing of its own** — it reads the
 data already there, so a manager's **Generate reminders** on a fresh database reports **3 created,
 2 skipped**: a renewal on the signed Harbor contract (Liza), a check-in on Greenfield Hotels and a
@@ -530,10 +548,11 @@ pilot and a **retired** referral pulse — so the book's state filters, **Duplic
 demo from real rows. **Module 05 S2 seeds five invitations and two responses** the way the API
 writes them (a real `Communication` each, responses through `SurveyResponse::record()`, dates
 backdated): a submitted check-in for Harbor (CSAT 5 / NPS 10) and for Sunrise (CSAT 2 / NPS 4, the
-attention item S4 will act on, flagged at submit), an **open** one for BPO — its link is the live demo
+attention item S4 acts on, flagged at submit), an **open** one for BPO — its link is the live demo
 of the public form — an **expired** one for Greenfield Hotels and a **cancelled** quarterly review for
 Sunrise, so every state is on the page. S3 reuses those two answers for its summary; S4 marks the
-Sunrise one as resolved-later work.
+Sunrise one as unresolved work through the real path — its answer raises the owner's bell and the
+`Call back Sunrise Foods Inc — CSAT 2 / 5` task — so resolving it is the demo.
 
 ## Conventions that differ from framework defaults
 
@@ -618,11 +637,9 @@ outbound messages + the due dispatch), S3 (notifications & the due run) and S4 (
 check-ins and stale-lead nudges)**; its worklist
 reuses `Activity` and the reserved
 `CommunicationStatus.scheduled` rather than adding a table. **Module 05** (Client Satisfaction &
-Survey) is **in progress** — `resources/specs/13-client-satisfaction-survey.md` declares four slices
+Survey) is **complete** — `resources/specs/13-client-satisfaction-survey.md` declares four slices
 (ADR-0016, ADR-0019): **S1 survey library, S2 invitations + the tokenized public form, S3 responses
-& scoring, S4 closed-loop follow-through**; **S1 (the survey library), S2 (the invitations and the
-tokenized public form) and S3 (the response book and the satisfaction view) are built**; **S4
-(closed-loop follow-through) is deferred behind the dashboard layer (ADR-0020)**. The module adds
+& scoring, S4 closed-loop follow-through** — and all four are built. The module adds
 five tables (`surveys`,
 `survey_questions`, `survey_invitations`, `survey_responses`, `survey_answers`) and reuses module 03
 for delivery and module 04 for the follow-up an unhappy answer raises. The roadmap is **ADR-0014**.

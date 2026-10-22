@@ -1077,12 +1077,7 @@ export interface SurveyInput {
 }
 
 /** What an invitation reads as today — `expired` is derived from its window, not stored. */
-export type SurveyInvitationStateName =
-  | 'sent'
-  | 'expired'
-  | 'failed'
-  | 'submitted'
-  | 'cancelled'
+export type SurveyInvitationStateName = 'sent' | 'expired' | 'failed' | 'submitted' | 'cancelled'
 
 /** The scored band of a promoter answer (9–10 / 7–8 / 0–6). */
 export type SurveyBandName = 'promoter' | 'passive' | 'detractor'
@@ -1114,6 +1109,12 @@ export interface SurveyResponseSummary {
   band: SurveyBandName | null
   band_label?: string | null
   needs_attention: boolean
+  /** The closed-loop record (module 05 slice S4); the answer itself never changes. */
+  resolved: boolean
+  resolved_at: string | null
+  resolved_by: { id: number; name: string } | null
+  resolution_note: string | null
+  can_resolve: boolean
   survey?: { id: string; name: string } | null
   company?: { id: string; name: string } | null
   contact?: { id: string; name: string } | null
@@ -1152,9 +1153,10 @@ export interface SatisfactionMetrics {
   response_rate: number | null
 }
 
-/** The org summary: the numbers plus the latest answers, which the page lists. */
+/** The org summary: the numbers plus the latest answers, and who is still unhappy. */
 export interface SatisfactionSummary extends SatisfactionMetrics {
   recent: SurveyResponseSummary[]
+  attention_responses: SurveyResponseSummary[]
 }
 
 /** The account's card: the same numbers, its latest answer and a short trend (oldest first). */

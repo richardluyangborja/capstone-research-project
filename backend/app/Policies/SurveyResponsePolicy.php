@@ -24,4 +24,13 @@ class SurveyResponsePolicy
     {
         return $response->company !== null && $user->can('view', $response->company);
     }
+
+    /**
+     * Closing the loop is work on the account, not on the survey: the owner (or a manager over
+     * their team, or an admin) may resolve an unhappy answer (slice S4, spec 13 §Permissions).
+     */
+    public function resolve(User $user, SurveyResponse $response): bool
+    {
+        return $response->company !== null && $user->can('update', $response->company);
+    }
 }

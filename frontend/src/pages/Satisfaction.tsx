@@ -98,7 +98,9 @@ export default function Satisfaction() {
       key: 'attention',
       header: 'Follow-through',
       render: (response) =>
-        response.needs_attention ? (
+        response.resolved ? (
+          <StatusBadge tone="success">Resolved</StatusBadge>
+        ) : response.needs_attention ? (
           <StatusBadge tone="danger">Needs attention</StatusBadge>
         ) : (
           <span className="text-muted-foreground">—</span>
@@ -119,6 +121,61 @@ export default function Satisfaction() {
           className="inline-flex items-center gap-1 text-xs font-medium text-counts"
         >
           Read
+          <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+        </Link>
+      ),
+    },
+  ]
+
+  const attentionColumns: DataTableColumn<SurveyResponseSummary>[] = [
+    {
+      key: 'company',
+      header: 'Account',
+      render: (response) => (
+        <div className="flex flex-col">
+          <Link
+            to={response.company ? `/companies/${response.company.id}?tab=satisfaction` : '#'}
+            className="font-medium text-foreground hover:text-primary"
+          >
+            {response.company?.name ?? '—'}
+          </Link>
+          <span className="text-xs text-muted-foreground">
+            {response.contact?.name ?? 'No named contact'}
+          </span>
+        </div>
+      ),
+    },
+    {
+      key: 'survey',
+      header: 'Survey',
+      className: 'text-muted-foreground',
+      render: (response) => response.survey?.name ?? '—',
+    },
+    {
+      key: 'score',
+      header: 'Score',
+      className: 'whitespace-nowrap',
+      render: (response) => (
+        <span className="text-foreground">
+          {formatCsat(response.csat)} · NPS {formatNps(response.nps)}
+        </span>
+      ),
+    },
+    {
+      key: 'submitted_at',
+      header: 'Answered',
+      className: 'whitespace-nowrap text-muted-foreground',
+      render: (response) => formatDateTime(response.submitted_at),
+    },
+    {
+      key: 'actions',
+      header: '',
+      render: (response) => (
+        <Link
+          to={`/satisfaction/responses/${response.id}`}
+          className="inline-flex items-center gap-1 whitespace-nowrap text-xs font-medium text-counts"
+        >
+          Read &amp; resolve
           <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
         </Link>
       ),
@@ -166,6 +223,20 @@ export default function Satisfaction() {
             />
             <StatCard label="Needs attention" value={summary.attention} domain="cost" />
           </div>
+
+          {(summary.attention_responses ?? []).length > 0 && (
+            <FormCard
+              title="Waiting on a call back"
+              description="Unhappy answers nobody has closed yet. A note on the response is the record that somebody reached out."
+            >
+              <DataTable
+                columns={attentionColumns}
+                rows={summary.attention_responses}
+                rowKey={(response) => response.id}
+                empty={<EmptyState title="Nobody is waiting" />}
+              />
+            </FormCard>
+          )}
 
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
             <FormCard

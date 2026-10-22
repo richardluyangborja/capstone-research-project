@@ -29,6 +29,16 @@ class SurveyResponseResource extends JsonResource
             'band' => $this->band?->value,
             'band_label' => $this->band?->label(),
             'needs_attention' => (bool) $this->needs_attention,
+            'resolved' => $this->resolved_at !== null,
+            'resolved_at' => $this->resolved_at?->toIso8601String(),
+            'resolved_by' => $this->whenLoaded('resolvedBy', fn (): ?array => $this->resolvedBy === null ? null : [
+                'id' => $this->resolvedBy->id,
+                'name' => $this->resolvedBy->name,
+            ]),
+            'resolution_note' => $this->resolution_note,
+            'can_resolve' => (bool) $this->needs_attention
+                && $this->resolved_at === null
+                && ($request->user()?->can('resolve', $this->resource) ?? false),
             'survey' => $this->whenLoaded('survey', fn (): ?array => $this->survey === null ? null : [
                 'id' => $this->survey->id,
                 'name' => $this->survey->name,

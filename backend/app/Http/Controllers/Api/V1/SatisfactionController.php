@@ -37,15 +37,23 @@ class SatisfactionController extends Controller
             ->count();
 
         $recent = (clone $responses)
-            ->with(['survey:id,name', 'company:id,name', 'contact:id,name'])
+            ->with($this->rowRelations())
             ->latest('submitted_at')
             ->limit(5)
+            ->get();
+
+        // The manager's "who is unhappy right now" list: flagged and not yet closed (slice S4).
+        $attention = (clone $responses)
+            ->unresolvedAttention()
+            ->with($this->rowRelations())
+            ->latest('submitted_at')
             ->get();
 
         return response()->json([
             'data' => [
                 ...$this->withResponseRate(SurveyResponse::metrics($responses), $invitations),
                 'recent' => SurveyResponseResource::collection($recent)->resolve(),
+                'attention_responses' => SurveyResponseResource::collection($attention)->resolve(),
             ],
         ]);
     }
@@ -85,7 +93,14 @@ class SatisfactionController extends Controller
             ]);
 
         $recent = (clone $responses)
-            ->with(['survey:id,name', 'contact:id,name'])
+            ->with([
+                'survey:id,name',
+                'company:id,name,owner_id',
+                'company.owner:id,team_id',
+                'contact:id,name',
+                'invitation:id,reference',
+                'resolvedBy:id,name',
+            ])
             ->latest('submitted_at')
             ->limit(5)
             ->get();
@@ -110,6 +125,24 @@ class SatisfactionController extends Controller
                 'recent' => SurveyResponseResource::collection($recent)->resolve(),
             ],
         ]);
+    }
+
+    /**
+     * The relations a response row needs to answer "may I resolve this?" without a query per row:
+     * the account, its owner's team (a manager's rights follow the owner), and who resolved it.
+     *
+     * @return array<int, string>
+     */
+    private function rowRelations(): array
+    {
+        return [
+            'survey:id,name',
+            'company:id,name,owner_id',
+            'company.owner:id,team_id',
+            'contact:id,name',
+            'invitation:id,reference',
+            'resolvedBy:id,name',
+        ];
     }
 
     /**

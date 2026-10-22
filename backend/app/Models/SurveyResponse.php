@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\SurveyBand;
 use App\Enums\SurveyInvitationStatus;
 use App\Enums\SurveyQuestionType;
+use App\Events\SurveyResponseFlagged;
 use App\Events\SurveyResponseSubmitted;
 use Carbon\CarbonInterface;
 use Database\Factories\SurveyResponseFactory;
@@ -57,6 +58,7 @@ class SurveyResponse extends Model
             'nps' => 'integer',
             'band' => SurveyBand::class,
             'needs_attention' => 'boolean',
+            'resolved_at' => 'datetime',
         ];
     }
 
@@ -78,6 +80,14 @@ class SurveyResponse extends Model
     public function contact(): BelongsTo
     {
         return $this->belongsTo(Contact::class);
+    }
+
+    /**
+     * Who closed the loop, once somebody did (slice S4).
+     */
+    public function resolvedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'resolved_by');
     }
 
     /**
@@ -142,6 +152,10 @@ class SurveyResponse extends Model
 
             SurveyResponseSubmitted::dispatch($response);
 
+            if ($response->needs_attention) {
+                SurveyResponseFlagged::dispatch($response);
+            }
+
             return $response;
         });
     }
@@ -174,6 +188,22 @@ class SurveyResponse extends Model
     }
 
     /**
+     * The score as the worklist and the bell read it: "CSAT 2 / 5 · NPS 4 / 10". Null scores
+     * are left out, so a survey that asks only one question still names what it measured.
+     */
+    public function scoreLine(): string
+    {
+        $scores = array_filter([
+            $this->csat !== null
+                ? sprintf('CSAT %s / 5', rtrim(rtrim(number_format($this->csat, 2, '.', ''), '0'), '.'))
+                : null,
+            $this->nps !== null ? sprintf('NPS %d / 10', $this->nps) : null,
+        ]);
+
+        return $scores === [] ? 'no score' : implode(' · ', $scores);
+    }
+
+    /**
      * The satisfaction numbers every view shares (spec 13 §Business rules 9): CSAT is the mean
      * of the stored per-response scores, NPS is the promoter share minus the detractor share over
      * the responses that carried a promoter answer, and the bands are plain counts.
@@ -192,7 +222,7 @@ class SurveyResponse extends Model
             ->selectRaw('sum(case when band = ? then 1 else 0 end) as promoters', [SurveyBand::Promoter->value])
             ->selectRaw('sum(case when band = ? then 1 else 0 end) as passives', [SurveyBand::Passive->value])
             ->selectRaw('sum(case when band = ? then 1 else 0 end) as detractors', [SurveyBand::Detractor->value])
-            ->selectRaw('sum(case when needs_attention then 1 else 0 end) as attention')
+            ->selectRaw('sum(case when needs_attention and resolved_at is null then 1 else 0 end) as attention')
             ->first();
 
         $promoters = (int) ($totals->promoters ?? 0);
@@ -238,15 +268,25 @@ class SurveyResponse extends Model
     }
 
     /**
-     * `filter[attention]=true|false` — the "who is unhappy" view and its complement.
+     * `filter[attention]=true|false` — the "who is still unhappy" view and its complement.
+     * Resolved answers keep `needs_attention` (the answer was unhappy) but leave the attention
+     * view once the loop is closed (slice S4).
      */
     public function scopeFilterAttention(Builder $query, ?string $attention): Builder
     {
         return match ($attention) {
-            'true', '1' => $query->where('needs_attention', true),
+            'true', '1' => $query->where('needs_attention', true)->whereNull('resolved_at'),
             'false', '0' => $query->where('needs_attention', false),
             default => $query,
         };
+    }
+
+    /**
+     * The manager's "who is unhappy right now" set: flagged and not yet resolved.
+     */
+    public function scopeUnresolvedAttention(Builder $query): Builder
+    {
+        return $query->where('needs_attention', true)->whereNull('resolved_at');
     }
 
     /**
