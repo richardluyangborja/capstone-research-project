@@ -32,7 +32,7 @@ Deferred **inside** module 01: 5. Duplicate Detection & Merge and advanced tiers
 | `12-follow-up-reminders.md` | 4. Follow-up Reminder System *(done — 4 slices)* |
 | `13-client-satisfaction-survey.md` | 5. Client Satisfaction & Survey *(built — 4 slices, S1–S4)* |
 | `14-dashboard-management-reports.md` | 6. Dashboard (cross-cutting) *(D1 + D2 built; D3 moved to module 07)* |
-| `15-ai-management-reports.md` | 7. AI Management Reports *(planned — S1/S2)* |
+| `15-ai-management-reports.md` | 7. AI Management Reports *(S1 built; S2 planned)* |
 
 The dashboard layer was pulled ahead of module 05 S4 for the presentation and shipped **D1 with
 simulated data**; **D2** now serves the real endpoints and deleted the fixtures (spec `14`,

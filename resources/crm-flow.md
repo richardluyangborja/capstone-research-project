@@ -96,7 +96,7 @@ dashboard and AI reports are cross-cutting presentation layers, not data modules
 | 04 | Follow-up Reminder System | 03 + notifications | `12` **(built)** |
 | 05 | Client Satisfaction & Survey | clients + contacts | `13` **(built)** |
 | 06 | Dashboard (cross-cutting read layer) | 01–05 | `14` (D1 + D2 built) |
-| 07 | AI Management Reports | 01–06 | `15` **(planned — S1/S2)** |
+| 07 | AI Management Reports | 01–06 | `15` **(S1 built; S2 planned)** |
 
 The dashboard layer shipped **D1 with simulated data** (spec `14`, ADR-0020) before module 05 S4,
 for the presentation, and **D2** now reads the real endpoints. Its former **D3** is now **Module 07 —
@@ -204,15 +204,17 @@ staff scorecard and the rules-based AI summary all link to existing module pages
 `ai` block stays rules-based; it links to `/reports` for generated reports. No table and no module
 rule change.
 
-## Module 07 → AI Management Reports (planned — ADR-0021)
+## Module 07 → AI Management Reports (S1 built — ADR-0021)
 
 A read-only presentation module over the dashboard data (`specs/15`). It owns the `/reports` page and
-an **AI Reports** sidebar group, and adds no table. **S1** ships the standard rules reports for three
-variants — Executive, Pipeline and Client Health — scoped like the dashboard. **S2** adds on-demand
-Groq free-tier generation behind a 3-second timeout, a 15-minute cache, per-user/org caps and a
-rules fallback with an inline info alert. The model receives aggregated, PII-free counts only and
-returns prose plus fixed insight/action IDs; Laravel maps those IDs to real routes. Record catch-up
-summaries (S3) and message drafting (S4) are future submodules, not part of S1/S2.
+an **AI Reports** sidebar group, and adds no table. **S1** ships `GET /reports/management` and the
+standard rules reports for three variants — Executive, Pipeline and Client Health — scoped like the
+dashboard. The report always carries its source, model, timestamp, cached flag and fallback, with
+exactly three insight cards and four action links to existing pages. **S2** adds on-demand Groq
+free-tier generation behind a 3-second timeout, a 15-minute cache, per-user/org caps and a rules
+fallback with an inline info alert. The model receives aggregated, PII-free counts only and returns
+prose plus fixed insight/action IDs; Laravel maps those IDs to real routes. Record catch-up summaries
+(S3) and message drafting (S4) are future submodules, not part of S1/S2.
 
 ## Role data visibility (ADR-0004)
 

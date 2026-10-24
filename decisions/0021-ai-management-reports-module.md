@@ -1,6 +1,6 @@
 # 0021 — AI Management Reports as Module 07
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-10-24
 
 ## Context
