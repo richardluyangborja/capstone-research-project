@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\V1\CompanyOpportunityController;
 use App\Http\Controllers\Api\V1\CompanySiteController;
 use App\Http\Controllers\Api\V1\ContactController;
 use App\Http\Controllers\Api\V1\ContractController;
+use App\Http\Controllers\Api\V1\DashboardController;
 use App\Http\Controllers\Api\V1\FollowUpController;
 use App\Http\Controllers\Api\V1\LeadAssignmentController;
 use App\Http\Controllers\Api\V1\LeadController;
@@ -55,6 +56,9 @@ Route::prefix('v1')->group(function (): void {
     Route::middleware('auth:api')->group(function (): void {
         Route::get('/auth/me', [AuthController::class, 'me']);
         Route::post('/auth/logout', [AuthController::class, 'logout']);
+
+        // Module 06 dashboard (spec 14, D2) — one role-scoped read over modules 01–05.
+        Route::get('dashboard', [DashboardController::class, 'summary']);
 
         // Notifications (submodule 03) — the topbar bell
         Route::get('notifications', [NotificationController::class, 'index']);
