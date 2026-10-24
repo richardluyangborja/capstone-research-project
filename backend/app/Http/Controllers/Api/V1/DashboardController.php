@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Dashboard\DashboardPeriod;
 use App\Http\Dashboard\DashboardScope;
 use App\Http\Dashboard\DashboardSummary;
+use App\Http\Dashboard\DashboardWorklist;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -22,12 +23,7 @@ class DashboardController extends Controller
 {
     public function summary(Request $request): JsonResponse
     {
-        $validated = $request->validate([
-            'range' => ['nullable', Rule::enum(DashboardRange::class)],
-        ]);
-
-        $range = DashboardRange::tryFrom((string) ($validated['range'] ?? ''))
-            ?? DashboardRange::Last30Days;
+        $range = $this->resolveRange($request);
 
         $user = $request->user();
         $period = DashboardPeriod::for($range);
@@ -36,5 +32,24 @@ class DashboardController extends Controller
         return response()->json([
             'data' => (new DashboardSummary($user, $period, $scope))->build(),
         ]);
+    }
+
+    public function worklist(Request $request): JsonResponse
+    {
+        $range = $this->resolveRange($request);
+
+        return response()->json(
+            (new DashboardWorklist($request->user(), $range))->build(),
+        );
+    }
+
+    private function resolveRange(Request $request): DashboardRange
+    {
+        $validated = $request->validate([
+            'range' => ['nullable', Rule::enum(DashboardRange::class)],
+        ]);
+
+        return DashboardRange::tryFrom((string) ($validated['range'] ?? ''))
+            ?? DashboardRange::Last30Days;
     }
 }
