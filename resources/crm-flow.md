@@ -95,9 +95,9 @@ on the one before:
 | 03 | Communication History Management | objects from 01–02 | `11` **(built)** |
 | 04 | Follow-up Reminder System | 03 + notifications | `12` **(built)** |
 | 05 | Client Satisfaction & Survey | clients + contacts | `13` **(built)** |
-| — | Dashboard & management reports (cross-cutting) | 01–05 | `14` (D1 built with simulated data; D2/D3 planned) |
+| — | Dashboard & management reports (cross-cutting) | 01–05 | `14` (D1 + D2 built; D3 planned) |
 
-The AI service (dashboard + management reports + suggestions) is cross-cutting, not a sixth module (ADR-0014). Its **dashboard layer** shipped **D1 with simulated data** (spec `14`, ADR-0020) before module 05 S4, for the presentation; the Python service is the last slice (D3).
+The AI service (dashboard + management reports + suggestions) is cross-cutting, not a sixth module (ADR-0014). Its **dashboard layer** shipped **D1 with simulated data** (spec `14`, ADR-0020) before module 05 S4, for the presentation, and **D2** now reads the real endpoints; the Python service is the last slice (D3).
 Duplicate detection/merge and advanced tiers/health are still-open **module-01** deferrals (ADR-0006).
 
 ## Module 02 → submodules (built, ADR-0015)
@@ -182,20 +182,21 @@ The last CRM module (spec `13`): close the loop after the sale.
 
 Automatic sends (on signing/renewal/churn) and reminder emails are deliberately unbuilt (ADR-0019).
 
-## Dashboard & management reports (D1 built, simulated — ADR-0020)
+## Dashboard & management reports (D1 + D2 built — ADR-0020)
 
 The cross-cutting read layer over modules 01–05 (`specs/14`, ADR-0020), shipped as D1 after module 05
-S3 and before S4 for the presentation. **D1** ships `/dashboard` with **simulated data**: one deterministic fixture
-module (`frontend/src/mocks/dashboard.ts`) behind a single accessor (`getDashboard(role, range)`),
-with the simulation recorded in spec 14 / ADR-0020 rather than shown on the page. It is role-aware —
-a salesrep reads their book, a manager
-the team, an admin the org — and reuses `DashboardShell`; four primary + four secondary KPI cards, a
-line chart and a donut, a needs-attention table, alerts, recent activity, a staff scorecard and the AI
-management report all link to existing module pages. The scorecard pairs CRM output with **core2 HR**
-figures (attendance, leave, late arrivals) through the planned `HrGateway` mock; missing HR data reads
-`—`, never `0`. **D2** replaces the fixtures with `/api/v1/dashboard`, `/dashboard/worklist` and
-`/dashboard/staff-performance` (contract in spec 14 §"Data contract"); **D3** wires the `ai/` service
-with a 3-second timeout and a rules-based fallback. No table and no backend change in D1.
+S3 and before S4 for the presentation. **D1** shipped `/dashboard` with simulated data from one
+deterministic fixture module, recorded in spec 14 / ADR-0020 rather than shown on the page. **D2**
+replaced it with the real read endpoints:
+`/api/v1/dashboard` (scope, KPIs, charts, alerts, activity, rules-based `ai`),
+`/dashboard/worklist` (the merged needs-attention rows) and `/dashboard/staff-performance` (CRM
+scorecards + core2 HR through the `HrGateway` mock). The frontend calls all three in parallel and
+formats raw values in one adapter; the fixture file is deleted, and the page handles loading, empty,
+error/retry and `hr_available: false` (`—`, never `0`). It is role-aware — a salesrep reads their
+book, a manager the team, an admin the org — and reuses `DashboardShell`; four primary + four
+secondary KPI cards, a line chart and a donut, a needs-attention table, alerts, recent activity, a
+staff scorecard and the AI management report all link to existing module pages. **D3** wires the
+`ai/` service with a 3-second timeout and a rules-based fallback. No table and no module rule change.
 
 ## Role data visibility (ADR-0004)
 

@@ -96,3 +96,21 @@ Two constraints shape the decision:
 - D1 ships without backend changes; the backend suite is unaffected.
 - D2 must add endpoint tests per role and reconcile at least one dashboard number against its
   module's list; D3 must prove the timeout fallback and the label.
+
+## Implementation update — 2026-10-24 (D2 shipped)
+
+D2 landed in five phases (`feature/dashboard-data-1` … `-5`): the read model and `GET /dashboard`,
+the merged worklist endpoint, staff performance with the `HrGateway` mock, the frontend wiring and
+fixture deletion, then reconciliation and documentation.
+
+The contract held. Every dashboard number is now derived at read time from modules 01–05; the
+layer still adds no table and changes no module rule. The frontend adapter
+(`frontend/src/lib/dashboard.ts`) calls the three endpoints in parallel and keeps the existing
+`DashboardData` view model, so the page components stayed presentational. One small presentation
+exception was needed: the staff table now renders null HR figures as `—` when core2 is unavailable,
+instead of assuming a number.
+
+`frontend/src/mocks/dashboard.ts` is deleted. The D2 suite runs per role on SQLite, runs again on
+Postgres against a separate test database, and reconciles dashboard figures with `/pipeline`,
+`/opportunities`, `/follow-ups` and `/companies`; the live API was smoke-tested for all five demo
+roles and all three ranges. D3 remains the Python service and its 3-second rules fallback.

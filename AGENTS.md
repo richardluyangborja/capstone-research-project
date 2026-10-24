@@ -141,8 +141,8 @@ Laravel's own and is separate from `frontend/`.
   off to Service** — it surfaces **Create contract from deal**, which deep-links to the company contract
   upload prefilled with `opportunity_id`; the mocked Service handoff still fires only on `mark-signed`
   (ADR-0013 §5). Events: `OpportunityStageChanged`, `OpportunityWon`, `OpportunityLost`
-  (`OpportunityCreated` now also fires on manual creation). **Not built here:** the backend
-  dashboard endpoints and the AI service (spec `14`; the dashboard home is simulated in the frontend).
+  (`OpportunityCreated` now also fires on manual creation). **Not built here:** the AI service
+  (spec `14` D3); the dashboard's D2 read endpoints are covered under module 06 below.
 - **Module 03 — Communication History Management (slices S1–S5 — log & history, email, attachments,
   threads, templates):** the detailed,
   channel-aware history record beside `Activity` (ADR-0017). Flat `/api/v1/communications`
@@ -359,30 +359,28 @@ Laravel's own and is separate from `frontend/`.
   `SurveyResponseResource` exposes `resolved`, `resolved_at`, `resolved_by`, `resolution_note` and
   `can_resolve`.
 
-- **Module 06 — Dashboard & Management Reports (D1 — built, simulated):** the cross-cutting read
-  layer over modules 01–05 (`resources/specs/14-dashboard-management-reports.md`, ADR-0020), shipped
-  as D1 after module 05 S3 and before S4 for the presentation. `/dashboard` is role-aware (salesrep → own book,
-  manager → team, admin → org) and shares `DashboardShell`; the header carries a working period
-  toggle (30 days / quarter / year to date) and the scope line (the mock data is documented here
-  and in spec 14, never surfaced on the page). Blocks:
-  4 primary + 4 secondary KPI cards (all clickable, with trend + hint), a line chart
-  (leads/qualified/won) and a donut (open pipeline by stage), a **needs-attention worklist**
-  (severity, subject + detail, type, owner, action), alerts, recent activity, a **staff scorecard**
-  pairing CRM output with **core2 HR** figures (attendance, leave, late arrivals via the planned
-  `HrGateway` mock; missing reads `—`, never `0`), and the **AI management report** (headline,
-  narrative, 3 insights, 4 actions — all linked; rules-based in D1). **No backend change:** every number
-  comes from `frontend/src/mocks/dashboard.ts` behind `getDashboard(role, range)` in
-  `frontend/src/lib/dashboard.ts` — the single swap point documented in spec 14 §"Data contract"
-  (D2 endpoints `/dashboard`, `/dashboard/worklist`, `/dashboard/staff-performance`; D3 the `ai/`
-  service with a 3-second rules-based fallback). Fixtures are deterministic, use the seeded names,
-  and link only to existing routes (never fixture ids), so a mocked row cannot 404. Shared
-  components added: `ChartCard`, `LineChart`, `DonutChart`; `StatCard` gained optional
-  `to`/`icon`/`hint`/`trend`. **Not built here:** the real endpoints, the Python service and a
-  dedicated `/reports` page.
+- **Module 06 — Dashboard & Management Reports (D1 + D2 — built; D3 pending):** the cross-cutting
+  read layer over modules 01–05 (`resources/specs/14-dashboard-management-reports.md`, ADR-0020),
+  shipped as D1 after module 05 S3 and before S4 for the presentation, then D2 in five phases. D2's
+  read endpoints — `GET /dashboard` (scope, KPIs, charts, alerts, activity, rules-based `ai`),
+  `GET /dashboard/worklist` and `GET /dashboard/staff-performance` — are role-scoped (salesrep →
+  own book, manager → team, admin → org), derived at read time, and add no table. The frontend
+  calls the three in parallel and formats raw values in `frontend/src/lib/dashboard.ts`; the D1
+  fixture file is deleted. The header carries a working period toggle (30 days / quarter / year to
+  date) and the scope line. Blocks: 4 primary + 4 secondary KPI cards (all clickable, trend + hint),
+  a line chart (leads/qualified/won), a donut (open pipeline by stage), a **needs-attention
+  worklist** (severity, subject + detail, type, owner, action), alerts, recent activity, a **staff
+  scorecard** pairing CRM output with **core2 HR** figures (attendance, leave, late arrivals via
+  `HrGateway`/`MockHrGateway`; `hr_available: false` reads `—`, never `0`), and the **AI management
+  report** (headline, narrative, 3 insights, 4 actions — all linked). The page handles loading,
+  empty, error/retry and missing-HR states. Shared components: `ChartCard`, `LineChart`,
+  `DonutChart`; `StatCard` gained optional `to`/`icon`/`hint`/`trend`. **Not built here:** D3 (the
+  Python `ai/` service with a 3-second rules-based fallback) and a dedicated `/reports` page.
 
 Frontend routes: `/dashboard` (the role-aware home: greeting + scope + period toggle, 8 KPI cards,
 line + donut charts, needs-attention table, alerts/activity, staff scorecard with core2 HR figures
-and the **AI management report** — all simulated in D1, with no in-app simulation badge), `/login`,
+and the **AI management report**, reading the D2 endpoints with no in-app simulation badge),
+`/login`,
 `/leads` (views: All / My Leads / Unassigned / Team / Archived, inline
 owner control, bulk assign, status/rating/aging columns, "Stale only" filter), `/leads/new`,
 `/leads/:id` (qualification panel + lifecycle control + ownership + activity form + timeline +
@@ -643,12 +641,12 @@ Survey) is **complete** — `resources/specs/13-client-satisfaction-survey.md` d
 five tables (`surveys`,
 `survey_questions`, `survey_invitations`, `survey_responses`, `survey_answers`) and reuses module 03
 for delivery and module 04 for the follow-up an unhappy answer raises. The roadmap is **ADR-0014**.
-**The dashboard layer** (`specs/14`, ADR-0020) is **D1 built with simulated data** — a role-aware
-`/dashboard` over modules 01–05 with KPI cards, line + donut charts, a needs-attention worklist,
-alerts/activity, a staff scorecard carrying core2 HR figures through the planned `HrGateway` mock,
-and the **AI management report**; the D1 simulation is documented (spec 14, ADR-0020) but not shown
-in the UI, and all fixtures sit behind one documented accessor,
-and D2/D3 wire the real endpoints and the `ai/` service.
+**The dashboard layer** (`specs/14`, ADR-0020) is **D1 + D2 built** — a role-aware `/dashboard` over
+modules 01–05 with KPI cards, line + donut charts, a needs-attention worklist, alerts/activity, a
+staff scorecard carrying core2 HR figures through the `HrGateway` mock, and the **AI management
+report**. D2 replaced the D1 fixtures with `/dashboard`, `/dashboard/worklist` and
+`/dashboard/staff-performance`; the fixture file is deleted and the page handles loading, empty,
+error/retry and missing-HR states. **D3** still wires the `ai/` service with its 3-second fallback.
 Dedup/merge and advanced tiers are module-01 deferrals
 (ADR-0006), and automatic client aging stays one too (ADR-0018 §6). Other departments are consumed via
 **mocked integrations** (ADR-0005), not built here.

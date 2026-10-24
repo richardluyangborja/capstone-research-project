@@ -5,10 +5,11 @@ Cross-cutting layer over modules 01–05 (ADR-0014, **ADR-0020**). Reuses `Lead`
 table**. The AI service (`resources/system-ai-feature.md`) is a Python service that this spec
 treats as an HTTP contract with a documented fallback.
 
-> **Status: D1 built with simulated data.** The dashboard home ships first, for presentation, with
-> all numbers read from one fixture module. D2 (real endpoints) and D3 (the `ai/` service) are
-> declared but not built. Module 05's S4 (closed-loop follow-through) shipped after D1, without a
-> dashboard rewrite (ADR-0020 §1).
+> **Status: D1 and D2 built; D3 planned.** The dashboard home shipped first for the presentation
+> with one fixture module, then D2 replaced every fixture with the real read endpoints and deleted
+> the fixture file. The AI block is the rules-based template until D3 wires the `ai/` service.
+> Module 05's S4 (closed-loop follow-through) shipped after D1, without a dashboard rewrite
+> (ADR-0020 §1).
 
 ## Purpose
 
@@ -26,13 +27,23 @@ opened is a dead end; this spec forbids dead ends.
 | Slice | Branch | Facet | Demo |
 | --- | --- | --- | --- |
 | **D1** *(built)* | `feature/dashboard-management-reports` | Dashboard home, simulated | log in as each role → KPIs, charts, needs-attention table, staff scorecard, AI management report; switch the period |
-| **D2** | `feature/dashboard-data` | Real endpoints + wiring | the same page reads `/api/v1/dashboard`; every fixture field is replaced by a query; empty/loading/error states |
+| **D2** *(built)* | `feature/dashboard-data-1` … `-5` | Real endpoints + wiring (five phases) | the same page reads the three endpoints; every fixture field is a query; empty/loading/error states; staff HR failure reads `—` |
 | **D3** | `feature/ai-reports` | The Python service | the AI panel calls the service; a timeout falls back to the rules template; `source` records which path answered |
 
-D2 is purely additive: the components already consume the final shape. D3 changes only the
-`ai` block.
+D2 was additive in behaviour: the page still consumes the same `DashboardData` view model, and the
+only presentation change is null-safe HR cells in the staff table. D3 changes only the `ai` block.
 
-## Layout (D1)
+### D2 delivery phases
+
+| Phase | Branch | Scope |
+| --- | --- | --- |
+| 1 | `feature/dashboard-data-1` | read model + `GET /dashboard` |
+| 2 | `feature/dashboard-data-2` | `GET /dashboard/worklist` |
+| 3 | `feature/dashboard-data-3` | `GET /dashboard/staff-performance` + `HrGateway` |
+| 4 | `feature/dashboard-data-4` | frontend wiring, states, fixture deletion |
+| 5 | `feature/dashboard-data-5` | reconciliation, Postgres verification, docs/acceptance |
+
+## Layout (D1, still current)
 
 The design system requires: 4 primary stat cards → 4 secondary stat cards → chart section (line +
 donut) → activity list + alerts list, inside `DashboardShell` (design instruction, "Standard
@@ -46,8 +57,9 @@ needs (the worklist and the staff scorecard):
 4. **Charts** — `Acquisition & conversion` (line: leads / qualified / won) and `Open pipeline`
    (donut by stage). Both carry a caption and a link to their module page.
 5. **AI management report** — headline, narrative, three insight cards, four suggested actions;
-   every item links to a page. Presented as the product's AI report — the simulation is recorded
-   here and in ADR-0020, never in the UI.
+   every item links to a page. D2 serves the rules-based block from Laravel; D3 may serve the
+   Python service behind the same contract. `source` is recorded in the payload, never shown as a
+   simulation label.
 6. **Needs attention + right rail** — a worklist table (priority, subject, type, owner, action) and
    two cards: **Alerts** (`AlertItem`s with links) and **Recent activity** (linked rows).
 7. **Staff performance** — CRM output beside core2 HR figures (attendance, leave, late arrivals),
@@ -68,27 +80,28 @@ prop — no per-role layouts.
 | `admin`, `superadmin` | `org` — "Primepower · CRM org-wide" | every KPI, every worklist row, every scorecard |
 
 Worklist rows, alerts and staff rows carry a `minTier` (`personal` < `team` < `org`). A row is shown
-when the session tier is at or above it. In D2 the server applies the same filter — the client must
-never be the only gate.
+when the session tier is at or above it. The server applies the same filter in D2 — the client is
+never the only gate.
 
-## Mock data (D1 policy)
+## Mock data (D1 policy, retired)
 
-1. **One source.** `frontend/src/mocks/dashboard.ts` builds every block; `getDashboard(role,
-   range)` in `frontend/src/lib/dashboard.ts` is the only accessor the page imports. D2 replaces the
-   accessor body with HTTP calls and deletes the fixture file. No component knows the difference.
+1. **One source (D1).** `frontend/src/mocks/dashboard.ts` built every block; `getDashboard(role,
+   range)` in `frontend/src/lib/dashboard.ts` was the only accessor the page imported. D2 replaced
+   the accessor body with the three HTTP calls and deleted the fixture file. No component knows the
+   difference.
 2. **Documented, not surfaced.** The repo (this spec, ADR-0020 and the accessor docblock) records
-   that D1 is mock data; the page carries **no** simulation badge, banner or disclaimer. The UI is
-   presentation-ready product UI. D2 removes the fixtures, not the documentation.
-3. **No fixture ids in links.** A fixture row links to a module page or a filtered book
+   the D1 mock history; the page carried **no** simulation badge, banner or disclaimer. The UI is
+   presentation-ready product UI. D2 removed the fixtures, not the documentation.
+3. **No fixture ids in links.** A D1 fixture row linked to a module page or a filtered book
    (`/pipeline`, `/satisfaction/responses?attention=true`), never to `/companies/{fixture-id}` —
-   so a mocked row can never 404. D2's real payload sends record hrefs.
-4. **Deterministic.** No faker and no randomness: the same role + range always renders the same
-   numbers, so the demo and the tests are reproducible.
+   so a mocked row could never 404. D2's real payload sends record hrefs.
+4. **Deterministic.** No faker and no randomness: the same role + range rendered the same numbers,
+   so the demo and the tests were reproducible.
 5. **Real names, fictional numbers.** Accounts and staff are the seeded demo records (Sunrise, BPO,
-   Harbor, Greenfield; Maria, Sam, Liza); the figures are invented for the presentation and are
+   Harbor, Greenfield; Maria, Sam, Liza); the D1 figures were invented for the presentation and were
    **not** derived from the seeders.
 
-### Fixture content (D1)
+### Fixture content (D1, historical)
 
 | Block | Org, last 30 days | Source of the fiction |
 | --- | --- | --- |
@@ -110,8 +123,8 @@ time HR reads).
 
 All money is PHP; dates display `DD MMM YYYY` in `Asia/Manila` (store UTC). Lists are scoped
 server-side. The dashboard sends **raw values + units**; the frontend formats (one formatting rule,
-`lib/format.ts`). D1 fixtures pre-format because they are static strings — the D2 adapter formats,
-the components do not change.
+`lib/format.ts`). D1 fixtures pre-formatted because they were static strings; the D2 adapter now
+formats the raw values, and the components only render.
 
 ### `GET /api/v1/dashboard?range=30d|quarter|ytd`
 
@@ -140,7 +153,7 @@ the components do not change.
 }
 ```
 
-Query rules (must match the fixtures' story):
+Query rules (must match the seeded demo's story):
 
 - **New leads** — `leads.created_at` in the period, visible to the caller, `status != archived`.
 - **Qualified** — leads that entered `qualified` in the period (`status_changed_at`).
@@ -234,9 +247,10 @@ Rules:
    provenance.
 4. **No personal data in the prompt** beyond what the caller may see; the service is stateless.
 
-D1 ships the rules template as static fixtures (the same text shape), so the UI is already final.
+D2 serves the rules-based template from Laravel in the same text shape, so the UI is already final;
+D3 replaces that one block with the Python service and its fallback.
 
-## Click map (D1)
+## Click map
 
 | Element | Destination |
 | --- | --- |
@@ -263,7 +277,7 @@ pre-filtered; `/satisfaction/responses?company=` already existed (S3).
 - [x] Content follows the session role (`personal` / `team` / `org`); a salesrep sees only their
       scorecard row and only personal worklist rows; a manager sees the team; an admin the org.
 - [x] Header states the scope, the last update and a working period toggle (`30d` / `quarter` /
-      `ytd`); switching re-reads the fixtures without a page reload.
+      `ytd`); switching re-reads the dashboard without a page reload.
 - [x] No simulation badge, banner or disclaimer appears in the UI; the D1 mock status is recorded
       in this spec, ADR-0020 and the accessor docblock only.
 - [x] 4 primary + 4 secondary KPI cards, all clickable, each with a hint and a trend.
@@ -274,20 +288,35 @@ pre-filtered; `/satisfaction/responses?company=` already existed (S3).
 - [x] Alerts and recent activity are present and linked.
 - [x] The staff scorecard shows CRM output **and** core2 HR fields, badged `core2 · HR`, with the
       seam explained and `—` semantics reserved for missing data.
-- [x] AI panel: headline, narrative, 3 linked insights, 4 linked actions, simulation note.
+- [x] AI panel: headline, narrative, 3 linked insights, 4 linked actions; the source is recorded in
+      the payload rather than shown as a simulation note.
 - [x] Responsive at mobile/tablet/desktop (tables scroll horizontally, grids collapse).
 - [x] Tokens/utility classes only — no hardcoded hex or arbitrary px; lucide icons only.
 - [x] `frontend` tests cover scope by role, KPI links, worklist links, AI labelling, period toggle,
       charts and the staff table; `npm run lint`, `npm run test`, `npm run build` are clean.
 
-### D2 — future
+### D2 — built
 
-- [ ] `GET /api/v1/dashboard`, `/dashboard/worklist`, `/dashboard/staff-performance` exist, are
+- [x] `GET /api/v1/dashboard`, `/dashboard/worklist`, `/dashboard/staff-performance` exist, are
       policy-scoped, and return the shapes above.
-- [ ] `getDashboard` calls them; the fixture module is deleted; components are untouched.
-- [ ] Loading, empty and error states are exercised (including `hr_available: false`).
-- [ ] Backend tests per role (salesrep/manager/admin) prove the scoping; Postgres verified.
-- [ ] A dashboard number can be reconciled against its module's list count in a test.
+- [x] `getDashboard` calls them in parallel; the fixture module is deleted. The page still consumes
+      the same view model; the only component change is null-safe HR cells in the staff table.
+- [x] Loading, empty and error/retry states are exercised (including `hr_available: false`, which
+      renders `—`).
+- [x] Backend tests per role (salesrep/manager/admin) prove the scoping; the dashboard suite ran on
+      Postgres against a separate test database and was smoke-tested through the live API for all
+      five demo roles and all three ranges.
+- [x] A dashboard number can be reconciled against its module's list count in a test: the pipeline
+      KPI against `/pipeline`, won value against `/opportunities`, follow-ups against `/follow-ups`,
+      and active clients against `/companies`.
+
+Implementation notes:
+
+- Every number is derived at read time; the layer still adds no table and changes no module rule.
+- The summary response also carries the alerts, activity feed and rules-based `ai` block; the
+  frontend adapter formats raw values and leaves the components presentational.
+- `HrGateway` is bound to `MockHrGateway`; `CRM_HR_SIMULATE_FAILURE=true` returns `hr: null` and
+  `meta.hr_available: false`, and the note explains the missing source.
 
 ### D3 — future
 
@@ -300,13 +329,15 @@ pre-filtered; `/satisfaction/responses?company=` already existed (S3).
 - Scheduled/emailed reports, PDF/Excel export, drill-down charts, custom date ranges, saved
   dashboard layouts, per-user widget configuration.
 - Real core2/HR connectivity — the seam is a deterministic mock (`HrGateway`).
-- A dedicated `/reports` page: D1 is the dashboard home; a fuller management-report page, if the
-  client wants one, is a D4 candidate (the AI panel already carries the report content).
+- A dedicated `/reports` page: the dashboard home is the report; a fuller management-report page, if
+  the client wants one, is a D4 candidate (the AI panel already carries the report content).
 
 ## Impact on other specs
 
 - `13` §S4 shipped after D1: the dashboard already reads the attention flag and links to the
   filtered book, so the closed loop landed without a dashboard rewrite.
+- `frontend/src/mocks/` is removed; D1's fixture file no longer exists. The D2 adapter in
+  `frontend/src/lib/dashboard.ts` is the only place the wire contract is translated.
 - The design system gains `ChartCard`, `LineChart` and `DonutChart` in `components/common/`
   (usable by any later report page).
 - `00-data-model.md` is untouched: no table, no column.
