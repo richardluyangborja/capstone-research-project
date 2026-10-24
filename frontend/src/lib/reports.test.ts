@@ -1,10 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { api } from './api'
-import { getManagementReport } from './reports'
+import { ReportCooldownError, generateManagementReport, getManagementReport } from './reports'
 
-vi.mock('./api', () => ({ api: { get: vi.fn() } }))
+vi.mock('./api', () => ({ api: { get: vi.fn(), post: vi.fn() } }))
 
 const get = vi.mocked(api.get)
+const post = vi.mocked(api.post)
 
 const wire = (overrides: Record<string, unknown> = {}) => ({
   data: {
@@ -53,6 +54,7 @@ const wire = (overrides: Record<string, unknown> = {}) => ({
 describe('getManagementReport', () => {
   beforeEach(() => {
     get.mockReset()
+    post.mockReset()
   })
 
   it('reads the one report endpoint with the period and variant and maps its links', async () => {
@@ -107,5 +109,61 @@ describe('getManagementReport', () => {
     get.mockRejectedValue(new Error('reports unavailable'))
 
     await expect(getManagementReport('ytd', 'pipeline')).rejects.toThrow('reports unavailable')
+  })
+})
+
+describe('generateManagementReport', () => {
+  beforeEach(() => {
+    get.mockReset()
+    post.mockReset()
+  })
+
+  it('posts the generation request and maps the model provenance', async () => {
+    const modelWire = wire({
+      data: {
+        ...wire().data,
+        source: 'model',
+        model: 'openai/gpt-oss-20b',
+        cached: false,
+        fallback: null,
+      },
+      meta: { ...wire().meta, ai_available: true },
+    })
+    post.mockResolvedValue({ data: modelWire } as never)
+
+    const result = await generateManagementReport('30d', 'executive', true)
+
+    expect(post).toHaveBeenCalledWith('/reports/management/generate', {
+      range: '30d',
+      variant: 'executive',
+      refresh: true,
+    })
+    expect(result.report).toMatchObject({
+      source: 'model',
+      model: 'openai/gpt-oss-20b',
+      cached: false,
+      fallback: null,
+    })
+    expect(result.meta.ai_available).toBe(true)
+  })
+
+  it('turns a 429 into a cooldown error with the retry horizon', async () => {
+    post.mockRejectedValue({
+      isAxiosError: true,
+      response: { status: 429, data: { retry_after_seconds: 240 } },
+    })
+
+    const call = generateManagementReport('30d', 'executive', true)
+
+    await expect(call).rejects.toBeInstanceOf(ReportCooldownError)
+    await expect(call).rejects.toMatchObject({ retryAfterSeconds: 240 })
+  })
+
+  it('rethrows any other generation failure', async () => {
+    post.mockRejectedValue(new Error('ai service is down'))
+
+    await expect(generateManagementReport('30d', 'executive')).rejects.toThrow(
+      'ai service is down',
+    )
   })
 })

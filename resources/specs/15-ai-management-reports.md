@@ -4,7 +4,7 @@ Module 07 (ADR-0014, **ADR-0021**). A read-only presentation module over modules
 `DashboardSummary`, `DashboardWorklist`, `DashboardStaffPerformance` and the existing `ai/` FastAPI
 service; adds **no table**.
 
-> **Status: S1 built; S2 planned.** D3 of spec `14` is moved here as Module 07 (ADR-0021). The
+> **Status: S1 + S2 built.** D3 of spec `14` is moved here as Module 07 (ADR-0021). The
 > rules-based report remains the source of truth; the free Groq model is an optional prose layer with
 > an explicit fallback. Nothing in this module mutates CRM data.
 
@@ -43,7 +43,7 @@ those are **not** part of S1/S2.
 
 | Layer         | Choice                                                  | Why                                                                                        |
 | ------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| Laravel       | Built-in `Http`, `Cache`, `RateLimiter`                 | No new package; the existing `cache` table holds the report cache, counters and cooldowns. |
+| Laravel       | Built-in `Http` + `Cache` counters                       | No new package; the existing `cache` table holds the report cache, counters and cooldowns. |
 | `ai/`         | FastAPI + Pydantic v2 + `pydantic-settings`             | Already scaffolded; typed request/response validation with no ML stack.                    |
 | Provider call | `httpx` to Groq's OpenAI-compatible `/chat/completions` | One small HTTP dependency; no vendor SDK lock-in.                                          |
 | Provider      | Groq free tier, `openai/gpt-oss-20b`                    | No card, fast, JSON mode, sufficient free quota with caching.                              |
@@ -62,7 +62,7 @@ coherent.
 | Slice  | Branch                     | Facet                                  | Demo                                                                                                                                                                                  |
 | ------ | -------------------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **S1** | `feature/ai-reports-shell` | The module, page and rules variants **(built)** | open `/reports` as each role → switch Executive / Pipeline / Client Health → switch periods → the standard report changes scope and numbers                                           |
-| **S2** | `feature/ai-reports-groq`  | Free AI generation, cache and fallback | press **Generate with AI** → a Groq report appears with its model/timestamp; remove the key or force a rate limit → the standard report stays and an info alert explains the fallback |
+| **S2** | `feature/ai-reports-groq`  | Free AI generation, cache and fallback **(built)** | press **Generate with AI** → a Groq report appears with its model/timestamp; remove the key or force a rate limit → the standard report stays and an info alert explains the fallback |
 
 S1 is useful on its own: if the provider decision changes, the module and its reports still ship.
 S2 adds the model behind the same report contract.
@@ -215,13 +215,14 @@ service from Laravel's context. It is not a chat, has no conversation history an
   `open_deals`, `open_clients`, `open_satisfaction`, `open_worklist`, `read_answers`,
   `open_followups`. The Python service rejects anything outside the set; Laravel maps each ID to a
   route it owns.
-- **Generation settings:** JSON mode, `temperature = 0.2`, `max_tokens = 700`, no streaming, no
-  chain-of-thought request, no retry. A schema failure is a fallback, not a repair loop.
+- **Generation settings:** JSON mode, `temperature = 0.2`, `max_tokens = 1200` (the gpt-oss
+  reasoning tokens count against this), `reasoning_effort = low`, no streaming, no retry, no separate
+  chain-of-thought request. A schema failure is a fallback, not a repair loop.
 - **Privacy check:** the prompt builder has a deny-list test for names, emails, phone numbers, notes
   and message bodies. The test fails the build if any appear in the outgoing payload.
 
-The system prompt is static, which lets the provider's prompt cache work and keeps the request small.
-Only the variant block changes the instructions; the context carries the numbers.
+The system prompt is static per variant, which lets the provider's prompt cache work and keeps the
+request small. Only the variant block changes the instructions; the context carries the numbers.
 
 ## Report variants
 
@@ -276,8 +277,9 @@ Base `/api/v1`; JSON; `Authorization: Bearer <jwt>`. No public route.
    There is no Gemini/OpenRouter chain in S2; a second provider would add another privacy and quota
    surface for little benefit.
 6. **The model writes prose, not routes.** It chooses **insight and action IDs** from a fixed set.
-   Laravel maps those IDs to real routes. A model can never invent a URL, a record name or a number
-   that was not supplied.
+   Laravel maps those IDs to real routes and rejects prose containing a URL or email address. The
+   prompt forbids names, records and numbers outside the supplied context; because that context is
+   aggregated counts only, there is no record data for the model to leak.
 7. **The fallback is visible.** When `source = rules` and a fallback reason exists, the page shows an
    info alert: “AI report is unavailable right now — showing the standard management report.” This
    is a degraded-state message, not a simulation badge. `not_configured` says AI generation is not
@@ -297,7 +299,7 @@ Base `/api/v1`; JSON; `Authorization: Bearer <jwt>`. No public route.
 | Provider           | Groq (`openai/gpt-oss-20b`)     | Free tier, no card; model configurable                |
 | Timeout            | 3 s at Laravel, 2.5 s at Python | Keep the page responsive; fall back on timeout        |
 | Input              | ≤ ~2K tokens                    | Aggregated context only                               |
-| Output             | ≤ 700 tokens                    | Headline, narrative, 3 insights, 4 actions            |
+| Output             | ≤ 1,200 tokens                  | Headline, narrative, 3 insights, 4 actions; includes gpt-oss reasoning tokens |
 | Cache TTL          | 15 min                          | A reload normally costs zero tokens                   |
 | Refresh cooldown   | 5 min per user + variant        | Prevent looped regeneration                           |
 | Per-user daily cap | 30 generations                  | Protect the shared free quota                         |
@@ -352,6 +354,8 @@ beyond login and scope.
 | `AI_USER_DAILY_LIMIT`         | `30`                    | Laravel    |
 | `AI_PROVIDER`                 | `groq`                  | `ai/`      |
 | `AI_MODEL`                    | `openai/gpt-oss-20b`    | `ai/`      |
+| `AI_TIMEOUT_SECONDS`          | `2.5`                   | `ai/`      |
+| `GROQ_BASE_URL`               | `https://api.groq.com/openai/v1` | `ai/` |
 | `GROQ_API_KEY`                | _(required for S2)_     | `ai/` only |
 
 `AI_REPORT_ENABLED=false` is the demo switch for the fallback path. It must not be necessary to
@@ -377,19 +381,20 @@ delete a key.
 
 ### S2 — Groq generation and fallback
 
-- [ ] `POST /reports/management/generate` calls the `ai/` service, which calls Groq with a compact,
+- [x] `POST /reports/management/generate` calls the `ai/` service, which calls Groq with a compact,
       PII-free context and returns strict JSON.
-- [ ] A successful report is cached by user + range + variant + context hash; a reload does not call
+- [x] A successful report is cached by user + range + variant + context hash; a reload does not call
       the provider; `refresh` bypasses the cache within the cooldown rule.
-- [ ] The report names its `source` and `model`; a cached report carries `cached: true`.
-- [ ] Timeout, 429, missing key, invalid JSON and provider failure all return a complete rules report
+- [x] The report names its `source` and `model`; a cached report carries `cached: true`.
+- [x] Timeout, 429, missing key, invalid JSON and provider failure all return a complete rules report
       with the correct `fallback.reason` and the UI info alert.
-- [ ] The model cannot emit a route or a fact outside the context; invalid IDs or schema fall back.
-- [ ] Per-user and org daily caps, and the refresh cooldown, are enforced with cache counters; no new
+- [x] The model cannot emit a route; invalid IDs, schema or prose URLs/emails fall back. The prompt
+      restricts it to the supplied context, and no record fields are sent.
+- [x] Per-user and org daily caps, and the refresh cooldown, are enforced with cache counters; no new
       table.
-- [ ] A test asserts the outgoing context contains no account names, contact names, emails, notes or
+- [x] A test asserts the outgoing context contains no account names, contact names, emails, notes or
       message bodies.
-- [ ] The same five demo roles and three ranges are smoke-tested on Postgres, with and without a
+- [x] The same five demo roles and three ranges are smoke-tested on Postgres, with and without a
       provider key.
 
 ### D3 mapping

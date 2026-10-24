@@ -32,13 +32,13 @@ Deferred **inside** module 01: 5. Duplicate Detection & Merge and advanced tiers
 | `12-follow-up-reminders.md` | 4. Follow-up Reminder System *(done — 4 slices)* |
 | `13-client-satisfaction-survey.md` | 5. Client Satisfaction & Survey *(built — 4 slices, S1–S4)* |
 | `14-dashboard-management-reports.md` | 6. Dashboard (cross-cutting) *(D1 + D2 built; D3 moved to module 07)* |
-| `15-ai-management-reports.md` | 7. AI Management Reports *(S1 built; S2 planned)* |
+| `15-ai-management-reports.md` | 7. AI Management Reports *(built — S1 + S2)* |
 
 The dashboard layer was pulled ahead of module 05 S4 for the presentation and shipped **D1 with
 simulated data**; **D2** now serves the real endpoints and deleted the fixtures (spec `14`,
 ADR-0020). Its former **D3** became **Module 07 — AI Management Reports** (spec `15`, ADR-0021):
-a read-only page over the dashboard data, with rules variants and an optional free Groq layer.
-Module 07 is not a data module and adds no table.
+a read-only page over the dashboard data, with rules variants and the free Groq generation layer
+behind a rules fallback. Module 07 is not a data module and adds no table.
 
 From module 02 on, the delivery unit is the **slice**, not the spec file: each spec declares its slices
 with their own acceptance criteria and each ships as its own PR (ADR-0016). Module 01 predates this and

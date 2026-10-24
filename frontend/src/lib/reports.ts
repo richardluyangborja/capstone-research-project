@@ -1,13 +1,14 @@
+import { isAxiosError } from 'axios'
 import type { DashboardDomain, DashboardRange, DashboardScope } from './dashboard'
 import { api } from './api'
 import { formatDateTime } from './format'
 
 /**
- * Module 07 — the management report (spec 15, S1).
+ * Module 07 — the management report (spec 15).
  *
- * `GET /reports/management` always returns a complete standard report. S2 will add a separate
- * generate route; the page shape stays the same, so this adapter already maps the provenance and
- * fallback fields the model report will carry.
+ * `GET /reports/management` returns cached model prose when one exists, otherwise the standard
+ * rules report; it never calls the provider. `POST /reports/management/generate` is the on-demand
+ * path. Both return the same report shape, so the page maps provenance and fallback once.
  */
 
 export type ManagementReportVariant = 'executive' | 'pipeline' | 'client_health'
@@ -120,6 +121,17 @@ interface WireResponse {
   meta: ManagementReportMeta
 }
 
+/** A refresh asked for inside the server's cooldown; the current report is still valid. */
+export class ReportCooldownError extends Error {
+  readonly retryAfterSeconds: number
+
+  constructor(retryAfterSeconds: number) {
+    super('Try again in a few minutes.')
+    this.name = 'ReportCooldownError'
+    this.retryAfterSeconds = retryAfterSeconds
+  }
+}
+
 const mapReport = (report: WireReport): ManagementReport => ({
   variant: report.variant,
   title: report.title,
@@ -160,5 +172,36 @@ export async function getManagementReport(
   return {
     report: mapReport(response.data.data),
     meta: response.data.meta,
+  }
+}
+
+/**
+ * On-demand generation. `refresh` bypasses the server cache but is subject to the per-user
+ * cooldown; a 429 keeps the current report on screen and surfaces a retry horizon.
+ */
+export async function generateManagementReport(
+  range: DashboardRange,
+  variant: ManagementReportVariant,
+  refresh = false,
+): Promise<ManagementReportData> {
+  try {
+    const response = await api.post<WireResponse>('/reports/management/generate', {
+      range,
+      variant,
+      refresh,
+    })
+
+    return {
+      report: mapReport(response.data.data),
+      meta: response.data.meta,
+    }
+  } catch (error) {
+    if (isAxiosError(error) && error.response?.status === 429) {
+      const seconds = Number(error.response.data?.retry_after_seconds ?? 0)
+
+      throw new ReportCooldownError(Number.isFinite(seconds) ? seconds : 0)
+    }
+
+    throw error
   }
 }
