@@ -267,6 +267,26 @@ class DashboardSummaryTest extends TestCase
         );
     }
 
+    public function test_follow_up_and_client_kpis_reconcile_with_their_module_lists(): void
+    {
+        $data = $this->dashboard($this->rep);
+
+        $worklist = $this->actingAs($this->rep, 'api')
+            ->getJson('/api/v1/follow-ups?per_page=1')
+            ->assertOk()
+            ->json();
+
+        $this->assertSame($this->kpi($data, 'follow-ups')['value'], $worklist['counts']['open']);
+        $this->assertSame($worklist['counts']['open'], $worklist['meta']['total']);
+
+        $clients = $this->actingAs($this->rep, 'api')
+            ->getJson('/api/v1/companies?filter[status]=onboarding,active,at_risk,dormant&per_page=1')
+            ->assertOk()
+            ->json('meta.total');
+
+        $this->assertSame($this->kpi($data, 'clients')['value'], $clients);
+    }
+
     public function test_manager_sees_the_team_and_the_shared_queue(): void
     {
         $data = $this->dashboard($this->manager);
