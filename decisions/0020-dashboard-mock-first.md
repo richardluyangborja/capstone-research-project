@@ -113,4 +113,13 @@ instead of assuming a number.
 `frontend/src/mocks/dashboard.ts` is deleted. The D2 suite runs per role on SQLite, runs again on
 Postgres against a separate test database, and reconciles dashboard figures with `/pipeline`,
 `/opportunities`, `/follow-ups` and `/companies`; the live API was smoke-tested for all five demo
-roles and all three ranges. D3 remains the Python service and its 3-second rules fallback.
+roles and all three ranges. At the time of D2, D3 was the Python service and its 3-second rules
+fallback; the update below records its move to Module 07.
+
+## Update — 2026-10-24 (D3 moved to Module 07)
+
+D3 is no longer a slice of this spec. The generated management reports now belong to **Module 07 — AI
+Management Reports** (`specs/15`, ADR-0021): its own `/reports` page and **AI Reports** sidebar group,
+three rules variants in S1 and an on-demand free Groq layer in S2. The dashboard's `ai` block stays
+the Laravel rules summary and gains a link to `/reports`; it never calls the provider. The dashboard
+contract and D1/D2 decisions above are unchanged.
