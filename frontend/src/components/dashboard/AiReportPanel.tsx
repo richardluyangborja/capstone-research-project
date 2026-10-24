@@ -28,9 +28,9 @@ const toneDot: Record<DashboardDomain, string> = {
 }
 
 /**
- * The AI management report (spec 14 §7, ADR-0020). D1 renders a rules-based stand-in for the
- * future `ai/` service; the simulation is recorded in the spec/ADR, not on screen. The component
- * already consumes the final contract, so D3 changes only the source.
+ * The AI management report (spec 14 §7, ADR-0020). D2 serves the rules-based block from Laravel;
+ * D3 may serve the Python service behind the same contract. The component already consumes the
+ * final contract, so the source changes without a UI change.
  */
 export default function AiReportPanel({ report }: AiReportPanelProps) {
   return (

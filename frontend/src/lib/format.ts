@@ -31,6 +31,37 @@ export const formatDateTime = (value: string | Date | null | undefined): string 
 }
 
 /**
+ * A recent instant as a person reads it ("2 hours ago"). Older than a week, it falls back to
+ * the PH business date; the dashboard activity rail is the caller (spec 14).
+ */
+export const formatRelativeTime = (
+  value: string | Date | null | undefined,
+  now: Date = new Date(),
+): string => {
+  if (!value) return ''
+
+  const date = new Date(value)
+  const seconds = Math.round((now.getTime() - date.getTime()) / 1000)
+  const future = seconds < 0
+  const absolute = Math.abs(seconds)
+
+  if (absolute < 60) return future ? 'in a moment' : 'just now'
+
+  const [amount, unit] =
+    absolute < 3600
+      ? [Math.floor(absolute / 60), 'minute']
+      : absolute < 86400
+        ? [Math.floor(absolute / 3600), 'hour']
+        : [Math.floor(absolute / 86400), 'day']
+
+  if (unit === 'day' && amount >= 7) return formatDate(value)
+
+  const label = `${amount} ${unit}${amount === 1 ? '' : 's'}`
+
+  return future ? `in ${label}` : `${label} ago`
+}
+
+/**
  * A file's size as a person reads it. The API sends raw bytes; the display never shows them
  * (module 03 slice S3).
  */

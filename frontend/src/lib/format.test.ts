@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { formatCurrency, formatDate, formatFileSize, toDateTimeLocal } from './format'
+import {
+  formatCurrency,
+  formatDate,
+  formatFileSize,
+  formatRelativeTime,
+  toDateTimeLocal,
+} from './format'
 
 describe('formatCurrency', () => {
   it('formats PHP amounts with the peso currency', () => {
@@ -21,6 +27,24 @@ describe('formatFileSize', () => {
     expect(formatFileSize(512)).toBe('512 B')
     expect(formatFileSize(120 * 1024)).toBe('120 KB')
     expect(formatFileSize(3.5 * 1024 * 1024)).toBe('3.5 MB')
+  })
+})
+
+describe('formatRelativeTime', () => {
+  const now = new Date('2026-10-24T04:00:00Z')
+
+  it('reads recent instants the way a person would', () => {
+    expect(formatRelativeTime('2026-10-24T03:59:40Z', now)).toBe('just now')
+    expect(formatRelativeTime('2026-10-24T03:58:00Z', now)).toBe('2 minutes ago')
+    expect(formatRelativeTime('2026-10-24T02:00:00Z', now)).toBe('2 hours ago')
+    expect(formatRelativeTime('2026-10-23T04:00:00Z', now)).toBe('1 day ago')
+  })
+
+  it('falls back to the PH business date after a week', () => {
+    const formatted = formatRelativeTime('2026-10-10T04:00:00Z', now)
+
+    expect(formatted).toContain('2026')
+    expect(formatted).toMatch(/Oct/)
   })
 })
 

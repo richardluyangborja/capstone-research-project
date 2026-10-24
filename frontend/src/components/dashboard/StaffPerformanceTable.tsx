@@ -17,9 +17,16 @@ const csatTone = (csat: number | null) => {
   return 'text-destructive'
 }
 
+const attendanceTone = (rate: number | null) => {
+  if (rate === null) return 'text-muted-foreground'
+
+  return rate >= 95 ? 'text-people' : 'text-cost'
+}
+
 /**
- * The staff scorecard (spec 14 §6): CRM output beside core2 HR figures. HR data stands in for the
- * future `HrGateway` mock (documented in spec 14 / ADR-0020); the footnote names the source.
+ * The staff scorecard (spec 14 §6): CRM output beside core2 HR figures. HR data is read through
+ * the `HrGateway` mock (documented in spec 14 / ADR-0020); when it cannot answer, a field shows
+ * `—` rather than a misleading `0`.
  */
 export default function StaffPerformanceTable({ rows, note, caption }: StaffPerformanceTableProps) {
   const columns: DataTableColumn<StaffPerformanceRow>[] = [
@@ -101,8 +108,8 @@ export default function StaffPerformanceTable({ rows, note, caption }: StaffPerf
       headerClassName: 'text-right',
       className: 'text-right',
       render: (row) => (
-        <span className={row.attendance_rate >= 95 ? 'text-people' : 'text-cost'}>
-          {row.attendance_rate}%
+        <span className={attendanceTone(row.attendance_rate)}>
+          {row.attendance_rate === null ? '—' : `${row.attendance_rate}%`}
         </span>
       ),
     },
@@ -111,15 +118,19 @@ export default function StaffPerformanceTable({ rows, note, caption }: StaffPerf
       header: 'Leave (days)',
       headerClassName: 'text-right',
       className: 'text-right',
-      render: (row) => row.leave_days,
+      render: (row) => (row.leave_days === null ? '—' : row.leave_days),
     },
     {
       key: 'late',
       header: 'Late',
       headerClassName: 'text-right',
       className: 'text-right',
-      render: (row) =>
-        row.late_arrivals === 0 ? '0' : <span className="text-cost">{row.late_arrivals}</span>,
+      render: (row) => {
+        if (row.late_arrivals === null) return '—'
+        if (row.late_arrivals === 0) return '0'
+
+        return <span className="text-cost">{row.late_arrivals}</span>
+      },
     },
   ]
 
