@@ -59,6 +59,7 @@ Route::prefix('v1')->group(function (): void {
 
         // Module 06 dashboard (spec 14, D2) — one role-scoped read over modules 01–05.
         Route::get('dashboard', [DashboardController::class, 'summary']);
+        Route::get('dashboard/worklist', [DashboardController::class, 'worklist']);
 
         // Notifications (submodule 03) — the topbar bell
         Route::get('notifications', [NotificationController::class, 'index']);
