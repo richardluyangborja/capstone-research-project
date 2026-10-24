@@ -4,9 +4,9 @@ Module 07 (ADR-0014, **ADR-0021**). A read-only presentation module over modules
 `DashboardSummary`, `DashboardWorklist`, `DashboardStaffPerformance` and the existing `ai/` FastAPI
 service; adds **no table**.
 
-> **Status: planning complete, S1 and S2 not built.** D3 of spec `14` is moved here as Module 07
-> (ADR-0021). The rules-based report remains the source of truth; the free Groq model is an optional
-> prose layer with an explicit fallback. Nothing in this module mutates CRM data.
+> **Status: S1 built; S2 planned.** D3 of spec `14` is moved here as Module 07 (ADR-0021). The
+> rules-based report remains the source of truth; the free Groq model is an optional prose layer with
+> an explicit fallback. Nothing in this module mutates CRM data.
 
 ## Purpose
 
@@ -61,7 +61,7 @@ coherent.
 
 | Slice  | Branch                     | Facet                                  | Demo                                                                                                                                                                                  |
 | ------ | -------------------------- | -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **S1** | `feature/ai-reports-shell` | The module, page and rules variants    | open `/reports` as each role → switch Executive / Pipeline / Client Health → switch periods → the standard report changes scope and numbers                                           |
+| **S1** | `feature/ai-reports-shell` | The module, page and rules variants **(built)** | open `/reports` as each role → switch Executive / Pipeline / Client Health → switch periods → the standard report changes scope and numbers                                           |
 | **S2** | `feature/ai-reports-groq`  | Free AI generation, cache and fallback | press **Generate with AI** → a Groq report appears with its model/timestamp; remove the key or force a rate limit → the standard report stays and an info alert explains the fallback |
 
 S1 is useful on its own: if the provider decision changes, the module and its reports still ship.
@@ -361,19 +361,19 @@ delete a key.
 
 ### S1 — module shell and rules variants
 
-- [ ] `/reports` renders inside `DashboardShell`, with a sidebar **AI Reports** group and a
+- [x] `/reports` renders inside `DashboardShell`, with a sidebar **AI Reports** group and a
       `Management Reports` link; no new layout and no dead submodule links.
-- [ ] Executive, Pipeline and Client Health tabs all render a complete standard report from the
+- [x] Executive, Pipeline and Client Health tabs all render a complete standard report from the
       caller's scoped data; the period toggle changes the numbers.
-- [ ] A salesrep sees their book, a manager the team, an admin the org; no scope is accepted from the
+- [x] A salesrep sees their book, a manager the team, an admin the org; no scope is accepted from the
       client.
-- [ ] `GET /reports/management` returns the rules report and `meta`, and never calls the Python
+- [x] `GET /reports/management` returns the rules report and `meta`, and never calls the Python
       service or Groq.
-- [ ] The report has headline, narrative, three insights, four actions and only existing routes.
-- [ ] The dashboard AI card links to `/reports` and still works.
-- [ ] Backend tests cover the three roles, the three variants, the three ranges, the shape and the
+- [x] The report has headline, narrative, three insights, four actions and only existing routes.
+- [x] The dashboard AI card links to `/reports` and still works.
+- [x] Backend tests cover the three roles, the three variants, the three ranges, the shape and the
       absence of provider calls; frontend tests cover tabs, period, loading and fallback states.
-- [ ] `npm run lint`, `npm run test`, `npm run build` and the backend suite are clean.
+- [x] `npm run lint`, `npm run test`, `npm run build` and the backend suite are clean.
 
 ### S2 — Groq generation and fallback
 

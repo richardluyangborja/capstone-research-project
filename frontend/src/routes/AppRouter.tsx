@@ -33,6 +33,7 @@ import OpportunityDetail from '../pages/OpportunityDetail'
 import Pipeline from '../pages/Pipeline'
 import PublicHome from '../pages/PublicHome'
 import PublicSurvey from '../pages/PublicSurvey'
+import Reports from '../pages/Reports'
 import Satisfaction from '../pages/Satisfaction'
 import Qualification from '../pages/Qualification'
 import SurveyForm from '../pages/SurveyForm'
@@ -93,6 +94,7 @@ export default function AppRouter() {
           <Route path="/satisfaction" element={<Satisfaction />} />
           <Route path="/satisfaction/responses" element={<SurveyResponses />} />
           <Route path="/satisfaction/responses/:id" element={<SurveyResponseDetail />} />
+          <Route path="/reports" element={<Reports />} />
         </Route>
       </Route>
 

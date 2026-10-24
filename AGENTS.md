@@ -141,9 +141,8 @@ Laravel's own and is separate from `frontend/`.
   off to Service** — it surfaces **Create contract from deal**, which deep-links to the company contract
   upload prefilled with `opportunity_id`; the mocked Service handoff still fires only on `mark-signed`
   (ADR-0013 §5). Events: `OpportunityStageChanged`, `OpportunityWon`, `OpportunityLost`
-  (`OpportunityCreated` now also fires on manual creation). **Not built here:** AI Management
-  Reports (Module 07, spec `15`); the dashboard's D2 read endpoints are covered under module 06
-  below.
+  (`OpportunityCreated` now also fires on manual creation). The dashboard read endpoints are
+  covered under module 06 below, and AI Management Reports (spec `15`) under module 07.
 - **Module 03 — Communication History Management (slices S1–S5 — log & history, email, attachments,
   threads, templates):** the detailed,
   channel-aware history record beside `Activity` (ADR-0017). Flat `/api/v1/communications`
@@ -377,22 +376,26 @@ Laravel's own and is separate from `frontend/`.
   handles loading, empty, error/retry and missing-HR states. Shared components: `ChartCard`,
   `LineChart`, `DonutChart`; `StatCard` gained optional `to`/`icon`/`hint`/`trend`. The dashboard
   AI card links to Module 07; it does not call a provider.
-- **Module 07 — AI Management Reports (planned — S1/S2):** a read-only presentation module over the
-  dashboard data (`resources/specs/15-ai-management-reports.md`, ADR-0021), with its own `/reports`
-  page and **AI Reports** sidebar group. **S1** ships the rules-based Executive, Pipeline and Client
-  Health variants, scoped like the dashboard, with no provider call. **S2** adds on-demand Groq
-  free-tier generation behind a 3-second timeout, a 15-minute cache, per-user/org caps and a rules
-  fallback; the page shows an inline info alert when the run falls back. Context is aggregated and
-  PII-free (no names, emails, notes or message bodies); the model returns fixed insight/action IDs
-  and Laravel maps them to real routes. No table, no migration, no module-01–05 rule change.
-  `Team Performance` is deferred; record catch-up summaries and message drafting are later
-  submodules, not S1/S2.
+- **Module 07 — AI Management Reports (S1 built; S2 planned):** a read-only presentation module over
+  the dashboard data (`resources/specs/15-ai-management-reports.md`, ADR-0021), with its own
+  `/reports` page and **AI Reports** sidebar group. **S1** ships the rules-based Executive, Pipeline
+  and Client Health variants through `GET /reports/management` (`variant`, `range`; defaults
+  executive/30 days), scoped like the dashboard, with no provider call. The response always carries
+  `source`, `model`, `generated_at`, `cached` and `fallback`, plus `meta.ai_available` (false in S1)
+  and the available variants; each report has a headline, narrative, exactly three insights and four
+  actions, all linking to existing pages. **S2** adds on-demand Groq free-tier generation behind a
+  3-second timeout, a 15-minute cache, per-user/org caps and a rules fallback; the page shows an
+  inline info alert when the run falls back. Context is aggregated and PII-free (no names, emails,
+  notes or message bodies); the model returns fixed insight/action IDs and Laravel maps them to real
+  routes. No table, no migration, no module-01–05 rule change. `Team Performance` is deferred;
+  record catch-up summaries and message drafting are later submodules, not S1/S2.
 
 Frontend routes: `/dashboard` (the role-aware home: greeting + scope + period toggle, 8 KPI cards,
 line + donut charts, needs-attention table, alerts/activity, staff scorecard with core2 HR figures
 and the rules-based **AI management summary**, reading the D2 endpoints with no in-app simulation
-badge; the AI card links to `/reports`), `/reports` (Module 07, planned: Executive / Pipeline /
-Client Health tabs, standard report, **Generate with AI**, cached refresh and fallback info alert),
+badge; the AI card links to `/reports`), `/reports` (Module 07 S1: Executive / Pipeline / Client
+Health tabs, period toggle, standard report with provenance and the AI-not-configured note; S2 adds
+**Generate with AI**, cached refresh and the fallback info alert),
 `/login`,
 `/leads` (views: All / My Leads / Unassigned / Team / Archived, inline
 owner control, bulk assign, status/rating/aging columns, "Stale only" filter), `/leads/new`,
@@ -660,9 +663,10 @@ modules 01–05 with KPI cards, line + donut charts, a needs-attention worklist,
 staff scorecard carrying core2 HR figures through the `HrGateway` mock, and the rules-based **AI
 management summary**. D2 replaced the D1 fixtures with `/dashboard`, `/dashboard/worklist` and
 `/dashboard/staff-performance`; the fixture file is deleted and the page handles loading, empty,
-error/retry and missing-HR states. **Module 07** (`specs/15`, ADR-0021) is planned: the `/reports`
-page, three rules variants, and an on-demand free Groq layer with a rules fallback. Its S3/S4
-(record catch-up summaries, message drafting) are future submodules.
+error/retry and missing-HR states. **Module 07** (`specs/15`, ADR-0021) has **S1 built**: the
+`/reports` page, `GET /reports/management`, the three rules variants and the dashboard link. **S2**
+(on-demand free Groq layer with a rules fallback) is planned; S3/S4 (record catch-up summaries,
+message drafting) are future submodules.
 Dedup/merge and advanced tiers are module-01 deferrals
 (ADR-0006), and automatic client aging stays one too (ADR-0018 §6). Other departments are consumed via
 **mocked integrations** (ADR-0005), not built here.

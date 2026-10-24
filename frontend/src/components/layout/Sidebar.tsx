@@ -16,6 +16,7 @@ import {
   MessageSquare,
   MessagesSquare,
   Send,
+  Sparkles,
   SquareKanban,
   Target,
   UserCheck,
@@ -97,6 +98,12 @@ const groups: NavGroup[] = [
       { to: '/satisfaction', label: 'Satisfaction', icon: Gauge, end: true },
       { to: '/satisfaction/responses', label: 'Responses', icon: MessagesSquare },
     ],
+  },
+  {
+    // Module 07 (ADR-0021, spec 15). S1 owns the page and its rules variants; later AI
+    // submodules join this group, never as dead links.
+    label: 'AI Reports',
+    items: [{ to: '/reports', label: 'Management Reports', icon: Sparkles }],
   },
 ]
 

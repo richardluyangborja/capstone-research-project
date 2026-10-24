@@ -24,6 +24,8 @@ check this list first:
 - `LineChart` — token-only SVG line chart, multi-series, accessible — **done** (spec 14)
 - `DonutChart` — token-only SVG donut with a clickable legend — **done** (spec 14)
 - `DataTable` — list/tables with filters slot, pagination, bulk actions — **done**
+- `ReportBody` — headline, narrative, three insight cards and four action links (module 06 dashboard
+  summary + module 07 `/reports`) — **done** (spec 15)
 
 Rules: tokens/utilities only (no hardcoded hex or arbitrary px); icons from `lucide-react`; render
 dashboards inside `DashboardShell`.

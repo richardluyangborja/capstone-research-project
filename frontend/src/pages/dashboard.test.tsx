@@ -414,6 +414,10 @@ describe('dashboard home', () => {
       'href',
       '/pipeline',
     )
+    expect(screen.getByRole('link', { name: /Open management reports/ })).toHaveAttribute(
+      'href',
+      '/reports',
+    )
   })
 
   it('switches the reporting period and re-reads the endpoints', async () => {

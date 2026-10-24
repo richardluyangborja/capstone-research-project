@@ -21,6 +21,7 @@ use App\Http\Controllers\Api\V1\LeadController;
 use App\Http\Controllers\Api\V1\LeadConversionController;
 use App\Http\Controllers\Api\V1\LeadLifecycleController;
 use App\Http\Controllers\Api\V1\LeadQualificationController;
+use App\Http\Controllers\Api\V1\ManagementReportController;
 use App\Http\Controllers\Api\V1\NotificationController;
 use App\Http\Controllers\Api\V1\OpportunityActivityController;
 use App\Http\Controllers\Api\V1\OpportunityController;
@@ -61,6 +62,10 @@ Route::prefix('v1')->group(function (): void {
         Route::get('dashboard', [DashboardController::class, 'summary']);
         Route::get('dashboard/worklist', [DashboardController::class, 'worklist']);
         Route::get('dashboard/staff-performance', [DashboardController::class, 'staffPerformance']);
+
+        // Module 07 reports (spec 15, S1) — the rules-based management report. S2 adds the
+        // separate generate route; this read never calls the provider.
+        Route::get('reports/management', [ManagementReportController::class, 'show']);
 
         // Notifications (submodule 03) — the topbar bell
         Route::get('notifications', [NotificationController::class, 'index']);
