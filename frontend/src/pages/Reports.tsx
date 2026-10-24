@@ -9,6 +9,8 @@ import ReportBody from '../components/common/ReportBody'
 import { DASHBOARD_RANGES, type DashboardRange } from '../lib/dashboard'
 import {
   REPORT_VARIANTS,
+  ReportCooldownError,
+  generateManagementReport,
   getManagementReport,
   type ManagementReportData,
   type ManagementReportVariant,
@@ -21,24 +23,28 @@ const variantIcons: Record<ManagementReportVariant, LucideIcon> = {
 }
 
 /**
- * Module 07 — AI Management Reports (spec 15, S1).
+ * Module 07 — AI Management Reports (spec 15).
  *
  * The page is a scoped read: the JWT decides the book, the two controls decide the question and
- * the period. The standard report is always complete; S2 adds the on-demand AI generation behind
- * the same report contract, so the layout does not change.
+ * the period. The standard report is always complete; the AI version is requested on demand and
+ * either replaces the prose or returns a rules report with a fallback reason. Nothing here can
+ * widen the caller's scope.
  */
 export default function Reports() {
   const [range, setRange] = useState<DashboardRange>('30d')
   const [variant, setVariant] = useState<ManagementReportVariant>('executive')
   const [data, setData] = useState<ManagementReportData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [generating, setGenerating] = useState(false)
   const [error, setError] = useState('')
+  const [generateError, setGenerateError] = useState('')
   const [reloadKey, setReloadKey] = useState(0)
 
   useEffect(() => {
     let cancelled = false
     setLoading(true)
     setError('')
+    setGenerateError('')
     setData(null)
 
     void getManagementReport(range, variant)
@@ -61,8 +67,25 @@ export default function Reports() {
 
   const report = data?.report ?? null
 
+  const handleGenerate = async (refresh: boolean) => {
+    setGenerating(true)
+    setGenerateError('')
+
+    try {
+      setData(await generateManagementReport(range, variant, refresh))
+    } catch (caught) {
+      setGenerateError(
+        caught instanceof ReportCooldownError
+          ? 'Try again in a few minutes.'
+          : 'Could not generate the AI report. The current report is still shown.',
+      )
+    } finally {
+      setGenerating(false)
+    }
+  }
+
   return (
-    <div className="flex flex-col gap-6" aria-busy={loading}>
+    <div className="flex flex-col gap-6" aria-busy={loading || generating}>
       <PageHeader
         title="AI Management Reports"
         description={
@@ -71,30 +94,50 @@ export default function Reports() {
             : 'A scoped management report over the book, the pipeline and client health.'
         }
         actions={
-          <div
-            className="inline-flex rounded-md border border-border bg-card p-0.5"
-            role="group"
-            aria-label="Reporting period"
-          >
-            {DASHBOARD_RANGES.map((option) => {
-              const active = range === option.value
-              return (
-                <button
-                  key={option.value}
-                  type="button"
-                  aria-pressed={active}
-                  disabled={loading}
-                  onClick={() => setRange(option.value)}
-                  className={`rounded px-2.5 py-1 text-xs font-medium transition-colors disabled:opacity-60 ${
-                    active
-                      ? 'bg-primary text-primary-foreground'
-                      : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  {option.label}
-                </button>
-              )
-            })}
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {data?.meta.ai_available && report && (report.source !== 'model' || report.cached) && (
+              <button
+                type="button"
+                onClick={() => void handleGenerate(report.cached)}
+                disabled={generating || loading}
+                className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-60"
+              >
+                {report.cached ? (
+                  <RefreshCw
+                    className={`h-3.5 w-3.5 ${generating ? 'animate-spin' : ''}`}
+                    aria-hidden
+                  />
+                ) : (
+                  <Sparkles className="h-3.5 w-3.5" aria-hidden />
+                )}
+                {generating ? 'Generating…' : report.cached ? 'Refresh AI report' : 'Generate with AI'}
+              </button>
+            )}
+            <div
+              className="inline-flex rounded-md border border-border bg-card p-0.5"
+              role="group"
+              aria-label="Reporting period"
+            >
+              {DASHBOARD_RANGES.map((option) => {
+                const active = range === option.value
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    aria-pressed={active}
+                    disabled={loading || generating}
+                    onClick={() => setRange(option.value)}
+                    className={`rounded px-2.5 py-1 text-xs font-medium transition-colors disabled:opacity-60 ${
+                      active
+                        ? 'bg-primary text-primary-foreground'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                )
+              })}
+            </div>
           </div>
         }
       />
@@ -116,7 +159,7 @@ export default function Reports() {
               role="tab"
               aria-selected={active}
               aria-controls="management-report"
-              disabled={loading}
+              disabled={loading || generating}
               onClick={() => setVariant(option.value)}
               className={`flex items-start gap-3 rounded-lg border p-4 text-left transition-colors disabled:opacity-60 ${
                 active
@@ -156,6 +199,12 @@ export default function Reports() {
               Try again
             </button>
           </div>
+        </AlertItem>
+      )}
+
+      {generateError && (
+        <AlertItem variant="warning" title="AI generation paused">
+          {generateError}
         </AlertItem>
       )}
 

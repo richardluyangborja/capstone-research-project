@@ -7,9 +7,23 @@ import type { ManagementReportData } from '../lib/reports'
 // Module 07 / spec 15, S1 — the page consumes one scoped report endpoint. These tests mock the
 // accessor (the adapter has its own tests) and exercise the tabs, the period and the states.
 
-const { getManagementReport } = vi.hoisted(() => ({
-  getManagementReport: vi.fn(),
-}))
+const { getManagementReport, generateManagementReport, ReportCooldownError } = vi.hoisted(() => {
+  class ReportCooldownError extends Error {
+    readonly retryAfterSeconds: number
+
+    constructor(retryAfterSeconds: number) {
+      super('Try again in a few minutes.')
+      this.name = 'ReportCooldownError'
+      this.retryAfterSeconds = retryAfterSeconds
+    }
+  }
+
+  return {
+    getManagementReport: vi.fn(),
+    generateManagementReport: vi.fn(),
+    ReportCooldownError,
+  }
+})
 
 vi.mock('../lib/dashboard', () => ({
   DASHBOARD_RANGES: [
@@ -34,6 +48,8 @@ vi.mock('../lib/reports', () => ({
     },
   ],
   getManagementReport,
+  generateManagementReport,
+  ReportCooldownError,
 }))
 
 const data = (overrides: Partial<ManagementReportData> = {}): ManagementReportData => ({
@@ -124,6 +140,7 @@ const renderPage = () =>
 describe('management reports page', () => {
   beforeEach(() => {
     getManagementReport.mockReset()
+    generateManagementReport.mockReset()
     getManagementReport.mockResolvedValue(data())
   })
 
@@ -238,5 +255,117 @@ describe('management reports page', () => {
         'AI report is unavailable right now — showing the standard management report.',
       ),
     ).toBeInTheDocument()
+  })
+
+  it('generates an AI report on demand and shows its provenance', async () => {
+    getManagementReport.mockResolvedValue(
+      data({ meta: { ...data().meta, ai_available: true } }),
+    )
+    generateManagementReport.mockResolvedValue(
+      data({
+        meta: { ...data().meta, ai_available: true },
+        report: {
+          ...data().report,
+          headline: 'AI headline from the aggregated book.',
+          source: 'model',
+          model: 'openai/gpt-oss-20b',
+          cached: false,
+          fallback: null,
+        },
+      }),
+    )
+
+    renderPage()
+
+    fireEvent.click(await screen.findByRole('button', { name: /Generate with AI/ }))
+
+    await waitFor(() => {
+      expect(generateManagementReport).toHaveBeenCalledWith('30d', 'executive', false)
+    })
+    expect(await screen.findByText('AI headline from the aggregated book.')).toBeInTheDocument()
+    expect(screen.getByText('AI-generated')).toBeInTheDocument()
+    expect(screen.getByText(/openai\/gpt-oss-20b/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Refresh AI report/ })).not.toBeInTheDocument()
+  })
+
+  it('refreshes a cached model report', async () => {
+    getManagementReport.mockResolvedValue(
+      data({
+        meta: { ...data().meta, ai_available: true },
+        report: {
+          ...data().report,
+          source: 'model',
+          model: 'openai/gpt-oss-20b',
+          cached: true,
+          fallback: null,
+        },
+      }),
+    )
+    generateManagementReport.mockResolvedValue(
+      data({
+        meta: { ...data().meta, ai_available: true },
+        report: {
+          ...data().report,
+          source: 'model',
+          model: 'openai/gpt-oss-20b',
+          cached: false,
+          fallback: null,
+        },
+      }),
+    )
+
+    renderPage()
+
+    expect(await screen.findByText('Cached')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /Refresh AI report/ }))
+
+    await waitFor(() => {
+      expect(generateManagementReport).toHaveBeenCalledWith('30d', 'executive', true)
+    })
+    await waitFor(() => {
+      expect(screen.queryByText('Cached')).not.toBeInTheDocument()
+    })
+  })
+
+  it('keeps the current report and explains a cooldown rejection', async () => {
+    getManagementReport.mockResolvedValue(
+      data({ meta: { ...data().meta, ai_available: true } }),
+    )
+    generateManagementReport.mockRejectedValue(new ReportCooldownError(240))
+
+    renderPage()
+
+    fireEvent.click(await screen.findByRole('button', { name: /Generate with AI/ }))
+
+    expect(await screen.findByText('AI generation paused')).toBeInTheDocument()
+    expect(screen.getByText('Try again in a few minutes.')).toBeInTheDocument()
+    expect(screen.getByText('2 accounts need a human this week.')).toBeInTheDocument()
+  })
+
+  it('shows the fallback when generation returns rules prose', async () => {
+    getManagementReport.mockResolvedValue(
+      data({ meta: { ...data().meta, ai_available: true } }),
+    )
+    generateManagementReport.mockResolvedValue(
+      data({
+        meta: { ...data().meta, ai_available: true },
+        report: {
+          ...data().report,
+          fallback: {
+            reason: 'timeout',
+            message:
+              'AI report is unavailable right now — showing the standard management report.',
+          },
+        },
+      }),
+    )
+
+    renderPage()
+
+    fireEvent.click(await screen.findByRole('button', { name: /Generate with AI/ }))
+
+    expect(await screen.findByText('AI report unavailable')).toBeInTheDocument()
+    expect(screen.getByText(/showing the standard management report/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Generate with AI/ })).toBeInTheDocument()
   })
 })

@@ -63,9 +63,10 @@ Route::prefix('v1')->group(function (): void {
         Route::get('dashboard/worklist', [DashboardController::class, 'worklist']);
         Route::get('dashboard/staff-performance', [DashboardController::class, 'staffPerformance']);
 
-        // Module 07 reports (spec 15, S1) — the rules-based management report. S2 adds the
-        // separate generate route; this read never calls the provider.
+        // Module 07 reports (spec 15) — GET is the rules/cached read and never calls the provider;
+        // POST is the on-demand generation path and spends the free-tier quota.
         Route::get('reports/management', [ManagementReportController::class, 'show']);
+        Route::post('reports/management/generate', [ManagementReportController::class, 'generate']);
 
         // Notifications (submodule 03) — the topbar bell
         Route::get('notifications', [NotificationController::class, 'index']);

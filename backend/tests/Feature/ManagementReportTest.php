@@ -163,7 +163,7 @@ class ManagementReportTest extends TestCase
             ->assertJsonPath('data.cached', false)
             ->assertJsonPath('data.fallback', null)
             ->assertJsonPath('meta.range', '30d')
-            ->assertJsonPath('meta.ai_available', false)
+            ->assertJsonPath('meta.ai_available', true)
             ->assertJsonPath('meta.variants', ['executive', 'pipeline', 'client_health']);
 
         $data = $response->json('data');

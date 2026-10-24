@@ -1,0 +1,5 @@
+# Test dependencies for the AI service. Install with:
+#   pip install -r requirements-dev.txt
+-r requirements.txt
+pytest>=8.3
+respx>=0.22
