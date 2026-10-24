@@ -84,11 +84,10 @@ const timeOfDay = () => {
 /**
  * The dashboard home (module 06, spec 14, ADR-0020).
  *
- * **Presentation build: every number is simulated.** `getDashboard` is the single swap point —
- * the real endpoints are documented in `src/lib/dashboard.ts` and spec 14 §5. The page is
- * role-aware through the session role only (no per-role layouts): a salesrep reads their book,
- * a manager the team, an admin the org. Every KPI, chart legend, worklist row, alert and AI
- * action links to an existing page.
+ * Every block comes from the three read-only dashboard endpoints through `getDashboard`; the
+ * server scopes them by the session. The page is role-aware through the session role only (no
+ * per-role layouts): a salesrep reads their book, a manager the team, an admin the org. Every
+ * KPI, chart legend, worklist row, alert and AI action links to an existing page.
  */
 export default function DashboardHome() {
   const { user } = useAuth()
@@ -97,24 +96,33 @@ export default function DashboardHome() {
 
   const [range, setRange] = useState<DashboardRange>('30d')
   const [data, setData] = useState<DashboardData | null>(null)
+  const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [reloadKey, setReloadKey] = useState(0)
 
   useEffect(() => {
     let cancelled = false
+    setLoading(true)
     setError('')
+    setData(null)
 
     void getDashboard(role, range)
       .then((next) => {
         if (!cancelled) setData(next)
       })
       .catch(() => {
-        if (!cancelled) setError('Could not load the dashboard.')
+        if (!cancelled) {
+          setError('Could not load the dashboard. Check the API and try again.')
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
       })
 
     return () => {
       cancelled = true
     }
-  }, [role, range])
+  }, [role, range, reloadKey])
 
   const worklistColumns: DataTableColumn<DashboardWorklistRow>[] = [
     {
@@ -166,13 +174,15 @@ export default function DashboardHome() {
   ]
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6" aria-busy={loading}>
       <PageHeader
         title={`${timeOfDay()}, ${firstName}`}
         description={
           data
             ? `${data.scope.label} · ${data.scope.description} · Updated ${data.updated_at}`
-            : 'Loading your book…'
+            : loading
+              ? 'Loading your book…'
+              : 'The dashboard could not be loaded.'
         }
         actions={
           <div className="flex flex-wrap items-center justify-end gap-2">
@@ -188,8 +198,9 @@ export default function DashboardHome() {
                     key={option.value}
                     type="button"
                     aria-pressed={active}
+                    disabled={loading}
                     onClick={() => setRange(option.value)}
-                    className={`rounded px-2.5 py-1 text-xs font-medium transition-colors ${
+                    className={`rounded px-2.5 py-1 text-xs font-medium transition-colors disabled:opacity-60 ${
                       active
                         ? 'bg-primary text-primary-foreground'
                         : 'text-muted-foreground hover:text-foreground'
@@ -206,11 +217,20 @@ export default function DashboardHome() {
 
       {error && (
         <AlertItem variant="danger" title="Dashboard unavailable">
-          {error}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p>{error}</p>
+            <button
+              type="button"
+              onClick={() => setReloadKey((key) => key + 1)}
+              className="rounded-md border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary"
+            >
+              Try again
+            </button>
+          </div>
         </AlertItem>
       )}
 
-      {!data && !error ? (
+      {loading && !data ? (
         <p
           role="status"
           className="rounded-lg border border-border bg-card p-8 text-center text-sm text-muted-foreground"
@@ -285,11 +305,17 @@ export default function DashboardHome() {
               }
               footer={<p className="text-xs text-muted-foreground">{data.donut.caption}</p>}
             >
-              <DonutChart
-                segments={data.donut.segments}
-                total={data.donut.total}
-                ariaLabel="Open pipeline by stage"
-              />
+              {data.donut.segments.length > 0 ? (
+                <DonutChart
+                  segments={data.donut.segments}
+                  total={data.donut.total}
+                  ariaLabel="Open pipeline by stage"
+                />
+              ) : (
+                <p className="py-10 text-center text-sm text-muted-foreground">
+                  No open deals yet — the pipeline is clear.
+                </p>
+              )}
             </ChartCard>
           </section>
 
@@ -334,18 +360,24 @@ export default function DashboardHome() {
                   Alerts
                 </h3>
                 <div className="mt-3 flex flex-col gap-2">
-                  {data.alerts.map((alert) => (
-                    <AlertItem key={alert.id} variant={alert.variant} title={alert.title}>
-                      <p>{alert.body}</p>
-                      <Link
-                        to={alert.to}
-                        className="mt-1 inline-flex items-center gap-1 text-xs font-medium underline"
-                      >
-                        {alert.link_label}
-                        <ArrowRight className="h-3 w-3" aria-hidden />
-                      </Link>
-                    </AlertItem>
-                  ))}
+                  {data.alerts.length > 0 ? (
+                    data.alerts.map((alert) => (
+                      <AlertItem key={alert.id} variant={alert.variant} title={alert.title}>
+                        <p>{alert.body}</p>
+                        <Link
+                          to={alert.to}
+                          className="mt-1 inline-flex items-center gap-1 text-xs font-medium underline"
+                        >
+                          {alert.link_label}
+                          <ArrowRight className="h-3 w-3" aria-hidden />
+                        </Link>
+                      </AlertItem>
+                    ))
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      No alerts — nothing needs escalation.
+                    </p>
+                  )}
                 </div>
               </section>
 
@@ -356,26 +388,32 @@ export default function DashboardHome() {
                 <h3 id="dashboard-activity-title" className="text-sm font-semibold text-foreground">
                   Recent activity
                 </h3>
-                <ul className="mt-3 flex flex-col gap-3">
-                  {data.activity.map((item) => (
-                    <li key={item.id} className="flex items-start gap-2">
-                      <span
-                        className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${itemTone[item.domain]}`}
-                        aria-hidden
-                      />
-                      <div className="min-w-0 flex-1">
-                        <Link
-                          to={item.to}
-                          className="text-sm font-medium text-foreground hover:text-primary"
-                        >
-                          {item.title}
-                        </Link>
-                        <p className="truncate text-xs text-muted-foreground">{item.detail}</p>
-                      </div>
-                      <span className="shrink-0 text-xs text-muted-foreground">{item.when}</span>
-                    </li>
-                  ))}
-                </ul>
+                {data.activity.length > 0 ? (
+                  <ul className="mt-3 flex flex-col gap-3">
+                    {data.activity.map((item) => (
+                      <li key={item.id} className="flex items-start gap-2">
+                        <span
+                          className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${itemTone[item.domain]}`}
+                          aria-hidden
+                        />
+                        <div className="min-w-0 flex-1">
+                          <Link
+                            to={item.to}
+                            className="text-sm font-medium text-foreground hover:text-primary"
+                          >
+                            {item.title}
+                          </Link>
+                          <p className="truncate text-xs text-muted-foreground">{item.detail}</p>
+                        </div>
+                        <span className="shrink-0 text-xs text-muted-foreground">{item.when}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-3 text-sm text-muted-foreground">
+                    No recent activity in view yet.
+                  </p>
+                )}
               </section>
             </div>
           </section>
