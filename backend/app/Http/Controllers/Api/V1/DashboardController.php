@@ -6,8 +6,10 @@ use App\Enums\DashboardRange;
 use App\Http\Controllers\Controller;
 use App\Http\Dashboard\DashboardPeriod;
 use App\Http\Dashboard\DashboardScope;
+use App\Http\Dashboard\DashboardStaffPerformance;
 use App\Http\Dashboard\DashboardSummary;
 use App\Http\Dashboard\DashboardWorklist;
+use App\Integrations\HrGateway;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -40,6 +42,19 @@ class DashboardController extends Controller
 
         return response()->json(
             (new DashboardWorklist($request->user(), $range))->build(),
+        );
+    }
+
+    public function staffPerformance(Request $request, HrGateway $hr): JsonResponse
+    {
+        $range = $this->resolveRange($request);
+
+        return response()->json(
+            (new DashboardStaffPerformance(
+                $request->user(),
+                DashboardPeriod::for($range),
+                $hr,
+            ))->build(),
         );
     }
 

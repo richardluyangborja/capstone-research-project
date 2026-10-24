@@ -4,8 +4,10 @@ namespace App\Providers;
 
 use App\Integrations\EmailGateway;
 use App\Integrations\FinanceBilling;
+use App\Integrations\HrGateway;
 use App\Integrations\MockEmailGateway;
 use App\Integrations\MockFinanceBilling;
+use App\Integrations\MockHrGateway;
 use App\Integrations\MockServiceHandoff;
 use App\Integrations\ServiceHandoff;
 use App\Models\Activity;
@@ -25,6 +27,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(ServiceHandoff::class, MockServiceHandoff::class);
         $this->app->bind(FinanceBilling::class, MockFinanceBilling::class);
         $this->app->bind(EmailGateway::class, MockEmailGateway::class);
+        $this->app->bind(HrGateway::class, MockHrGateway::class);
     }
 
     /**
