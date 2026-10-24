@@ -85,8 +85,8 @@ advanced tiers/health are **built** (ADR-0006). Detailed implementation specs li
 
 ## CRM module roadmap (ADR-0014)
 
-The CRM is five modules (`system-modules.md`). Module 01 is done; the rest are ordered so each builds
-on the one before:
+The CRM's five data modules (`system-modules.md`) are ordered so each builds on the one before; the
+dashboard and AI reports are cross-cutting presentation layers, not data modules:
 
 | Module | Name | Depends on | Spec |
 | --- | --- | --- | --- |
@@ -95,9 +95,14 @@ on the one before:
 | 03 | Communication History Management | objects from 01–02 | `11` **(built)** |
 | 04 | Follow-up Reminder System | 03 + notifications | `12` **(built)** |
 | 05 | Client Satisfaction & Survey | clients + contacts | `13` **(built)** |
-| — | Dashboard & management reports (cross-cutting) | 01–05 | `14` (D1 + D2 built; D3 planned) |
+| 06 | Dashboard (cross-cutting read layer) | 01–05 | `14` (D1 + D2 built) |
+| 07 | AI Management Reports | 01–06 | `15` **(planned — S1/S2)** |
 
-The AI service (dashboard + management reports + suggestions) is cross-cutting, not a sixth module (ADR-0014). Its **dashboard layer** shipped **D1 with simulated data** (spec `14`, ADR-0020) before module 05 S4, for the presentation, and **D2** now reads the real endpoints; the Python service is the last slice (D3).
+The dashboard layer shipped **D1 with simulated data** (spec `14`, ADR-0020) before module 05 S4,
+for the presentation, and **D2** now reads the real endpoints. Its former **D3** is now **Module 07 —
+AI Management Reports** (spec `15`, ADR-0021): a read-only presentation module with its own page,
+three report variants, and an optional free Groq layer with a rules fallback. Module 07 owns no table
+and is not a data module.
 Duplicate detection/merge and advanced tiers/health are still-open **module-01** deferrals (ADR-0006).
 
 ## Module 02 → submodules (built, ADR-0015)
@@ -182,7 +187,7 @@ The last CRM module (spec `13`): close the loop after the sale.
 
 Automatic sends (on signing/renewal/churn) and reminder emails are deliberately unbuilt (ADR-0019).
 
-## Dashboard & management reports (D1 + D2 built — ADR-0020)
+## Dashboard (D1 + D2 built — ADR-0020)
 
 The cross-cutting read layer over modules 01–05 (`specs/14`, ADR-0020), shipped as D1 after module 05
 S3 and before S4 for the presentation. **D1** shipped `/dashboard` with simulated data from one
@@ -195,8 +200,19 @@ formats raw values in one adapter; the fixture file is deleted, and the page han
 error/retry and `hr_available: false` (`—`, never `0`). It is role-aware — a salesrep reads their
 book, a manager the team, an admin the org — and reuses `DashboardShell`; four primary + four
 secondary KPI cards, a line chart and a donut, a needs-attention table, alerts, recent activity, a
-staff scorecard and the AI management report all link to existing module pages. **D3** wires the
-`ai/` service with a 3-second timeout and a rules-based fallback. No table and no module rule change.
+staff scorecard and the rules-based AI summary all link to existing module pages. The dashboard's
+`ai` block stays rules-based; it links to `/reports` for generated reports. No table and no module
+rule change.
+
+## Module 07 → AI Management Reports (planned — ADR-0021)
+
+A read-only presentation module over the dashboard data (`specs/15`). It owns the `/reports` page and
+an **AI Reports** sidebar group, and adds no table. **S1** ships the standard rules reports for three
+variants — Executive, Pipeline and Client Health — scoped like the dashboard. **S2** adds on-demand
+Groq free-tier generation behind a 3-second timeout, a 15-minute cache, per-user/org caps and a
+rules fallback with an inline info alert. The model receives aggregated, PII-free counts only and
+returns prose plus fixed insight/action IDs; Laravel maps those IDs to real routes. Record catch-up
+summaries (S3) and message drafting (S4) are future submodules, not part of S1/S2.
 
 ## Role data visibility (ADR-0004)
 

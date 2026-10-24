@@ -2,12 +2,13 @@
 
 Cross-cutting layer over modules 01–05 (ADR-0014, **ADR-0020**). Reuses `Lead`, `Company`,
 `Opportunity`, `Contract`, `Activity`, `Communication`, `SurveyResponse` and `User`; adds **no
-table**. The AI service (`resources/system-ai-feature.md`) is a Python service that this spec
-treats as an HTTP contract with a documented fallback.
+table**. The dashboard itself does not call the AI service; generated reports moved to Module 07
+(ADR-0021).
 
-> **Status: D1 and D2 built; D3 planned.** The dashboard home shipped first for the presentation
-> with one fixture module, then D2 replaced every fixture with the real read endpoints and deleted
-> the fixture file. The AI block is the rules-based template until D3 wires the `ai/` service.
+> **Status: D1 and D2 built. D3 moved to Module 07.** The dashboard home shipped first for the
+> presentation with one fixture module, then D2 replaced every fixture with the real read endpoints
+> and deleted the fixture file. The dashboard's `ai` block remains the Laravel rules summary; the
+> generated management reports and provider seam live in **Module 07** (spec `15`, ADR-0021).
 > Module 05's S4 (closed-loop follow-through) shipped after D1, without a dashboard rewrite
 > (ADR-0020 §1).
 
@@ -28,10 +29,11 @@ opened is a dead end; this spec forbids dead ends.
 | --- | --- | --- | --- |
 | **D1** *(built)* | `feature/dashboard-management-reports` | Dashboard home, simulated | log in as each role → KPIs, charts, needs-attention table, staff scorecard, AI management report; switch the period |
 | **D2** *(built)* | `feature/dashboard-data-1` … `-5` | Real endpoints + wiring (five phases) | the same page reads the three endpoints; every fixture field is a query; empty/loading/error states; staff HR failure reads `—` |
-| **D3** | `feature/ai-reports` | The Python service | the AI panel calls the service; a timeout falls back to the rules template; `source` records which path answered |
+| **D3** *(moved)* | `feature/ai-reports-shell` / `-groq` | AI Management Reports | see **spec `15` / Module 07** — the three variants, provider seam and fallback |
 
 D2 was additive in behaviour: the page still consumes the same `DashboardData` view model, and the
-only presentation change is null-safe HR cells in the staff table. D3 changes only the `ai` block.
+only presentation change is null-safe HR cells in the staff table. D3's generation work moved to
+Module 07; the dashboard keeps its fast rules-based `ai` summary and links to `/reports`.
 
 ### D2 delivery phases
 
@@ -57,9 +59,9 @@ needs (the worklist and the staff scorecard):
 4. **Charts** — `Acquisition & conversion` (line: leads / qualified / won) and `Open pipeline`
    (donut by stage). Both carry a caption and a link to their module page.
 5. **AI management report** — headline, narrative, three insight cards, four suggested actions;
-   every item links to a page. D2 serves the rules-based block from Laravel; D3 may serve the
-   Python service behind the same contract. `source` is recorded in the payload, never shown as a
-   simulation label.
+   every item links to a page. The dashboard block stays rules-based and links to `/reports`;
+   generated variants are Module 07 (spec `15`). `source` is recorded in the payload, never shown
+   as a simulation label.
 6. **Needs attention + right rail** — a worklist table (priority, subject, type, owner, action) and
    two cards: **Alerts** (`AlertItem`s with links) and **Recent activity** (linked rows).
 7. **Staff performance** — CRM output beside core2 HR figures (attendance, leave, late arrivals),
@@ -220,35 +222,20 @@ Folded into `GET /api/v1/dashboard` rather than separate endpoints:
   the last six entries across leads, deals, communications, follow-ups and survey responses the
   caller may see.
 
-## AI management report (D3)
+## AI management report (dashboard summary; generation moved)
 
-The `ai` block is a **contract**, not an implementation. The future Python service
-(`resources/system-ai-feature.md`) receives a redacted payload — scope, period, the KPI numbers and
-the aggregated signals (no contact names beyond account names, no email bodies) — and returns:
+The dashboard's `ai` block is the **rules summary**: headline, narrative, three insights, four
+actions, `model` and `generated_at`, with `source = rules`. It is computed by Laravel from the same
+scoped numbers and never calls an external provider, so the dashboard stays fast and the standard
+report always exists.
 
-```jsonc
-{
-  "headline": "Revenue is ahead, but eight accounts need a human this week.",
-  "narrative": "…",
-  "insights": [{ "title": "…", "body": "…", "domain": "people", "href": "/…", "link_label": "…" }],
-  "actions": [{ "label": "…", "description": "…", "href": "/…" }],
-  "model": "…", "generated_at": "…", "source": "model|rules"
-}
-```
+The generated report variants, Groq provider, cache, fallback alert and `/reports` page are
+**Module 07** (`resources/specs/15-ai-management-reports.md`, ADR-0021). The dashboard card links to
+that page; it does not generate a second narrative.
 
-Rules:
-
-1. **Timeout + fallback.** A 3-second timeout (or any non-2xx) falls back to a rules-based template
-   computed in Laravel from the same numbers. The panel always renders something.
-2. **Never invent a record.** Every insight/action `href` is a real route chosen from a fixed set;
-   the model writes prose, not URLs. The same rule as D1 fixtures.
-3. **Source recorded.** `source` (`model|rules`) is carried in the payload for diagnostics and the
-   repo record. The UI shows no simulation label; `model` and `generated_at` are the only visible
-   provenance.
-4. **No personal data in the prompt** beyond what the caller may see; the service is stateless.
-
-D2 serves the rules-based template from Laravel in the same text shape, so the UI is already final;
-D3 replaces that one block with the Python service and its fallback.
+The dashboard block keeps the same shape it has had since D2, so the existing `AiReportPanel` needs
+only a **Open management reports** link. The generated response shape and its source/fallback fields
+are fixed in spec `15`.
 
 ## Click map
 
@@ -318,19 +305,19 @@ Implementation notes:
 - `HrGateway` is bound to `MockHrGateway`; `CRM_HR_SIMULATE_FAILURE=true` returns `hr: null` and
   `meta.hr_available: false`, and the note explains the missing source.
 
-### D3 — future
+### D3 — moved to Module 07
 
-- [ ] The `ai/` service implements `POST /reports/dashboard` with the documented payload.
-- [ ] Laravel times out in ≤3s and falls back to the rules template; `source` records the path.
-- [ ] No personal data leaves the CRM beyond the caller's scope.
+D3's generation work is specified and tracked in `resources/specs/15-ai-management-reports.md` as
+Module 07 S1/S2 (ADR-0021). The dashboard's existing rules `ai` block is unchanged and is the
+fallback the module reuses.
 
 ## Out of scope
 
 - Scheduled/emailed reports, PDF/Excel export, drill-down charts, custom date ranges, saved
   dashboard layouts, per-user widget configuration.
 - Real core2/HR connectivity — the seam is a deterministic mock (`HrGateway`).
-- A dedicated `/reports` page: the dashboard home is the report; a fuller management-report page, if
-  the client wants one, is a D4 candidate (the AI panel already carries the report content).
+- A dedicated `/reports` page: moved to Module 07 (spec `15`, ADR-0021), where the management-report
+  variants and their provider live.
 
 ## Impact on other specs
 
@@ -338,6 +325,8 @@ Implementation notes:
   filtered book, so the closed loop landed without a dashboard rewrite.
 - `frontend/src/mocks/` is removed; D1's fixture file no longer exists. The D2 adapter in
   `frontend/src/lib/dashboard.ts` is the only place the wire contract is translated.
+- Module 07 (`specs/15`, ADR-0021) owns generated management reports and the `/reports` page. The
+  dashboard AI card links there; it does not call a provider.
 - The design system gains `ChartCard`, `LineChart` and `DonutChart` in `components/common/`
   (usable by any later report page).
 - `00-data-model.md` is untouched: no table, no column.
