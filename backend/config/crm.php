@@ -64,6 +64,9 @@ return [
         'email' => [
             'simulate_failure' => (bool) env('CRM_EMAIL_SIMULATE_FAILURE', false),
         ],
+        'hr' => [
+            'simulate_failure' => (bool) env('CRM_HR_SIMULATE_FAILURE', false),
+        ],
     ],
 
     /*
