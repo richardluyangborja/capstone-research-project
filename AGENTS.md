@@ -22,8 +22,13 @@ into this file.
 
 ## Commands
 
-Run from the repo root unless a directory is noted; start the DB first.
+Run from the repo root unless a directory is noted; start the DB first, or let the stack scripts do
+it for you.
 
+- **Whole stack (from root):** `./up.sh` starts Postgres + backend + AI + frontend in the background
+  (logs/PIDs in `.run/`); `./down.sh` stops every tracked process, sweeps leftover listeners and
+  removes the DB container (the data volume is kept); `./status.sh` prints the health table and exits
+  non-zero if anything is down.
 - **DB:** `docker compose up -d --wait db` (Postgres :5432; credentials in `backend/.env`)
 - **Backend (`backend/`):** `composer install` · `php artisan migrate` · `php artisan serve`
   (API at http://localhost:8000; health `/api/v1/health`)
