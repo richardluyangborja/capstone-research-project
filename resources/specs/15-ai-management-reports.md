@@ -194,8 +194,11 @@ The rules report and the model report use the same shape, so the page never bran
 }
 ```
 
-Reasons: `not_configured`, `rate_limited`, `timeout`, `provider_error`, `invalid_response`. The UI
-shows the friendly `message`; details stay in the server log.
+Reasons: `not_configured`, `service_unauthorized`, `service_unreachable`, `rate_limited`, `timeout`,
+`provider_error`, `invalid_response`. The UI shows the friendly `message`; the upstream status and
+reason stay in the server log. `service_unauthorized` means the shared bearer token did not match;
+`service_unreachable` means Laravel could not connect to `AI_SERVICE_URL`. A connection timeout is
+retried once (for a sleeping public AI service); a provider 504 is not retried.
 
 ### Service authentication (Laravel → Python)
 
@@ -297,10 +300,11 @@ Base `/api/v1`; JSON; `Authorization: Bearer <jwt>`. No public route.
    Laravel maps those IDs to real routes and rejects prose containing a URL or email address. The
    prompt forbids names, records and numbers outside the supplied context; because that context is
    aggregated counts only, there is no record data for the model to leak.
-7. **The fallback is visible.** When `source = rules` and a fallback reason exists, the page shows an
-   info alert: “AI report is unavailable right now — showing the standard management report.” This
-   is a degraded-state message, not a simulation badge. `not_configured` says AI generation is not
-   configured; the standard report still renders.
+7. **The fallback is visible and diagnostic.** When `source = rules` and a fallback reason exists,
+   the page shows an info alert with the reason-specific message. This is a degraded-state message,
+   not a simulation badge. `not_configured` says AI generation is not configured,
+   `service_unauthorized` says the shared token did not match, and `service_unreachable` says
+   `AI_SERVICE_URL` could not be reached; the standard report still renders in every case.
 8. **Role scope is inherited, never supplied.** Salesrep → personal, manager → team, admin/superadmin
    → org. The report uses the same `DashboardScope`, `DashboardPeriod` and `visibleTo` paths as the
    dashboard. The cache key includes the user, so one caller's report cannot appear for another.
@@ -370,7 +374,9 @@ beyond login and scope.
 | `AI_REPORT_ENABLED`           | `true`                  | Laravel    |
 | `AI_SERVICE_URL`              | `http://127.0.0.1:8001` | Laravel    |
 | `AI_SERVICE_TOKEN`            | _(required for S2)_     | Laravel + `ai/` (same value) |
-| `AI_TIMEOUT_SECONDS`          | `3`                     | Laravel    |
+| `AI_TIMEOUT_SECONDS`          | `10`                    | Laravel    |
+| `AI_RETRY_ATTEMPTS`           | `1`                     | Laravel    |
+| `AI_RETRY_DELAY_MS`           | `750`                   | Laravel    |
 | `AI_CACHE_TTL_MINUTES`        | `15`                    | Laravel    |
 | `AI_REFRESH_COOLDOWN_MINUTES` | `5`                     | Laravel    |
 | `AI_DAILY_LIMIT`              | `800`                   | Laravel    |
@@ -412,8 +418,9 @@ delete a key.
 - [x] A successful report is cached by user + range + variant + context hash; a reload does not call
       the provider; `refresh` bypasses the cache within the cooldown rule.
 - [x] The report names its `source` and `model`; a cached report carries `cached: true`.
-- [x] Timeout, 429, missing key, invalid JSON and provider failure all return a complete rules report
-      with the correct `fallback.reason` and the UI info alert.
+- [x] Timeout, 429, missing key, invalid JSON, a rejected service token and an unreachable service
+      all return a complete rules report with the correct `fallback.reason` and the UI info alert;
+      a connection timeout is retried once before falling back.
 - [x] The model cannot emit a route; invalid IDs, schema or prose URLs/emails fall back. The prompt
       restricts it to the supplied context, and no record fields are sent.
 - [x] Per-user and org daily caps, and the refresh cooldown, are enforced with cache counters; no new

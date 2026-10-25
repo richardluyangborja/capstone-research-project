@@ -128,9 +128,11 @@ public. Do not put a Groq key, JWT secret, or database password in the frontend.
 | `QUEUE_CONNECTION` | `database` | `database` or `sync` | No queue worker is required by the current code |
 | `MAIL_MAILER` | `log` | `log` | Email is mocked; do not configure real SMTP |
 | `AI_REPORT_ENABLED` | `true` | `true` or `false` | `false` is the rules-only fallback demo |
-| `AI_SERVICE_URL` | `http://127.0.0.1:8001` | `https://ai.example.com` | Server-to-server, no trailing slash |
+| `AI_SERVICE_URL` | `http://127.0.0.1:8001` | `https://ai.example.com` | Server-to-server; base URL only, no trailing slash or `/reports/dashboard` |
 | `AI_SERVICE_TOKEN` | generated | same value as AI service | Shared bearer secret for the public AI service |
-| `AI_TIMEOUT_SECONDS` | `3` | `3` | Laravel gives up before the AI service's 2.5s provider timeout |
+| `AI_TIMEOUT_SECONDS` | `10` | `10` | Allows a public AI service to cold-start; the provider call itself is still bounded at 2.5s |
+| `AI_RETRY_ATTEMPTS` | `1` | `1` | One extra attempt only when the connection (not the provider) times out |
+| `AI_RETRY_DELAY_MS` | `750` | `750` | Pause before the retry |
 | `AI_CACHE_TTL_MINUTES` | `15` | `15` | |
 | `AI_REFRESH_COOLDOWN_MINUTES` | `5` | `5` | |
 | `AI_DAILY_LIMIT` | `800` | `800` | Organization-wide daily cap |
@@ -326,7 +328,9 @@ INTEGRATIONS_MODE=mock
 AI_REPORT_ENABLED=true
 AI_SERVICE_URL=https://ai.example.com
 AI_SERVICE_TOKEN=<openssl rand -hex 32>
-AI_TIMEOUT_SECONDS=3
+AI_TIMEOUT_SECONDS=10
+AI_RETRY_ATTEMPTS=1
+AI_RETRY_DELAY_MS=750
 AI_CACHE_TTL_MINUTES=15
 AI_REFRESH_COOLDOWN_MINUTES=5
 AI_DAILY_LIMIT=800
@@ -691,7 +695,17 @@ backend test suite.
 
 If the AI service is down, returns an error, times out, rate-limits, or produces invalid output,
 Laravel returns a complete rules-based report with a `fallback` block. The demo still works. This is
-expected behavior, not a deployment failure.
+expected behavior, not a deployment failure. The UI names the failure:
+
+- `service_unauthorized` — the AI service rejected the shared token.
+- `service_unreachable` — the backend could not connect to `AI_SERVICE_URL`.
+- `timeout` — the connection or provider timed out.
+- `not_configured` — the switch, service token, or Groq key is missing.
+- `rate_limited`, `provider_error`, `invalid_response` — the provider answered badly.
+
+Laravel logs the upstream HTTP status and reason as `AI management report upstream failed`; transport
+failures log as `AI management report transport failed`. A connection timeout is retried once so a
+sleeping public AI service can wake before the report falls back.
 
 ## 11. CORS configuration
 
@@ -842,9 +856,13 @@ restart/clear config. CORS will fail until the backend sees the final origin.
 | Uploads vanish after redeploy | Ephemeral filesystem; mount a persistent disk or switch the disks to S3 |
 | Frontend deep link 404 | Missing SPA rewrite to `index.html` |
 | Frontend calls the wrong API | `VITE_API_URL` was changed after build; rebuild the frontend |
+| AI falls back with `service_unauthorized` | The backend and AI service have different `AI_SERVICE_TOKEN` values (or the platform added quotes/whitespace); set the same 64-character hex value on both |
+| AI falls back with `service_unreachable` | `AI_SERVICE_URL` is still `http://127.0.0.1:8001`, missing `https://`, includes `/reports/dashboard`, or the AI service is down; use the public base URL and redeploy the backend |
+| AI falls back with `timeout` after a long first request | The public AI service is cold-starting or the provider is slow; the connection timeout is retried once, then falls back |
 | AI always falls back | `AI_REPORT_ENABLED=false`, `AI_SERVICE_URL` unreachable, missing/mismatched `AI_SERVICE_TOKEN`, missing Groq key, provider rate limit, or provider timeout |
 | AI report endpoint returns 401 | Missing or wrong `Authorization: Bearer …`; set the same `AI_SERVICE_TOKEN` on Laravel and the AI service |
 | AI report endpoint returns 503 `not_configured` | `AI_SERVICE_TOKEN` is unset on the AI service (it fails closed), or the Groq key is missing |
+| Local UI says “not configured” | `backend/.env` has no `AI_SERVICE_TOKEN`, or `ai/.env` has no `AI_SERVICE_TOKEN`; set the same value in both and restart the AI service |
 | Someone can call the AI service | They need `AI_SERVICE_TOKEN`; if it leaks, rotate it on both services. Add platform rate limiting as an extra guard |
 | `migrate:fresh --seed` re-run fails | Seeders are not idempotent; only run them on a fresh database |
 | Slow first request | Neon compute woke from suspension; later requests are faster |

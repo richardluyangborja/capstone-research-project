@@ -55,6 +55,8 @@ class ManagementReportGenerateTest extends TestCase
             'ai.report.service_url' => 'http://ai.test',
             'ai.report.service_token' => 'test-service-token',
             'ai.report.timeout' => 0.5,
+            'ai.report.retry_attempts' => 1,
+            'ai.report.retry_delay_ms' => 0,
             'ai.report.cache_ttl_minutes' => 15,
             'ai.report.refresh_cooldown_minutes' => 5,
             'ai.report.daily_limit' => 800,
@@ -291,14 +293,74 @@ class ManagementReportGenerateTest extends TestCase
             ->assertJsonPath('data.fallback.reason', 'rate_limited');
     }
 
-    public function test_provider_timeout_falls_back_to_rules(): void
+    public function test_a_connection_timeout_is_retried_once(): void
     {
-        Http::fake(fn () => throw new ConnectionException('cURL error 28: Operation timed out'));
+        $calls = 0;
+
+        Http::fake(function () use (&$calls) {
+            $calls++;
+
+            if ($calls === 1) {
+                throw new ConnectionException('cURL error 28: Operation timed out');
+            }
+
+            return Http::response($this->providerReport());
+        });
+
+        $this->generate('executive')
+            ->assertOk()
+            ->assertJsonPath('data.source', 'model')
+            ->assertJsonPath('data.fallback', null);
+
+        $this->assertSame(2, $calls);
+    }
+
+    public function test_provider_timeout_falls_back_to_rules_after_one_retry(): void
+    {
+        $calls = 0;
+
+        Http::fake(function () use (&$calls) {
+            $calls++;
+
+            throw new ConnectionException('cURL error 28: Operation timed out');
+        });
 
         $this->generate('executive')
             ->assertOk()
             ->assertJsonPath('data.source', 'rules')
             ->assertJsonPath('data.fallback.reason', 'timeout');
+
+        $this->assertSame(2, $calls);
+    }
+
+    public function test_an_unreachable_ai_service_falls_back_to_rules_without_retrying(): void
+    {
+        $calls = 0;
+
+        Http::fake(function () use (&$calls) {
+            $calls++;
+
+            throw new ConnectionException('cURL error 7: Failed to connect');
+        });
+
+        $this->generate('executive')
+            ->assertOk()
+            ->assertJsonPath('data.source', 'rules')
+            ->assertJsonPath('data.fallback.reason', 'service_unreachable');
+
+        $this->assertSame(1, $calls);
+    }
+
+    public function test_an_ai_service_timeout_response_is_not_retried(): void
+    {
+        Http::fake(['*' => Http::response(['detail' => ['reason' => 'timeout']], 504)]);
+
+        $this->generate('executive')
+            ->assertOk()
+            ->assertJsonPath('data.source', 'rules')
+            ->assertJsonPath('data.fallback.reason', 'timeout');
+
+        Http::assertSentCount(1);
     }
 
     public function test_missing_ai_service_configuration_falls_back_to_rules(): void
@@ -321,14 +383,18 @@ class ManagementReportGenerateTest extends TestCase
             ->assertJsonPath('data.fallback.reason', 'provider_error');
     }
 
-    public function test_unauthorized_ai_service_falls_back_to_rules(): void
+    public function test_unauthorized_ai_service_names_the_credential_problem(): void
     {
         Http::fake(['*' => Http::response(['detail' => ['reason' => 'unauthorized']], 401)]);
 
         $this->generate('executive')
             ->assertOk()
             ->assertJsonPath('data.source', 'rules')
-            ->assertJsonPath('data.fallback.reason', 'provider_error');
+            ->assertJsonPath('data.fallback.reason', 'service_unauthorized')
+            ->assertJsonPath(
+                'data.fallback.message',
+                'The AI service rejected its shared credential — check that AI_SERVICE_TOKEN matches on Laravel and the AI service.',
+            );
     }
 
     public function test_invalid_provider_json_falls_back_to_rules(): void

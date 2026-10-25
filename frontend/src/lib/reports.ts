@@ -36,7 +36,13 @@ export const REPORT_VARIANTS: {
 ]
 
 export type ManagementReportFallbackReason =
-  'not_configured' | 'rate_limited' | 'timeout' | 'provider_error' | 'invalid_response'
+  | 'not_configured'
+  | 'service_unauthorized'
+  | 'service_unreachable'
+  | 'rate_limited'
+  | 'timeout'
+  | 'provider_error'
+  | 'invalid_response'
 
 export interface ManagementReportFallback {
   reason: ManagementReportFallbackReason

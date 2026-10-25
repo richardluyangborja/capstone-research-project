@@ -83,15 +83,19 @@ final class ManagementReportGenerator
         $this->recordAttempt();
 
         try {
-            $response = Http::timeout(max(0.1, (float) config('ai.report.timeout', 3)))
-                ->acceptJson()
-                ->asJson()
-                ->withToken($this->serviceToken())
-                ->post($this->endpoint(), ['context' => $context]);
+            $response = $this->request($context);
         } catch (ConnectionException $exception) {
             $this->startCooldown();
 
-            return $this->fallback($this->isTimeout($exception) ? 'timeout' : 'provider_error');
+            $reason = $this->isTimeout($exception) ? 'timeout' : 'service_unreachable';
+
+            Log::warning('AI management report transport failed', [
+                'variant' => $this->variant->value,
+                'reason' => $reason,
+                'error' => $exception::class,
+            ]);
+
+            return $this->fallback($reason);
         } catch (Throwable $exception) {
             $this->startCooldown();
             Log::warning('AI management report transport failed', [
@@ -104,30 +108,42 @@ final class ManagementReportGenerator
 
         $status = $response->status();
 
+        if ($status === 401 || $status === 403) {
+            $this->logUpstreamFailure($response);
+
+            return $this->fallback('service_unauthorized');
+        }
+
         if ($status === 429) {
             $this->startCooldown();
+            $this->logUpstreamFailure($response);
 
             return $this->fallback('rate_limited');
         }
 
         if ($status === 503) {
+            $this->logUpstreamFailure($response);
+
             return $this->fallback('not_configured');
         }
 
         if ($status === 504) {
             $this->startCooldown();
+            $this->logUpstreamFailure($response);
 
             return $this->fallback('timeout');
         }
 
         if ($status === 422) {
             $this->startCooldown();
+            $this->logUpstreamFailure($response);
 
             return $this->fallback('invalid_response');
         }
 
         if (! $response->successful()) {
             $this->startCooldown();
+            $this->logUpstreamFailure($response);
 
             return $this->fallback('provider_error');
         }
@@ -220,6 +236,8 @@ final class ManagementReportGenerator
     {
         return match ($reason) {
             'not_configured' => 'AI report is not configured — showing the standard management report.',
+            'service_unauthorized' => 'The AI service rejected its shared credential — check that AI_SERVICE_TOKEN matches on Laravel and the AI service.',
+            'service_unreachable' => 'The AI service could not be reached — check AI_SERVICE_URL and that the AI service is running.',
             'invalid_response' => 'AI report returned an unusable response — showing the standard management report.',
             default => 'AI report is unavailable right now — showing the standard management report.',
         };
@@ -244,6 +262,41 @@ final class ManagementReportGenerator
     {
         return rtrim((string) config('ai.report.service_url', 'http://127.0.0.1:8001'), '/')
             .'/reports/dashboard';
+    }
+
+    /**
+     * Send one report request, retrying a connection timeout once so a sleeping public AI service
+     * can wake. A provider 504 is not retried: the AI service already waited for the provider.
+     *
+     * @param  array<string, mixed>  $context
+     */
+    private function request(array $context): Response
+    {
+        $attempts = max(0, (int) config('ai.report.retry_attempts', 1)) + 1;
+        $delayMicroseconds = max(0, (int) config('ai.report.retry_delay_ms', 750)) * 1000;
+        $last = null;
+
+        for ($attempt = 1; $attempt <= $attempts; $attempt++) {
+            try {
+                return Http::timeout(max(0.1, (float) config('ai.report.timeout', 10)))
+                    ->acceptJson()
+                    ->asJson()
+                    ->withToken($this->serviceToken())
+                    ->post($this->endpoint(), ['context' => $context]);
+            } catch (ConnectionException $exception) {
+                $last = $exception;
+
+                if ($attempt >= $attempts || ! $this->isTimeout($exception)) {
+                    throw $exception;
+                }
+
+                if ($delayMicroseconds > 0) {
+                    usleep($delayMicroseconds);
+                }
+            }
+        }
+
+        throw $last ?? new ConnectionException('The AI service could not be reached.');
     }
 
     /**
@@ -340,6 +393,19 @@ final class ManagementReportGenerator
         $message = strtolower($exception->getMessage());
 
         return str_contains($message, 'timed out') || str_contains($message, 'timeout');
+    }
+
+    private function logUpstreamFailure(Response $response): void
+    {
+        $reason = $response->json('detail.reason')
+            ?? $response->json('reason')
+            ?? $response->json('error');
+
+        Log::warning('AI management report upstream failed', [
+            'variant' => $this->variant->value,
+            'status' => $response->status(),
+            'reason' => is_string($reason) && trim($reason) !== '' ? trim($reason) : null,
+        ]);
     }
 
     private function logGenerated(Response $response): void
