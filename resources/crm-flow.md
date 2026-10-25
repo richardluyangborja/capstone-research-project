@@ -213,7 +213,8 @@ dashboard. The report always carries its source, model, timestamp, cached flag a
 exactly three insight cards and four action links to existing pages. **S2** adds
 `POST /reports/management/generate`: Laravel sends an aggregated, PII-free context to the `ai/`
 service, which calls Groq's free tier (`openai/gpt-oss-20b`) behind a 2.5-second provider timeout
-inside Laravel's 3-second call. A successful report is cached by user + range + variant + context
+inside Laravel's 10-second call (one retry on a connection timeout, for a cold public service). A
+successful report is cached by user + range + variant + context
 hash for 15 minutes; a 5-minute per-user/variant cooldown, 30/user/day and 800/org/day cache counters
 protect the free quota. A disabled switch, missing key, 429, timeout, provider error or invalid
 JSON/IDs returns the standard report with a `fallback.reason` and an inline info alert; `GET` returns

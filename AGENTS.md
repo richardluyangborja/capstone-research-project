@@ -394,16 +394,18 @@ Laravel's own and is separate from `frontend/`.
   actions, all linking to existing pages. **S2** adds `POST /reports/management/generate`: Laravel
   builds an aggregated, PII-free context and calls the `ai/` service (`POST /reports/dashboard`),
   which calls Groq's free tier (`openai/gpt-oss-20b`, JSON mode, 2.5 s provider timeout) and returns
-  fixed insight/action IDs that Laravel maps to real routes. The 3-second Laravel timeout, 15-minute
+  fixed insight/action IDs that Laravel maps to real routes. The 10-second Laravel timeout (one
+  retry on a connection timeout, because a public AI service may cold-start), 15-minute
   context-hash cache, 5-minute per-user/variant refresh cooldown, 30/user/day and 800/org/day caps
   are cache counters, not a table; `refresh: true` bypasses the cache and a second try inside the
   cooldown is 429. Every failure (disabled switch, missing service token or key, 429, timeout,
   provider error, invalid JSON/IDs) returns a complete rules report with a `fallback.reason`, and
-  the page shows an info alert. `GET` returns cached model prose when it exists, otherwise rules,
-  and never calls the provider. No names, emails, notes or message bodies leave Laravel. The
-  deployed `ai/` service may be public, but `POST /reports/dashboard` requires the shared
-  `AI_SERVICE_TOKEN` bearer credential (constant-time compare; `/health` stays public); a missing
-  service token falls back with `not_configured` rather than calling anonymously. No table, no
+  the page shows an info alert. A rejected service token is `service_unauthorized`; an unreachable
+  service is `service_unreachable`; both are logged upstream. `GET` returns cached model prose when
+  it exists, otherwise rules, and never calls the provider. No names, emails, notes or message
+  bodies leave Laravel. The deployed `ai/` service may be public, but `POST /reports/dashboard`
+  requires the shared `AI_SERVICE_TOKEN` bearer credential (constant-time compare; `/health` stays
+  public); a missing service token falls back with `not_configured` rather than calling anonymously. No table, no
   migration, no module-01–05 rule change. `Team Performance` is deferred; record catch-up summaries
   and message drafting are later submodules, not S1/S2.
 
