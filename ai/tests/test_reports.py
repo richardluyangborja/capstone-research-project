@@ -1,7 +1,8 @@
 """Tests for the Groq report seam.
 
-No network and no key: `respx` fakes Groq. The tests assert the outgoing payload is the aggregated
-context only, and that every provider failure becomes the typed status Laravel expects.
+No network and no key: `respx` fakes Groq. The tests assert the bearer auth boundary, that the
+outgoing payload is the aggregated context only, and that every provider failure becomes the typed
+status Laravel expects.
 """
 
 from __future__ import annotations
@@ -17,10 +18,12 @@ from app.config import Settings, get_settings
 from app.main import app
 
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
+SERVICE_TOKEN = "test-service-token"
 
 
 def make_settings(**overrides) -> Settings:
     values = {
+        "ai_service_token": SERVICE_TOKEN,
         "groq_api_key": "test-key",
         "ai_model": "openai/gpt-oss-20b",
         "ai_timeout_seconds": 1.0,
@@ -32,6 +35,17 @@ def make_settings(**overrides) -> Settings:
 
 @pytest.fixture
 def client() -> TestClient:
+    app.dependency_overrides[get_settings] = lambda: make_settings()
+
+    with TestClient(app) as test_client:
+        test_client.headers["Authorization"] = f"Bearer {SERVICE_TOKEN}"
+        yield test_client
+
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def anonymous_client() -> TestClient:
     app.dependency_overrides[get_settings] = lambda: make_settings()
 
     with TestClient(app) as test_client:
@@ -128,6 +142,47 @@ def groq_response(report: dict) -> dict:
         "choices": [{"message": {"content": json.dumps(report)}}],
         "usage": {"prompt_tokens": 420, "completion_tokens": 180, "total_tokens": 600},
     }
+
+
+def test_health_is_public(anonymous_client: TestClient) -> None:
+    response = anonymous_client.get("/health")
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "ok"}
+
+
+def test_missing_service_token_returns_401(anonymous_client: TestClient) -> None:
+    response = anonymous_client.post(
+        "/reports/dashboard",
+        json={"context": context()},
+    )
+
+    assert response.status_code == 401
+    assert response.headers["www-authenticate"] == "Bearer"
+    assert response.json()["detail"]["reason"] == "unauthorized"
+
+
+def test_wrong_service_token_returns_401(anonymous_client: TestClient) -> None:
+    response = anonymous_client.post(
+        "/reports/dashboard",
+        json={"context": context()},
+        headers={"Authorization": "Bearer wrong-token"},
+    )
+
+    assert response.status_code == 401
+    assert response.json()["detail"]["reason"] == "unauthorized"
+
+
+def test_unset_service_token_configuration_returns_503(client: TestClient) -> None:
+    app.dependency_overrides[get_settings] = lambda: make_settings(ai_service_token="")
+
+    response = client.post(
+        "/reports/dashboard",
+        json={"context": context()},
+    )
+
+    assert response.status_code == 503
+    assert response.json()["detail"]["reason"] == "not_configured"
 
 
 @pytest.mark.parametrize("variant", ["executive", "pipeline", "client_health"])

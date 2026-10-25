@@ -13,31 +13,53 @@ Service (a manpower/staffing agency). See `resources/` for business context and 
 | `ai/` | Python FastAPI AI/ML service (lightweight) |
 | `resources/` | Business context, CRM flow, and per-submodule specs |
 | `decisions/` | Architecture decision records (ADRs) |
-| `docs`/`AGENTS.md` | Agent/contributor guidance |
+| `DEPLOYMENT.md` / `AGENTS.md` | Deployment and agent/contributor guidance |
 
 ## Quickstart
 
-```sh
-# 1. Database (Postgres)
-docker compose up -d db
+One-time install:
 
-# 2. Backend
+```sh
+cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env
+cp ai/.env.example ai/.env
+
 cd backend
 composer install
-php artisan migrate
-php artisan serve            # http://localhost:8000  (API health: /api/v1/health)
+php artisan key:generate
+php artisan jwt:secret
 
-# 3. Frontend
 cd ../frontend
 npm install
-npm run dev                  # http://localhost:5173
 
-# 4. AI service (optional for Phase 1)
 cd ../ai
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8001
+python3 -m venv .venv
+.venv/bin/pip install -r requirements-dev.txt
 ```
+
+For live AI reports, set the same `AI_SERVICE_TOKEN` in `backend/.env` and `ai/.env`
+(`openssl rand -hex 32`), and add the Groq key to `ai/.env`. Without them the reports still work
+through the rules fallback.
+
+Everyday start/stop, from the repository root:
+
+```sh
+./up.sh       # Postgres + API + AI + frontend in the background
+./status.sh   # health table; exits 0 only when all four are up
+./down.sh     # stop everything
+```
+
+On a fresh database, seed the demo data once:
+
+```sh
+cd backend
+php artisan migrate:fresh --seed
+```
+
+## Deployment
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for local vs deployed environment variables, Neon Postgres,
+per-app build/start commands, persistent storage and CORS configuration.
 
 ## Conventions (see `AGENTS.md`)
 

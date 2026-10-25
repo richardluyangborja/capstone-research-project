@@ -18,8 +18,8 @@ use Throwable;
  *
  * Laravel builds the PII-free context, asks the Python service for prose, then maps the model's
  * fixed insight/action IDs to routes it already owns. The rules report remains the contract: a
- * disabled switch, missing key, timeout, quota response or unusable JSON all return a complete
- * rules report with a fallback reason. The cache is the only persistence.
+ * disabled switch, missing service token or provider key, timeout, quota response or unusable JSON
+ * all return a complete rules report with a fallback reason. The cache is the only persistence.
  */
 final class ManagementReportGenerator
 {
@@ -56,7 +56,7 @@ final class ManagementReportGenerator
      */
     public function generate(bool $refresh): array
     {
-        if (! $this->enabled()) {
+        if (! $this->enabled() || ! $this->hasServiceToken()) {
             return $this->fallback('not_configured');
         }
 
@@ -86,6 +86,7 @@ final class ManagementReportGenerator
             $response = Http::timeout(max(0.1, (float) config('ai.report.timeout', 3)))
                 ->acceptJson()
                 ->asJson()
+                ->withToken($this->serviceToken())
                 ->post($this->endpoint(), ['context' => $context]);
         } catch (ConnectionException $exception) {
             $this->startCooldown();
@@ -227,6 +228,16 @@ final class ManagementReportGenerator
     private function enabled(): bool
     {
         return (bool) config('ai.report.enabled', true);
+    }
+
+    private function serviceToken(): string
+    {
+        return trim((string) config('ai.report.service_token', ''));
+    }
+
+    private function hasServiceToken(): bool
+    {
+        return $this->serviceToken() !== '';
     }
 
     private function endpoint(): string

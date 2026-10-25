@@ -15,6 +15,8 @@ return [
     'report' => [
         'enabled' => (bool) env('AI_REPORT_ENABLED', true),
         'service_url' => (string) env('AI_SERVICE_URL', 'http://127.0.0.1:8001'),
+        // Shared bearer token for the public AI service. The same value lives in ai/.env.
+        'service_token' => (string) env('AI_SERVICE_TOKEN', ''),
         'timeout' => (float) env('AI_TIMEOUT_SECONDS', 3),
         'cache_ttl_minutes' => (int) env('AI_CACHE_TTL_MINUTES', 15),
         'refresh_cooldown_minutes' => (int) env('AI_REFRESH_COOLDOWN_MINUTES', 5),

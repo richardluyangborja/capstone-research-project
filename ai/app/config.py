@@ -1,7 +1,8 @@
 """Settings for the AI service.
 
 The provider key belongs here and nowhere else. Laravel sends only the report context; it never
-sees `GROQ_API_KEY`. Settings are read once per process and can be overridden in tests through the
+sees `GROQ_API_KEY`. Laravel authenticates with the shared `AI_SERVICE_TOKEN`; the browser never
+sees either secret. Settings are read once per process and can be overridden in tests through the
 `get_settings` dependency.
 """
 
@@ -18,6 +19,7 @@ class Settings(BaseSettings):
 
     ai_provider: str = "groq"
     ai_model: str = "openai/gpt-oss-20b"
+    ai_service_token: str = ""
     groq_api_key: str = ""
     groq_base_url: str = "https://api.groq.com/openai/v1"
     ai_timeout_seconds: float = 2.5

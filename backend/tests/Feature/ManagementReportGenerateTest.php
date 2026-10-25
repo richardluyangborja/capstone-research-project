@@ -53,6 +53,7 @@ class ManagementReportGenerateTest extends TestCase
         config([
             'ai.report.enabled' => true,
             'ai.report.service_url' => 'http://ai.test',
+            'ai.report.service_token' => 'test-service-token',
             'ai.report.timeout' => 0.5,
             'ai.report.cache_ttl_minutes' => 15,
             'ai.report.refresh_cooldown_minutes' => 5,
@@ -139,6 +140,7 @@ class ManagementReportGenerateTest extends TestCase
         Http::assertSent(function (ClientRequest $request): bool {
             return $request->url() === 'http://ai.test/reports/dashboard'
                 && $request->method() === 'POST'
+                && $request->hasHeader('Authorization', 'Bearer test-service-token')
                 && $request->data()['context']['variant'] === 'executive';
         });
     }
@@ -267,6 +269,18 @@ class ManagementReportGenerateTest extends TestCase
         Http::assertNothingSent();
     }
 
+    public function test_missing_service_token_returns_rules_without_calling_the_provider(): void
+    {
+        config(['ai.report.service_token' => '']);
+
+        $this->generate('executive')
+            ->assertOk()
+            ->assertJsonPath('data.source', 'rules')
+            ->assertJsonPath('data.fallback.reason', 'not_configured');
+
+        Http::assertNothingSent();
+    }
+
     public function test_provider_rate_limit_falls_back_to_rules(): void
     {
         Http::fake(['*' => Http::response(['error' => 'rate limited'], 429)]);
@@ -300,6 +314,16 @@ class ManagementReportGenerateTest extends TestCase
     public function test_provider_error_falls_back_to_rules(): void
     {
         Http::fake(['*' => Http::response(['error' => 'boom'], 500)]);
+
+        $this->generate('executive')
+            ->assertOk()
+            ->assertJsonPath('data.source', 'rules')
+            ->assertJsonPath('data.fallback.reason', 'provider_error');
+    }
+
+    public function test_unauthorized_ai_service_falls_back_to_rules(): void
+    {
+        Http::fake(['*' => Http::response(['detail' => ['reason' => 'unauthorized']], 401)]);
 
         $this->generate('executive')
             ->assertOk()

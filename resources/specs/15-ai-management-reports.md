@@ -1,8 +1,8 @@
 # 15 — AI Management Reports
 
-Module 07 (ADR-0014, **ADR-0021**). A read-only presentation module over modules 01–06. Reuses
-`DashboardSummary`, `DashboardWorklist`, `DashboardStaffPerformance` and the existing `ai/` FastAPI
-service; adds **no table**.
+Module 07 (ADR-0014, **ADR-0021**, **ADR-0022**). A read-only presentation module over modules
+01–06. Reuses `DashboardSummary`, `DashboardWorklist`, `DashboardStaffPerformance` and the existing
+`ai/` FastAPI service; adds **no table**.
 
 > **Status: S1 + S2 built.** D3 of spec `14` is moved here as Module 07 (ADR-0021). The
 > rules-based report remains the source of truth; the free Groq model is an optional prose layer with
@@ -197,6 +197,22 @@ The rules report and the model report use the same shape, so the page never bran
 Reasons: `not_configured`, `rate_limited`, `timeout`, `provider_error`, `invalid_response`. The UI
 shows the friendly `message`; details stay in the server log.
 
+### Service authentication (Laravel → Python)
+
+The deployment platform may expose the `ai/` service on a public HTTPS URL. It is still **not a
+browser API**: the only caller is Laravel, and every report call carries a shared bearer token
+(ADR-0022).
+
+- Laravel sends `Authorization: Bearer <AI_SERVICE_TOKEN>` on `POST /reports/dashboard`.
+- FastAPI compares the supplied token with its own `AI_SERVICE_TOKEN` using
+  `secrets.compare_digest`. A missing or wrong token is `401` with `WWW-Authenticate: Bearer`.
+- If the service has no token configured, it fails closed with `503 not_configured`; if Laravel has
+  no token configured, it skips the call and returns the rules report with
+  `fallback.reason = not_configured`.
+- `GET /health` stays public for the platform probe. It exposes no CRM data.
+- The token is a server-side secret. It never enters the frontend bundle, the report context or the
+  logs, and the endpoint is only used over HTTPS.
+
 ### Prompt contract
 
 The prompt is a **fixed system instruction + one compact JSON user message**, built by the Python
@@ -248,16 +264,17 @@ Base `/api/v1`; JSON; `Authorization: Bearer <jwt>`. No public route.
 
 - `GET` validates `variant` and `range` and returns the `meta` block (scope, `ai_available`, available
   variants). It is the page-load call. `ai_available` reflects the server switch
-  (`AI_REPORT_ENABLED`), not a live provider probe; a missing key or provider failure is discovered
-  on generate and becomes a fallback.
+  (`AI_REPORT_ENABLED`), not a live provider probe; a missing service token or provider key is
+  discovered on generate and becomes a fallback.
 - `POST` returns **200** for a model report, a cached report and a rules fallback. A provider failure
   is a delivery outcome, not an HTTP error — the reader still gets a complete report. Invalid
   `variant`/`range` is 422.
 - `refresh: true` bypasses the cache. A second refresh inside the cooldown returns 429 with
   `retry_after_seconds`; the frontend shows “Try again in a few minutes.”
 - The endpoints accept no scope, record IDs or context. The server derives all of it from the JWT.
-- The Python service exposes `POST /reports/dashboard` and is called only by Laravel. It is not a
-  public API and is not reachable from the frontend.
+- The Python service exposes `POST /reports/dashboard` and is called only by Laravel. It may be
+  publicly reachable on the deployment platform, but the report route requires the shared
+  `AI_SERVICE_TOKEN` bearer credential and is never called by the frontend.
 
 ## Business rules
 
@@ -291,6 +308,10 @@ Base `/api/v1`; JSON; `Authorization: Bearer <jwt>`. No public route.
    responses. Every action is a link to the page that owns that action.
 10. **Locale holds.** Money is PHP, dates are `DD MMM YYYY` in `Asia/Manila`, and the report uses the
     same scope/period labels as the dashboard.
+11. **The provider seam is authenticated.** The AI service may be public on the deployment platform,
+    but `POST /reports/dashboard` requires the shared `AI_SERVICE_TOKEN`. The token is a
+    service-to-service secret, not a CRM user token; it is compared in constant time and both sides
+    fail closed when it is missing.
 
 ## Free-tier and token controls
 
@@ -308,8 +329,9 @@ Base `/api/v1`; JSON; `Authorization: Bearer <jwt>`. No public route.
 | Logging            | metadata only                   | Variant, source, model, latency, token counts, reason |
 
 The Groq key lives in the `ai/` service environment, not the browser and not the frontend bundle.
-Set the provider's data controls to zero retention if available. Free-tier limits can change; the
-caps are configuration, not promises.
+The `AI_SERVICE_TOKEN` is shared by Laravel and the `ai/` service and is also server-side only. Set
+the provider's data controls to zero retention if available. Free-tier limits can change; the caps
+are configuration, not promises.
 
 ## UI
 
@@ -347,6 +369,7 @@ beyond login and scope.
 | ----------------------------- | ----------------------- | ---------- |
 | `AI_REPORT_ENABLED`           | `true`                  | Laravel    |
 | `AI_SERVICE_URL`              | `http://127.0.0.1:8001` | Laravel    |
+| `AI_SERVICE_TOKEN`            | _(required for S2)_     | Laravel + `ai/` (same value) |
 | `AI_TIMEOUT_SECONDS`          | `3`                     | Laravel    |
 | `AI_CACHE_TTL_MINUTES`        | `15`                    | Laravel    |
 | `AI_REFRESH_COOLDOWN_MINUTES` | `5`                     | Laravel    |
@@ -383,6 +406,9 @@ delete a key.
 
 - [x] `POST /reports/management/generate` calls the `ai/` service, which calls Groq with a compact,
       PII-free context and returns strict JSON.
+- [x] `POST /reports/dashboard` requires the shared `AI_SERVICE_TOKEN`; missing/wrong tokens are
+      `401`, an unset service-side token is `503 not_configured`, and Laravel falls back without a
+      provider call when its own token is missing. `/health` stays public.
 - [x] A successful report is cached by user + range + variant + context hash; a reload does not call
       the provider; `refresh` bypasses the cache within the cooldown rule.
 - [x] The report names its `source` and `model`; a cached report carries `cached: true`.
@@ -406,8 +432,8 @@ the new module owns the page, the variants and the provider seam.
 
 - `14` D1 + D2 remain the dashboard read layer. Its D3 section becomes a pointer to this spec; the
   dashboard response's `ai` block remains the standard summary and does not call the provider.
-- `ai/` gains `POST /reports/dashboard`, the provider seam and its tests. It stays FastAPI +
-  `httpx` + Pydantic; no ML stack, no vector store.
+- `ai/` gains `POST /reports/dashboard`, the provider seam, shared-bearer auth (ADR-0022) and its
+  tests. It stays FastAPI + `httpx` + Pydantic; no ML stack, no vector store.
 - No table, no migration and no change to modules 01–05.
 - `AGENTS.md`, `crm-flow.md`, `specs/README.md` and ADR-0021 record Module 07 and the D3 move.
 - A future S3 (record summaries) and S4 (message drafting) reuse the same provider seam and the same

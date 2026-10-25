@@ -37,7 +37,8 @@ it for you.
   - Verify: `npm run lint` · `npm run test` · `npm run build`; format: `npm run format`
 - **AI (`ai/`):** `pip install -r requirements-dev.txt` · `uvicorn app.main:app --reload --port 8001`
   (health `/health`; reports `POST /reports/dashboard`)
-  - Test: `.venv/bin/pytest`; the Groq key lives only in `ai/.env`
+  - Test: `.venv/bin/pytest`; the Groq key lives only in `ai/.env`, and `AI_SERVICE_TOKEN` must
+    match the value in `backend/.env`
 
 `backend/` has its own `AGENTS.md` (Laravel Boost guidelines) and `opencode.json` MCP config — read
 it before backend work. Backend asset tooling (`backend/package.json`, `backend/vite.config.js`) is
@@ -384,7 +385,7 @@ Laravel's own and is separate from `frontend/`.
   `LineChart`, `DonutChart`; `StatCard` gained optional `to`/`icon`/`hint`/`trend`. The dashboard
   AI card links to Module 07; it does not call a provider.
 - **Module 07 — AI Management Reports (S1 + S2 built):** a read-only presentation module over the
-  dashboard data (`resources/specs/15-ai-management-reports.md`, ADR-0021), with its own
+  dashboard data (`resources/specs/15-ai-management-reports.md`, ADR-0021, ADR-0022), with its own
   `/reports` page and **AI Reports** sidebar group. **S1** ships the rules-based Executive, Pipeline
   and Client Health variants through `GET /reports/management` (`variant`, `range`; defaults
   executive/30 days), scoped like the dashboard, with no provider call. The response always carries
@@ -396,12 +397,15 @@ Laravel's own and is separate from `frontend/`.
   fixed insight/action IDs that Laravel maps to real routes. The 3-second Laravel timeout, 15-minute
   context-hash cache, 5-minute per-user/variant refresh cooldown, 30/user/day and 800/org/day caps
   are cache counters, not a table; `refresh: true` bypasses the cache and a second try inside the
-  cooldown is 429. Every failure (disabled switch, missing key, 429, timeout, provider error, invalid
-  JSON/IDs) returns a complete rules report with a `fallback.reason`, and the page shows an info
-  alert. `GET` returns cached model prose when it exists, otherwise rules, and never calls the
-  provider. No names, emails, notes or message bodies leave Laravel. No table, no migration, no
-  module-01–05 rule change. `Team Performance` is deferred; record catch-up summaries and message
-  drafting are later submodules, not S1/S2.
+  cooldown is 429. Every failure (disabled switch, missing service token or key, 429, timeout,
+  provider error, invalid JSON/IDs) returns a complete rules report with a `fallback.reason`, and
+  the page shows an info alert. `GET` returns cached model prose when it exists, otherwise rules,
+  and never calls the provider. No names, emails, notes or message bodies leave Laravel. The
+  deployed `ai/` service may be public, but `POST /reports/dashboard` requires the shared
+  `AI_SERVICE_TOKEN` bearer credential (constant-time compare; `/health` stays public); a missing
+  service token falls back with `not_configured` rather than calling anonymously. No table, no
+  migration, no module-01–05 rule change. `Team Performance` is deferred; record catch-up summaries
+  and message drafting are later submodules, not S1/S2.
 
 Frontend routes: `/dashboard` (the role-aware home: greeting + scope + period toggle, 8 KPI cards,
 line + donut charts, needs-attention table, alerts/activity, staff scorecard with core2 HR figures
@@ -649,6 +653,8 @@ Design docs an agent should read before touching CRM features:
 - `resources/crm-flow.md` — object model, pipelines, submodules, integrations, role visibility
 - `resources/specs/` — per-submodule implementation specs (data model, API, UI, acceptance criteria)
 - `decisions/` — accepted design decisions (ADRs)
+- `DEPLOYMENT.md` — local vs deployed environment variables, Neon Postgres, per-app build/start
+  commands, persistent storage and CORS
 
 Before implementing a submodule, read `resources/specs/README.md` (conventions) and
 `resources/specs/00-data-model.md` first; each submodule spec builds on them.
@@ -676,10 +682,11 @@ modules 01–05 with KPI cards, line + donut charts, a needs-attention worklist,
 staff scorecard carrying core2 HR figures through the `HrGateway` mock, and the rules-based **AI
 management summary**. D2 replaced the D1 fixtures with `/dashboard`, `/dashboard/worklist` and
 `/dashboard/staff-performance`; the fixture file is deleted and the page handles loading, empty,
-error/retry and missing-HR states. **Module 07** (`specs/15`, ADR-0021) has **S1 + S2 built**: the
-`/reports` page, `GET /reports/management`, the three rules variants, the dashboard link and
-`POST /reports/management/generate` behind the `ai/` Groq seam with cache, cooldown, daily caps and
-the rules fallback. S3/S4 (record catch-up summaries, message drafting) are future submodules.
+error/retry and missing-HR states. **Module 07** (`specs/15`, ADR-0021, ADR-0022) has **S1 + S2
+built**: the `/reports` page, `GET /reports/management`, the three rules variants, the dashboard
+link and `POST /reports/management/generate` behind the authenticated `ai/` Groq seam (shared
+`AI_SERVICE_TOKEN`) with cache, cooldown, daily caps and the rules fallback. S3/S4 (record catch-up
+summaries, message drafting) are future submodules.
 Dedup/merge and advanced tiers are module-01 deferrals
 (ADR-0006), and automatic client aging stays one too (ADR-0018 §6). Other departments are consumed via
 **mocked integrations** (ADR-0005), not built here.
