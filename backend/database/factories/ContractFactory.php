@@ -34,6 +34,12 @@ class ContractFactory extends Factory
             'end_date' => $start->copy()->addMonths(12)->toDateString(),
             'value' => fake()->randomElement([450000, 620000, 980000, 1250000, 2400000]),
             'currency' => 'PHP',
+            'payment_terms' => 'Net 30',
+            'po_reference' => 'PO-'.fake()->numerify('####'),
+            'auto_renew' => false,
+            'notice_days' => 30,
+            'signatory_name' => fake()->name(),
+            'signatory_position' => 'Operations Manager',
             'terms' => 'Net 30, 30-day notice on volume changes.',
             'owner_id' => User::factory(),
         ];

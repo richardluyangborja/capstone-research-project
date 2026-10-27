@@ -35,6 +35,12 @@ class Contract extends Model
         'signed_at',
         'value',
         'currency',
+        'payment_terms',
+        'po_reference',
+        'auto_renew',
+        'notice_days',
+        'signatory_name',
+        'signatory_position',
         'terms',
         'notes',
         'file_path',
@@ -55,6 +61,8 @@ class Contract extends Model
             'end_date' => 'date',
             'signed_at' => 'datetime',
             'value' => 'decimal:2',
+            'auto_renew' => 'boolean',
+            'notice_days' => 'integer',
         ];
     }
 

@@ -707,7 +707,7 @@ Dedup/merge and advanced/stored tier scoring are module-01 deferrals
 (ADR-0006), and automatic client aging stays one too (ADR-0018 §6). Other departments are consumed via
 **read-only mocked feeds** (ADR-0005, ADR-0025), not built here.
 
-**Module 01 refresh (S0–S5 built — `specs/16`, ADR-0023–0026).** S0 is the planning contract and
+**Module 01 refresh (S0–S6 built — `specs/16`, ADR-0023–0026).** S0 is the planning contract and
 S1 is the shell: the sidebar is grouped by module, `/accounts` (plus `/accounts/new` and
 `/accounts/:id`) is the canonical account surface, and `/companies*`, `/clients`, `/qualification`,
 `/assignment`, `/lifecycle` and `/conversion` redirect with their query strings preserved. Dashboard
@@ -729,7 +729,13 @@ carries `primary_contact` on the detail read. S5 adds account delegation: `POST
 both run `Company::assignTo()`, so every handover writes a `system` activity and notifies the new
 owner (`CompanyAssigned` → `CompanyAssignedNotification`); the Account Book selects rows for a batch
 handover and the Account 360 ownership panel uses the endpoint rather than a plain `PATCH` (a
-`PATCH` carrying `owner_id` now runs the same path). The later slices add contract rate cards, read-only
+`PATCH` carrying `owner_id` now runs the same path). S6 adds the contract commercial header —
+`payment_terms`, `po_reference`, `auto_renew`, `notice_days`, `signatory_name` and
+`signatory_position` — on upload and on edit; `value` stays the negotiated headline and is never
+recomputed, only someone who may update the account edits the header (`ContractPolicy::update`), the
+upload/edit form and renewal prefill carry the fields, and a header edit writes a `system` activity on
+the account timeline naming what changed (a no-op `PATCH` writes nothing). The later slices add
+contract rate cards, read-only
 Recruitment/Deployment/Timekeeping/Finance feeds, computed account health, the public landing refresh
 with embedded intake and modal sign-in, and all-role CSV import with ownership rules. Read
 `resources/specs/16-module-01-refresh.md` before changing Module 01; the old `01`, `06` and `09` files

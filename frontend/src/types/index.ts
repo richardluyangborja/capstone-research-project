@@ -584,6 +584,12 @@ export interface Contract {
   signed_at: string | null
   value: string | null
   currency: string
+  payment_terms: string | null
+  po_reference: string | null
+  auto_renew: boolean
+  notice_days: number | null
+  signatory_name: string | null
+  signatory_position: string | null
   terms: string | null
   notes: string | null
   file: ContractFileRef
@@ -616,6 +622,12 @@ export interface ContractInput {
   end_date?: string | null
   value?: number | null
   currency?: string
+  payment_terms?: string | null
+  po_reference?: string | null
+  auto_renew?: boolean
+  notice_days?: number | null
+  signatory_name?: string | null
+  signatory_position?: string | null
   terms?: string | null
   notes?: string | null
   status?: ContractStatus

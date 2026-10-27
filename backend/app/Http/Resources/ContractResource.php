@@ -43,6 +43,13 @@ class ContractResource extends JsonResource
             'signed_at' => $this->signed_at?->toIso8601String(),
             'value' => $this->value,
             'currency' => $this->currency,
+            // The commercial header (spec 16 §Contract commercial model, ADR-0024).
+            'payment_terms' => $this->payment_terms,
+            'po_reference' => $this->po_reference,
+            'auto_renew' => (bool) $this->auto_renew,
+            'notice_days' => $this->notice_days,
+            'signatory_name' => $this->signatory_name,
+            'signatory_position' => $this->signatory_position,
             'terms' => $this->terms,
             'notes' => $this->notes,
             // The document itself is streamed from an authorized endpoint; the storage path

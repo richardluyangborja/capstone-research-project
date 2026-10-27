@@ -84,7 +84,7 @@ advanced tiers/health are **built** (ADR-0006). Detailed implementation specs li
 9. **Client Account Lifecycle** — client status/tier/health, owner, renewal linkage, dormancy/
    churn, win-back.
 
-### Module 01 refresh (S0–S5 built — spec 16, ADR-0023–0026)
+### Module 01 refresh (S0–S6 built — spec 16, ADR-0023–0026)
 
 The refresh keeps the records above but consolidates the working surface:
 
@@ -109,8 +109,12 @@ The refresh keeps the records above but consolidates the working surface:
   (salesrep self, manager team, admin all) write a `system` activity and notify the new owner; the
   Account Book selects rows for a single batch handover, and the Account 360 ownership panel uses
   the delegation path instead of a plain `PATCH`.
-- **Commercial contracts** — commercial header + `contract_rate_cards` (hourly/monthly/placement),
-  computed client value/cost/margin; bill rates visible to salesreps, pay/margin manager+ (ADR-0024).
+- **Contract commercial header** — `payment_terms`, `po_reference`, `auto_renew`, `notice_days`,
+  `signatory_name` and `signatory_position` on upload and edit; `value` stays the negotiated headline
+  and is never recomputed. A header edit writes a `system` account activity naming the change; a
+  renewal prefills the previous header.
+- **Commercial contracts** — `contract_rate_cards` (hourly/monthly/placement), computed client
+  value/cost/margin; bill rates visible to salesreps, pay/margin manager+ (ADR-0024).
 - **Read-only department feeds** — Recruitment job orders, Deployment assignment, Timekeeping
   summaries and Finance AR/invoices; no CRM tables, no mutation UI, source-labelled (ADR-0025).
 - **Health & manager insight** — computed, explainable account flags and a manager dashboard strip;
@@ -126,7 +130,7 @@ dashboard and AI reports are cross-cutting presentation layers, not data modules
 
 | Module | Name | Depends on | Spec |
 | --- | --- | --- | --- |
-| 01 | Lead & Client Tracking | — | `01`–`09` **(baseline built)** + `16` refresh (S0–S5 built; S6–S19 planned) |
+| 01 | Lead & Client Tracking | — | `01`–`09` **(baseline built)** + `16` refresh (S0–S6 built; S7–S19 planned) |
 | 02 | Opportunity Pipeline Visualization | `Opportunity` record (08) | `10` **(built)** |
 | 03 | Communication History Management | objects from 01–02 | `11` **(built)** |
 | 04 | Follow-up Reminder System | 03 + notifications | `12` **(built)** |

@@ -39,6 +39,13 @@ class StoreContractRequest extends FormRequest
             'end_date' => ['nullable', 'date', 'after_or_equal:start_date'],
             'value' => ['nullable', 'numeric', 'min:0'],
             'currency' => ['nullable', 'string', 'size:3'],
+            // The commercial header (spec 16 §Contract commercial model, ADR-0024).
+            'payment_terms' => ['nullable', 'string', 'max:100'],
+            'po_reference' => ['nullable', 'string', 'max:100'],
+            'auto_renew' => ['sometimes', 'boolean'],
+            'notice_days' => ['nullable', 'integer', 'min:0', 'max:365'],
+            'signatory_name' => ['nullable', 'string', 'max:255'],
+            'signatory_position' => ['nullable', 'string', 'max:255'],
             'terms' => ['nullable', 'string', 'max:5000'],
             'notes' => ['nullable', 'string', 'max:5000'],
             // A contract is uploaded as a draft (or already sent to the client). Only
