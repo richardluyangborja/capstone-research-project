@@ -14,6 +14,7 @@ export interface CompanyFilters {
   status?: string
   tier?: string
   industry?: string
+  owner_id?: number
   parent_company_id?: string
   page?: number
   per_page?: number
@@ -63,6 +64,7 @@ const buildParams = (filters: CompanyFilters): Record<string, string> => {
   if (filters.status) params['filter[status]'] = filters.status
   if (filters.tier) params['filter[tier]'] = filters.tier
   if (filters.industry) params['filter[industry]'] = filters.industry
+  if (filters.owner_id) params['filter[owner_id]'] = String(filters.owner_id)
   if (filters.parent_company_id) params['filter[parent_company_id]'] = filters.parent_company_id
   if (filters.page && filters.page > 1) params.page = String(filters.page)
   if (filters.per_page) params.per_page = String(filters.per_page)

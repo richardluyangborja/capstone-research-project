@@ -701,7 +701,7 @@ Dedup/merge and advanced/stored tier scoring are module-01 deferrals
 (ADR-0006), and automatic client aging stays one too (ADR-0018 §6). Other departments are consumed via
 **read-only mocked feeds** (ADR-0005, ADR-0025), not built here.
 
-**Module 01 refresh (S0–S2 built — `specs/16`, ADR-0023–0026).** S0 is the planning contract and
+**Module 01 refresh (S0–S3 built — `specs/16`, ADR-0023–0026).** S0 is the planning contract and
 S1 is the shell: the sidebar is grouped by module, `/accounts` (plus `/accounts/new` and
 `/accounts/:id`) is the canonical account surface, and `/companies*`, `/clients`, `/qualification`,
 `/assignment`, `/lifecycle` and `/conversion` redirect with their query strings preserved. Dashboard
@@ -710,7 +710,11 @@ and AI/report hrefs now point at the canonical routes. S2 turns `/leads` into th
 the tab counters come from `GET /leads/summary`, and the manager view (Team, plus Unassigned for
 manager+) adds open leads, overdue follow-ups, the unassigned queue, per-rep workload and bulk
 transfer. The new-lead duplicate advisory links both the saved record and each existing duplicate.
-The later slices add the Account Book, Account 360 five-tab grouping (Overview, People & Sites,
+S3 turns `/accounts` into the Account Book: `?view=clients` is the old `/clients` book, filters cover
+search/status/tier/owner/industry, and each row carries contract and open-deal counts, the next
+follow-up across the account and its people/deals/contracts, and last activity. The two derived
+columns are computed on read; `GET /companies` also carries `counts.open_opportunities`. The later
+slices add Account 360 five-tab grouping (Overview, People & Sites,
 Commercial, Delivery, Engagement), contract rate cards and read-only
 Recruitment/Deployment/Timekeeping/Finance feeds, computed account health, the public landing refresh
 with embedded intake and modal sign-in, and all-role CSV import with ownership rules. Read

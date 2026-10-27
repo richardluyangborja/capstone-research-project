@@ -5,11 +5,13 @@ Module 01 (Lead & Client Tracking) refresh. Extends `00-data-model.md`, `01-lead
 health), **0024** (contract rate cards), **0025** (read-only feeds), **0026** (public acquisition &
 sign-in), plus 0004, 0005, 0007, 0010, 0013, 0014, 0016.
 
-> **S0 — planning contract (merged). S1 — shell & routes (built). S2 — Lead Workspace (built).**
-> S0 is this contract plus its ADRs; S1 shipped the grouped sidebar, canonical routes, redirects and
-> canonical dashboard/AI hrefs; S2 shipped the saved views, manager workload panel and duplicate
-> links. S3–S19 each ship on their own `feature/module-01-*` branch and merge to `main` only after
-> review. The branch is deleted after merge, and the next slice starts from the updated `main`.
+> **S0 — planning contract (merged). S1 — shell & routes (built). S2 — Lead Workspace (built).
+> S3 — Account Book (built).** S0 is this contract plus its ADRs; S1 shipped the grouped sidebar,
+> canonical routes, redirects and canonical dashboard/AI hrefs; S2 shipped the saved views, manager
+> workload panel and duplicate links; S3 shipped the scoped accounts+clients book, its filters,
+> derived next-follow-up/last-activity columns and the open-deal count. S4–S19 each ship on their own
+> `feature/module-01-*` branch and merge to `main` only after review. The branch is deleted after
+> merge, and the next slice starts from the updated `main`.
 
 ## Purpose
 
@@ -152,7 +154,11 @@ book. Columns: account, status, tier, owner, contracts, open deals, next follow-
 Filters: search, status, tier, owner, industry and `view=all|clients`. A row opens Account 360.
 
 The Account Book reuses `GET /companies`; no new list endpoint is required beyond the health filter
-added in S13.
+added in S13. The list resource carries `counts.open_opportunities`, `next_follow_up_at` /
+`next_follow_up` (the earliest open task or scheduled message on the account, its contacts, deals or
+contracts) and `last_activity_at` (the newest logged activity or communication across the same
+scope). Both are read-time values. `filter[industry]` is a case-insensitive substring match, so the
+industry field in the toolbar is a useful type-ahead rather than an exact-match trap.
 
 ## Account 360
 

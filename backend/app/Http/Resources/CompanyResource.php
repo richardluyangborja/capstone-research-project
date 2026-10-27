@@ -3,6 +3,7 @@
 namespace App\Http\Resources;
 
 use App\Enums\CompanyStatus;
+use App\Enums\FollowUpDueState;
 use App\Enums\HandoffStatus;
 use App\Models\Company;
 use Illuminate\Http\Request;
@@ -60,10 +61,16 @@ class CompanyResource extends JsonResource
                 'branches' => (int) ($this->children_count ?? 0),
                 'contacts' => (int) ($this->contacts_count ?? 0),
                 'opportunities' => (int) ($this->opportunities_count ?? 0),
+                'open_opportunities' => (int) ($this->open_opportunities_count ?? 0),
                 'contracts' => (int) ($this->contracts_count ?? 0),
                 'activities' => (int) ($this->activities_count ?? 0),
                 'communications' => (int) ($this->communications_count ?? 0),
             ],
+            // The Account Book's two read-time columns (spec 16 §Account Book). They are
+            // populated by AccountBookMetrics on the list; a detail read leaves them null.
+            'next_follow_up_at' => $this->next_follow_up_at,
+            'next_follow_up' => FollowUpDueState::block($this->next_follow_up_at),
+            'last_activity_at' => $this->last_activity_at,
             // The lifecycle stepper offers only legal moves (spec 09 §UI).
             'allowed_status_transitions' => array_map(
                 static fn (CompanyStatus $status): string => $status->value,

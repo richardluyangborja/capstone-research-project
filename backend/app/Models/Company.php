@@ -135,6 +135,17 @@ class Company extends Model
         return $this->hasMany(Opportunity::class);
     }
 
+    /**
+     * Deals still in play — the Account Book's open-deal count and the account-health read.
+     */
+    public function openOpportunities(): HasMany
+    {
+        return $this->opportunities()->whereNotIn('stage', [
+            OpportunityStage::Won->value,
+            OpportunityStage::Lost->value,
+        ]);
+    }
+
     public function contracts(): HasMany
     {
         return $this->hasMany(Contract::class);

@@ -436,10 +436,23 @@ class CompanyTest extends TestCase
     public function test_the_company_list_supports_search_and_filters(): void
     {
         $user = User::factory()->manager()->create();
-        Company::factory()->ownedBy($user)->client()->create(['name' => 'Active Client Co']);
-        Company::factory()->ownedBy($user)->create(['name' => 'Prospect Co']);
-        $head = Company::factory()->ownedBy($user)->create(['name' => 'Head Co']);
-        Company::factory()->ownedBy($user)->create(['name' => 'Branch Co', 'parent_company_id' => $head->id]);
+        Company::factory()->ownedBy($user)->client()->create([
+            'name' => 'Active Client Co',
+            'industry' => 'Food Manufacturing',
+        ]);
+        Company::factory()->ownedBy($user)->create([
+            'name' => 'Prospect Co',
+            'industry' => 'Logistics',
+        ]);
+        $head = Company::factory()->ownedBy($user)->create([
+            'name' => 'Head Co',
+            'industry' => 'Construction',
+        ]);
+        Company::factory()->ownedBy($user)->create([
+            'name' => 'Branch Co',
+            'industry' => 'Hospitality',
+            'parent_company_id' => $head->id,
+        ]);
 
         $this->actingAs($user, 'api')
             ->getJson('/api/v1/companies?filter[status]='.CompanyStatus::Active->value)
@@ -452,6 +465,12 @@ class CompanyTest extends TestCase
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.name', 'Prospect Co');
+
+        $this->actingAs($user, 'api')
+            ->getJson('/api/v1/companies?filter[industry]=food')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.name', 'Active Client Co');
 
         $this->actingAs($user, 'api')
             ->getJson("/api/v1/companies?filter[parent_company_id]={$head->id}")
