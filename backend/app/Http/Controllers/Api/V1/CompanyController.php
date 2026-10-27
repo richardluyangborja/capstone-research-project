@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Events\CompanyCreated;
+use App\Http\Companies\AccountBookMetrics;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreCompanyRequest;
 use App\Http\Requests\UpdateCompanyRequest;
@@ -26,17 +27,32 @@ class CompanyController extends Controller
 
         $companies = Company::query()
             ->with(['owner', 'parent'])
-            ->withCount(['sites', 'children', 'contacts', 'opportunities', 'contracts', 'activities', 'communications'])
+            ->withCount([
+                'sites',
+                'children',
+                'contacts',
+                'opportunities',
+                'contracts',
+                'activities',
+                'communications',
+                // The Account Book's "open deals" column (spec 16 §Account Book).
+                'openOpportunities as open_opportunities_count',
+            ])
             ->visibleTo($request->user())
             ->search($request->string('search')->toString() ?: null)
             ->when($filters['status'] ?? null, fn ($query, $status) => $query->whereIn('status', explode(',', (string) $status)))
             ->when($filters['tier'] ?? null, fn ($query, $tier) => $query->whereIn('tier', explode(',', (string) $tier)))
-            ->when($filters['industry'] ?? null, fn ($query, $industry) => $query->where('industry', $industry))
+            ->when($filters['industry'] ?? null, fn ($query, $industry) => $query->whereRaw(
+                'LOWER(industry) LIKE ?',
+                ['%'.mb_strtolower((string) $industry).'%'],
+            ))
             ->when($filters['owner_id'] ?? null, fn ($query, $owner) => $query->where('owner_id', $owner))
             ->when($filters['parent_company_id'] ?? null, fn ($query, $parent) => $query->where('parent_company_id', $parent))
             ->orderByDesc('created_at')
             ->paginate(min((int) $request->integer('per_page', 25), 100))
             ->appends($request->query());
+
+        AccountBookMetrics::attach($companies->getCollection());
 
         return CompanyResource::collection($companies);
     }
@@ -130,6 +146,15 @@ class CompanyController extends Controller
 
     private function withRelations(Company $company): Company
     {
-        return $company->load(['owner', 'parent'])->loadCount(['sites', 'children', 'contacts', 'opportunities', 'contracts', 'activities', 'communications']);
+        return $company->load(['owner', 'parent'])->loadCount([
+            'sites',
+            'children',
+            'contacts',
+            'opportunities',
+            'contracts',
+            'activities',
+            'communications',
+            'openOpportunities as open_opportunities_count',
+        ]);
     }
 }

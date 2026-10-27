@@ -84,7 +84,7 @@ advanced tiers/health are **built** (ADR-0006). Detailed implementation specs li
 9. **Client Account Lifecycle** — client status/tier/health, owner, renewal linkage, dormancy/
    churn, win-back.
 
-### Module 01 refresh (S0–S2 built — spec 16, ADR-0023–0026)
+### Module 01 refresh (S0–S3 built — spec 16, ADR-0023–0026)
 
 The refresh keeps the records above but consolidates the working surface:
 
@@ -96,6 +96,11 @@ The refresh keeps the records above but consolidates the working surface:
   Ready to convert / Archived views over the existing scoped lead queries, with rating and urgency
   filters, a manager workload panel (open leads, overdue follow-ups, queue, per-rep load and bulk
   transfer) and links from a new lead's duplicate advisory to the saved and existing records.
+- **Account Book** — `/accounts` one scoped book for prospects and clients; `?view=clients` is the
+  old `/clients` book, and the toolbar filters by search, status, tier, owner and industry. Rows carry
+  status, tier, owner, contract and open-deal counts, the next follow-up across the account and its
+  people/deals/contracts, and last activity. The list reuses `GET /companies`; next follow-up and last
+  activity are derived on read, and the open-deal count excludes won/lost.
 - **Account 360** — five grouped tabs: Overview (journey, health, lifecycle), People & Sites,
   Commercial (opportunities, contracts/rate cards, billing), Delivery (read-only feeds), Engagement
   (communications, satisfaction, activities).
@@ -116,7 +121,7 @@ dashboard and AI reports are cross-cutting presentation layers, not data modules
 
 | Module | Name | Depends on | Spec |
 | --- | --- | --- | --- |
-| 01 | Lead & Client Tracking | — | `01`–`09` **(baseline built)** + `16` refresh (S0–S2 built; S3–S19 planned) |
+| 01 | Lead & Client Tracking | — | `01`–`09` **(baseline built)** + `16` refresh (S0–S3 built; S4–S19 planned) |
 | 02 | Opportunity Pipeline Visualization | `Opportunity` record (08) | `10` **(built)** |
 | 03 | Communication History Management | objects from 01–02 | `11` **(built)** |
 | 04 | Follow-up Reminder System | 03 + notifications | `12` **(built)** |

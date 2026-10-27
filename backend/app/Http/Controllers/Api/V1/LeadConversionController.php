@@ -377,7 +377,7 @@ class LeadConversionController extends Controller
     {
         return (new CompanyResource(
             $company->load(['owner', 'parent'])
-                ->loadCount(['sites', 'children', 'contacts', 'opportunities', 'contracts', 'activities'])
+                ->loadCount(['sites', 'children', 'contacts', 'opportunities', 'openOpportunities as open_opportunities_count', 'contracts', 'activities'])
         ))->resolve();
     }
 }

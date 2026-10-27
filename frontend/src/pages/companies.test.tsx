@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import Companies from './Companies'
@@ -41,10 +41,14 @@ const { company, site, contact, deal, contract, billing, paginated } = vi.hoiste
       branches: 0,
       contacts: 1,
       opportunities: 1,
+      open_opportunities: 1,
       contracts: 1,
       activities: 2,
       communications: 1,
     },
+    next_follow_up_at: '2026-10-20T09:00:00.000000Z',
+    next_follow_up: { state: 'upcoming', label: 'Upcoming', days: 3, overdue: false },
+    last_activity_at: '2026-10-17T03:51:40.000000Z',
     allowed_status_transitions: ['onboarding', 'active'],
     can_update: true,
     can_manage_sites: true,
@@ -248,7 +252,11 @@ vi.mock('../lib/leads', () => ({
 }))
 
 describe('Companies list', () => {
-  it('lists the companies the API returns', async () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('lists the companies the API returns with the book columns', async () => {
     render(
       <MemoryRouter>
         <Companies />
@@ -261,6 +269,52 @@ describe('Companies list', () => {
     expect(within(row as HTMLElement).getByText('CO-2026-0001')).toBeInTheDocument()
     expect(within(row as HTMLElement).getByText('Prospect')).toBeInTheDocument()
     expect(within(row as HTMLElement).getByText('Tier B')).toBeInTheDocument()
+    expect(within(row as HTMLElement).getByText('Upcoming')).toBeInTheDocument()
+    expect(within(row as HTMLElement).getByText(/Oct 17, 2026|17 Oct 2026/)).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'Contracts' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'Open deals' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'Next follow-up' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'Last activity' })).toBeInTheDocument()
+  })
+
+  it('opens the clients view from the URL', async () => {
+    render(
+      <MemoryRouter initialEntries={['/accounts?view=clients']}>
+        <Companies />
+      </MemoryRouter>,
+    )
+
+    await waitFor(() =>
+      expect(companyApi.listCompanies).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          status: 'onboarding,active,at_risk,dormant,churned',
+        }),
+      ),
+    )
+
+    expect(screen.getByRole('button', { name: 'Clients' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Status')).toHaveValue('')
+    expect(screen.getByRole('option', { name: 'All clients' })).toBeInTheDocument()
+  })
+
+  it('sends the owner and industry filters', async () => {
+    render(
+      <MemoryRouter>
+        <Companies />
+      </MemoryRouter>,
+    )
+
+    await waitFor(() => expect(companyApi.listCompanies).toHaveBeenCalled())
+
+    fireEvent.change(screen.getByLabelText('Owner'), { target: { value: '1' } })
+    fireEvent.change(screen.getByLabelText('Industry'), { target: { value: 'food' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Filter' }))
+
+    await waitFor(() =>
+      expect(companyApi.listCompanies).toHaveBeenLastCalledWith(
+        expect.objectContaining({ owner_id: 1, industry: 'food' }),
+      ),
+    )
   })
 })
 

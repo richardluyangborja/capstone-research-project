@@ -141,6 +141,8 @@ export interface CompanyCounts {
   branches: number
   contacts: number
   opportunities: number
+  /** Deals still in an open stage (not won or lost). */
+  open_opportunities: number
   contracts: number
   activities: number
   communications: number
@@ -175,6 +177,11 @@ export interface Company {
   owner: { id: number; name: string } | null
   owner_id: number
   counts: CompanyCounts
+  /** The earliest open follow-up across the account and its people, deals and contracts. */
+  next_follow_up_at: string | null
+  next_follow_up: FollowUpDue | null
+  /** The newest logged activity or communication on any part of the account. */
+  last_activity_at: string | null
   allowed_status_transitions: CompanyStatus[]
   can_update: boolean
   can_manage_sites: boolean
