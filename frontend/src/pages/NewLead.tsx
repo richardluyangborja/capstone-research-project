@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import PageHeader from '../components/common/PageHeader'
 import AlertItem from '../components/common/AlertItem'
 import { createLead, type NewLeadInput } from '../lib/leads'
+import type { Lead } from '../types'
 
 interface FieldErrors {
   [field: string]: string[]
@@ -33,7 +34,10 @@ export default function NewLead() {
   const [form, setForm] = useState<FormState>(emptyForm)
   const [errors, setErrors] = useState<FieldErrors>({})
   const [message, setMessage] = useState('')
-  const [duplicates, setDuplicates] = useState<{ reference: string; company_name: string }[]>([])
+  const [duplicates, setDuplicates] = useState<
+    { id: string; reference: string; company_name: string }[]
+  >([])
+  const [createdLead, setCreatedLead] = useState<Lead | null>(null)
   const [saving, setSaving] = useState(false)
 
   const update = (field: keyof FormState, value: string) =>
@@ -45,19 +49,24 @@ export default function NewLead() {
     setErrors({})
     setMessage('')
     setDuplicates([])
+    setCreatedLead(null)
 
     try {
       const response = await createLead(toPayload(form))
 
       if (response.duplicates.length > 0) {
+        setCreatedLead(response.data)
         setDuplicates(response.duplicates)
         return
       }
 
       navigate('/leads')
     } catch (error) {
-      const status = (error as { response?: { status?: number; data?: { message?: string; errors?: FieldErrors } } })
-        .response
+      const status = (
+        error as {
+          response?: { status?: number; data?: { message?: string; errors?: FieldErrors } }
+        }
+      ).response
       if (status?.status === 422 && status.data?.errors) {
         setErrors(status.data.errors)
         setMessage(status.data.message ?? 'Please correct the highlighted fields.')
@@ -85,10 +94,28 @@ export default function NewLead() {
       {duplicates.length > 0 && (
         <div className="mb-4">
           <AlertItem variant="warning" title="Lead saved — possible duplicates found">
-            <ul className="list-inside list-disc">
+            {createdLead && (
+              <p>
+                Saved as{' '}
+                <Link
+                  to={`/leads/${createdLead.id}`}
+                  className="font-medium text-primary hover:underline"
+                >
+                  {createdLead.reference}
+                </Link>
+                . Check whether it belongs with an existing lead:
+              </p>
+            )}
+            <ul className="mt-2 list-inside list-disc">
               {duplicates.map((duplicate) => (
-                <li key={duplicate.reference}>
-                  {duplicate.reference} — {duplicate.company_name}
+                <li key={duplicate.id}>
+                  <Link
+                    to={`/leads/${duplicate.id}`}
+                    className="font-medium text-primary hover:underline"
+                  >
+                    {duplicate.reference}
+                  </Link>{' '}
+                  — {duplicate.company_name}
                 </li>
               ))}
             </ul>
@@ -254,7 +281,10 @@ export default function NewLead() {
           >
             {saving ? 'Saving…' : 'Save lead'}
           </button>
-          <Link to="/leads" className="text-sm font-medium text-muted-foreground hover:text-foreground">
+          <Link
+            to="/leads"
+            className="text-sm font-medium text-muted-foreground hover:text-foreground"
+          >
             Cancel
           </Link>
         </div>

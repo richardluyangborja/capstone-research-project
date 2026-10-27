@@ -5,9 +5,10 @@ Module 01 (Lead & Client Tracking) refresh. Extends `00-data-model.md`, `01-lead
 health), **0024** (contract rate cards), **0025** (read-only feeds), **0026** (public acquisition &
 sign-in), plus 0004, 0005, 0007, 0010, 0013, 0014, 0016.
 
-> **S0 — planning contract (merged). S1 — shell & routes (built).** S0 is this contract plus its
-> ADRs; S1 shipped the grouped sidebar, canonical routes, redirects and canonical dashboard/AI
-> hrefs. S2–S19 each ship on their own `feature/module-01-*` branch and merge to `main` only after
+> **S0 — planning contract (merged). S1 — shell & routes (built). S2 — Lead Workspace (built).**
+> S0 is this contract plus its ADRs; S1 shipped the grouped sidebar, canonical routes, redirects and
+> canonical dashboard/AI hrefs; S2 shipped the saved views, manager workload panel and duplicate
+> links. S3–S19 each ship on their own `feature/module-01-*` branch and merge to `main` only after
 > review. The branch is deleted after merge, and the next slice starts from the updated `main`.
 
 ## Purpose
@@ -140,7 +141,9 @@ The toolbar keeps the existing search, status/rating/urgency filters, owner cont
 The manager view adds a workload panel: open leads, overdue follow-ups, unassigned queue and workload
 by rep, using existing scoped queries. Row actions keep the current qualification, assignment,
 lifecycle, timeline and conversion flows. Conversion stays the three-step wizard at
-`/leads/:id/convert`; it is not embedded in the list.
+`/leads/:id/convert`; it is not embedded in the list. The existing `GET /leads/summary` carries the
+saved-view counters (`qualification`, `aging`, `conversion`) alongside the all/mine/team/archived
+totals.
 
 ## Account Book
 

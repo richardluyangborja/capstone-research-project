@@ -16,6 +16,7 @@ export interface LeadFilters {
   search?: string
   status?: string
   rating?: string
+  urgency?: string
   source?: string
   owner?: string
   stale?: string
@@ -66,6 +67,7 @@ const buildParams = (filters: LeadFilters): Record<string, string> => {
   if (filters.search) params.search = filters.search
   if (filters.status) params['filter[status]'] = filters.status
   if (filters.rating) params['filter[rating]'] = filters.rating
+  if (filters.urgency) params['filter[urgency]'] = filters.urgency
   if (filters.source) params['filter[source]'] = filters.source
   if (filters.owner) params['filter[owner]'] = filters.owner
   if (filters.stale) params['filter[stale]'] = filters.stale

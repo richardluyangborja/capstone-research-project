@@ -119,6 +119,12 @@ export interface LeadSummary {
   mine: number
   unassigned: number
   team: number
+  /** Leads still awaiting qualification (`new` or `contacted`). */
+  qualification: number
+  /** Non-terminal leads past the stale threshold. */
+  aging: number
+  /** Qualified leads that have not converted yet. */
+  conversion: number
   archived: number
 }
 
