@@ -130,6 +130,15 @@ class Company extends Model
         return $this->hasMany(Contact::class);
     }
 
+    /**
+     * The one person the account leads with (spec 07 §3). Exactly one active contact carries
+     * the flag, so the Account 360 header can read it without loading the whole contact book.
+     */
+    public function primaryContact(): HasOne
+    {
+        return $this->hasOne(Contact::class)->where('is_primary', true);
+    }
+
     public function opportunities(): HasMany
     {
         return $this->hasMany(Opportunity::class);

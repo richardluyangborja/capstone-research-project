@@ -425,17 +425,21 @@ existing match), `/leads/:id` (qualification panel + lifecycle control + ownersh
 timeline + "Convert to client" when convertible, converted banner), `/leads/:id/convert` (3-step
 conversion wizard); the old `/qualification`, `/assignment`, `/lifecycle` and `/conversion` paths
 redirect to `/leads?view=qualification|unassigned|aging|conversion`,
-`/accounts` (the account book: status/tier filters and pagination; the old `/clients` book is
-`/accounts?view=clients` once S3 lands), `/accounts/new` (manual creation), `/accounts/:id` (the old
-company detail: Overview / Contacts / Sites / Opportunities (row links + "Add deal", engagements
-summary links to the board) / Contracts / Communications / Satisfaction / Activities tabs; the
-Account 360 five-tab regrouping is S4; the Satisfaction tab carries the account's card
+`/accounts` (the account book: status/tier/owner/industry filters and pagination; the old `/clients`
+book is `/accounts?view=clients`), `/accounts/new` (manual creation), `/accounts/:id` (Account 360:
+**Overview** — owner/primary-contact/client-since/source header, derived journey stepper, company
+profile, lifecycle panel, ownership, quick actions and record facts; **People & Sites** — contacts,
+sites and branch links (manager-only); **Commercial** — deals (row links, "Add deal", summary links
+to the board), contracts with renewal/sign/upload actions and the manager-only Finance billing
+snapshot; **Delivery** — the Service handoff status and a read-only feed placeholder; **Engagement**
+— communications, satisfaction and activities. Old `?tab=contacts|sites|opportunities|contracts|
+communications|satisfaction|activities` deep links map onto the grouped tab/section, and the profile
+form no longer carries lifecycle fields. The Satisfaction panel carries the account's card
 (latest CSAT/NPS, the four numbers, the promoter split, a CSAT trend, **Read every answer**) and
 lists its survey sends (state, recipient, sent/closes, **Copy link**, **Resend**, **Withdraw**, the
 score once answered) and, for whoever may update the account, **Send survey** opens the dialog — active survey,
 contact (or a typed address), optional contract and note — and reports a mocked rejection; sites and branch links are manager-only,
-contacts are editable by whoever owns the account, the Overview carries the client-lifecycle panel,
-the failed-handoff retry banner and the manager-only billing snapshot), `/contacts` (global contact
+contacts are editable by whoever owns the account, and the failed-handoff retry banner stays global), `/contacts` (global contact
 book: search + role/status/
 company filters, rows link back
 to their account). The old `/companies`, `/companies/new`, `/companies/:id` and `/clients` paths
@@ -701,7 +705,7 @@ Dedup/merge and advanced/stored tier scoring are module-01 deferrals
 (ADR-0006), and automatic client aging stays one too (ADR-0018 §6). Other departments are consumed via
 **read-only mocked feeds** (ADR-0005, ADR-0025), not built here.
 
-**Module 01 refresh (S0–S3 built — `specs/16`, ADR-0023–0026).** S0 is the planning contract and
+**Module 01 refresh (S0–S4 built — `specs/16`, ADR-0023–0026).** S0 is the planning contract and
 S1 is the shell: the sidebar is grouped by module, `/accounts` (plus `/accounts/new` and
 `/accounts/:id`) is the canonical account surface, and `/companies*`, `/clients`, `/qualification`,
 `/assignment`, `/lifecycle` and `/conversion` redirect with their query strings preserved. Dashboard
@@ -713,9 +717,12 @@ transfer. The new-lead duplicate advisory links both the saved record and each e
 S3 turns `/accounts` into the Account Book: `?view=clients` is the old `/clients` book, filters cover
 search/status/tier/owner/industry, and each row carries contract and open-deal counts, the next
 follow-up across the account and its people/deals/contracts, and last activity. The two derived
-columns are computed on read; `GET /companies` also carries `counts.open_opportunities`. The later
-slices add Account 360 five-tab grouping (Overview, People & Sites,
-Commercial, Delivery, Engagement), contract rate cards and read-only
+columns are computed on read; `GET /companies` also carries `counts.open_opportunities`. S4 turns
+`/accounts/:id` into Account 360: the five grouped tabs (Overview, People & Sites, Commercial,
+Delivery, Engagement), a header summary and derived journey stepper, lifecycle fields out of the
+profile form, billing on Commercial, branches on People & Sites, and the Delivery handoff/read-only
+feed placeholder. Old tab deep links map onto the grouped tab (and section), and `CompanyResource`
+carries `primary_contact` on the detail read. The later slices add contract rate cards, read-only
 Recruitment/Deployment/Timekeeping/Finance feeds, computed account health, the public landing refresh
 with embedded intake and modal sign-in, and all-role CSV import with ownership rules. Read
 `resources/specs/16-module-01-refresh.md` before changing Module 01; the old `01`, `06` and `09` files

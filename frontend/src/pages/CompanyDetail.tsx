@@ -9,6 +9,7 @@ import EmptyState from '../components/common/EmptyState'
 import DataTable, { type DataTableColumn } from '../components/common/DataTable'
 import CommunicationList from '../components/common/CommunicationList'
 import CompanySatisfactionPanel from '../components/common/CompanySatisfactionPanel'
+import JourneyStepper, { type JourneyStep } from '../components/common/JourneyStepper'
 import {
   createCompanySite,
   deleteCompany,
@@ -68,26 +69,26 @@ import type {
   Opportunity,
 } from '../types'
 
-type TabKey =
-  | 'overview'
-  | 'contacts'
-  | 'sites'
-  | 'opportunities'
-  | 'contracts'
-  | 'communications'
-  | 'satisfaction'
-  | 'activities'
+type TabKey = 'overview' | 'people' | 'commercial' | 'delivery' | 'engagement'
 
-const tabKeys: TabKey[] = [
-  'overview',
-  'contacts',
-  'sites',
-  'opportunities',
-  'contracts',
-  'communications',
-  'satisfaction',
-  'activities',
-]
+/**
+ * Account 360 groups the old detail tabs (spec 16 §Account 360). The aliases keep every existing
+ * deep link working while the URL is rewritten to the canonical grouped tab.
+ */
+const tabAliases: Record<string, TabKey> = {
+  overview: 'overview',
+  contacts: 'people',
+  sites: 'people',
+  people: 'people',
+  opportunities: 'commercial',
+  contracts: 'commercial',
+  commercial: 'commercial',
+  delivery: 'delivery',
+  communications: 'engagement',
+  satisfaction: 'engagement',
+  activities: 'engagement',
+  engagement: 'engagement',
+}
 
 interface CompanyForm {
   name: string
@@ -97,7 +98,6 @@ interface CompanyForm {
   website: string
   description: string
   tier: string
-  client_since: string
   parent_company_id: string
   tags: string
 }
@@ -205,7 +205,6 @@ const formFromCompany = (company: Company): CompanyForm => ({
   website: company.website ?? '',
   description: company.description ?? '',
   tier: company.tier ?? '',
-  client_since: company.client_since ?? '',
   parent_company_id: company.parent_company_id ?? '',
   tags: company.tags.join(', '),
 })
@@ -222,14 +221,16 @@ const formFromSite = (site: CompanySite): SiteForm => ({
   is_primary: site.is_primary,
 })
 
-// Submodule 06 — a single account: profile, branch link, sites and activity history.
+// Account 360 (module 01 refresh) — five grouped tabs over the account's existing records.
 export default function CompanyDetail() {
   const { id = '' } = useParams()
   const navigate = useNavigate()
   const location = useLocation()
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   // A won deal can deep-link here to start its contract (module 02 §5).
   const requestedTab = searchParams.get('tab')
+  const tab: TabKey = requestedTab ? (tabAliases[requestedTab] ?? 'overview') : 'overview'
+  const section = searchParams.get('section') ?? ''
   const linkedOpportunityId = searchParams.get('opportunity_id') ?? ''
   const duplicates =
     (location.state as { duplicates?: DuplicateCompany[] } | null)?.duplicates ?? []
@@ -246,11 +247,6 @@ export default function CompanyDetail() {
   const [targets, setTargets] = useState<AssignmentTarget[]>([])
   const [activities, setActivities] = useState<Activity[]>([])
 
-  const [tab, setTab] = useState<TabKey>(
-    requestedTab && tabKeys.includes(requestedTab as TabKey)
-      ? (requestedTab as TabKey)
-      : 'overview',
-  )
   const [form, setForm] = useState<CompanyForm | null>(null)
   const [siteForm, setSiteForm] = useState<SiteForm | null>(null)
   const [contactForm, setContactForm] = useState<ContactForm | null>(null)
@@ -269,6 +265,59 @@ export default function CompanyDetail() {
   const [message, setMessage] = useState(notice)
   const [alertVariant, setAlertVariant] = useState<'success' | 'danger'>('success')
   const [errors, setErrors] = useState<Record<string, string[]>>({})
+
+  const setTab = (next: TabKey, nextSection?: string) => {
+    const nextParams = new URLSearchParams(searchParams)
+    if (next === 'overview') {
+      nextParams.delete('tab')
+    } else {
+      nextParams.set('tab', next)
+    }
+    if (nextSection) {
+      nextParams.set('section', nextSection)
+    } else {
+      nextParams.delete('section')
+    }
+    setSearchParams(nextParams)
+  }
+
+  // Rewrite an old tab deep link to its grouped tab, keeping every other query value.
+  useEffect(() => {
+    if (!requestedTab || tabAliases[requestedTab] === requestedTab) {
+      return
+    }
+
+    const nextParams = new URLSearchParams(searchParams)
+    if (tab === 'overview') {
+      nextParams.delete('tab')
+      nextParams.delete('section')
+    } else {
+      nextParams.set('tab', tab)
+      const mappedSection =
+        tab === 'commercial' && ['opportunities', 'contracts'].includes(requestedTab)
+          ? requestedTab
+          : tab === 'engagement' &&
+              ['communications', 'satisfaction', 'activities'].includes(requestedTab)
+            ? requestedTab
+            : null
+      if (mappedSection) {
+        nextParams.set('section', mappedSection)
+      } else {
+        nextParams.delete('section')
+      }
+    }
+    setSearchParams(nextParams, { replace: true })
+  }, [requestedTab, searchParams, setSearchParams, tab])
+
+  // An old section deep link or a quick action lands on the right block once its data is in.
+  useEffect(() => {
+    if (!section || loading) {
+      return
+    }
+
+    const target = document.getElementById(`account-${section}`)
+    target?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
+  }, [section, loading])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -450,7 +499,6 @@ export default function CompanyDetail() {
         website: blankToNull(form.website),
         description: blankToNull(form.description),
         tier: blankToNull(form.tier),
-        client_since: blankToNull(form.client_since),
         tags: form.tags
           .split(',')
           .map((tag) => tag.trim())
@@ -596,7 +644,7 @@ export default function CompanyDetail() {
   }
 
   const onStartRenewal = (contract: Contract) => {
-    setTab('contracts')
+    setTab('commercial', 'contracts')
     setContractForm({
       ...emptyContract,
       title: `${contract.title} (renewal)`,
@@ -753,17 +801,99 @@ export default function CompanyDetail() {
 
   const statusMeta = companyStatusMeta[company.status]
   const tabs: { key: TabKey; label: string; count?: number }[] = [
-    { key: 'overview', label: 'Overview', count: company.counts.branches },
-    { key: 'contacts', label: 'Contacts', count: company.counts.contacts },
-    { key: 'sites', label: 'Sites', count: company.counts.sites },
-    { key: 'opportunities', label: 'Opportunities', count: company.counts.opportunities },
-    { key: 'contracts', label: 'Contracts', count: company.counts.contracts },
-    { key: 'communications', label: 'Communications', count: company.counts.communications },
-    // Satisfaction has no count in the account payload: its sends are fetched by the panel
-    // itself (module 05 slice S2).
-    { key: 'satisfaction', label: 'Satisfaction' },
-    { key: 'activities', label: 'Activities', count: company.counts.activities },
+    { key: 'overview', label: 'Overview' },
+    {
+      key: 'people',
+      label: 'People & Sites',
+      count: company.counts.contacts + company.counts.sites + company.counts.branches,
+    },
+    {
+      key: 'commercial',
+      label: 'Commercial',
+      count: company.counts.opportunities + company.counts.contracts,
+    },
+    { key: 'delivery', label: 'Delivery' },
+    {
+      key: 'engagement',
+      label: 'Engagement',
+      count: company.counts.communications + company.counts.activities,
+    },
   ]
+
+  // The journey is read-only and derived (spec 16 §Account 360). A manual account skips the
+  // lead steps; the next unmet step is marked current, never moved automatically.
+  const hasSourceLead = company.source_lead_id !== null
+  const hasSignedContract = contracts.some((contract) => contract.status === 'signed')
+  const handoffAccepted = company.handoff.status === 'sent'
+  const journey = [
+    {
+      key: 'captured',
+      label: 'Lead captured',
+      done: hasSourceLead,
+      skipped: !hasSourceLead,
+      hint: hasSourceLead ? 'From a qualified lead' : 'Created directly',
+    },
+    {
+      key: 'qualified',
+      label: 'Qualified',
+      done: hasSourceLead,
+      skipped: !hasSourceLead,
+      hint: hasSourceLead ? 'Criteria met before conversion' : 'Skipped',
+    },
+    {
+      key: 'converted',
+      label: 'Converted',
+      done: hasSourceLead,
+      skipped: !hasSourceLead,
+      hint: hasSourceLead ? 'Account opened' : 'Skipped',
+    },
+    {
+      key: 'contract',
+      label: 'Contract signed',
+      done: hasSignedContract,
+      skipped: false,
+      hint: hasSignedContract ? 'Signed agreement on file' : 'Signing activates the client',
+    },
+    {
+      key: 'delivery',
+      label: 'Delivery active',
+      done: handoffAccepted,
+      skipped: false,
+      hint: handoffAccepted
+        ? company.handoff.reference
+          ? `Service accepted · ${company.handoff.reference}`
+          : 'Service accepted'
+        : company.handoff.status === 'failed'
+          ? 'Handoff failed — retry on Delivery'
+          : hasSignedContract
+            ? 'Not requested yet'
+            : 'After the first signed contract',
+    },
+    {
+      key: 'client',
+      label: 'Client',
+      done: company.is_client,
+      skipped: false,
+      hint: company.is_client
+        ? `${statusMeta.label}${
+            company.client_since ? ` since ${formatDate(company.client_since)}` : ''
+          }`
+        : 'Not yet a client',
+    },
+  ]
+  const nextJourneyKey = journey.find((step) => !step.done && !step.skipped)?.key
+  const journeySteps: JourneyStep[] = journey.map((step) => ({
+    key: step.key,
+    label: step.label,
+    hint: step.hint,
+    state: step.skipped
+      ? 'skipped'
+      : step.done
+        ? 'done'
+        : step.key === nextJourneyKey
+          ? 'current'
+          : 'pending',
+  }))
 
   const contractColumns: DataTableColumn<Contract>[] = [
     {
@@ -1088,6 +1218,19 @@ export default function CompanyDetail() {
         }
       />
 
+      <dl className="mb-4 grid grid-cols-2 gap-4 rounded-lg border border-border bg-card p-4 md:grid-cols-4">
+        <HeaderDetail label="Owner" value={company.owner?.name ?? '—'} />
+        <HeaderDetail label="Primary contact" value={company.primary_contact?.name ?? '—'} />
+        <HeaderDetail
+          label="Client since"
+          value={company.client_since ? formatDate(company.client_since) : '—'}
+        />
+        <HeaderDetail
+          label="Source"
+          value={company.source_lead_id ? 'Converted lead' : 'Created directly'}
+        />
+      </dl>
+
       {duplicates.length > 0 && (
         <div className="mb-4">
           <AlertItem variant="warning" title="Possible duplicate company">
@@ -1142,6 +1285,7 @@ export default function CompanyDetail() {
             <button
               key={entry.key}
               type="button"
+              aria-pressed={active}
               onClick={() => setTab(entry.key)}
               className={`inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
                 active ? 'bg-secondary text-primary' : 'text-muted-foreground hover:bg-muted'
@@ -1164,6 +1308,15 @@ export default function CompanyDetail() {
 
       {tab === 'overview' && form && (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <div className="lg:col-span-3">
+            <FormCard
+              title="Journey"
+              description="Derived from the source lead, signed contracts and the mocked Service handoff. Nothing moves automatically."
+            >
+              <JourneyStepper steps={journeySteps} />
+            </FormCard>
+          </div>
+
           <div className="lg:col-span-2">
             <FormCard
               title="Company details"
@@ -1254,20 +1407,6 @@ export default function CompanyDetail() {
                     onChange={(event) =>
                       setForm(
                         (previous) => previous && { ...previous, website: event.target.value },
-                      )
-                    }
-                    className={inputClass}
-                  />
-                </Field>
-
-                <Field label="Client since" error={errors.client_since}>
-                  <input
-                    type="date"
-                    value={form.client_since}
-                    disabled={!company.can_update}
-                    onChange={(event) =>
-                      setForm(
-                        (previous) => previous && { ...previous, client_since: event.target.value },
                       )
                     }
                     className={inputClass}
@@ -1508,50 +1647,60 @@ export default function CompanyDetail() {
               )}
             </FormCard>
 
-            <FormCard
-              title="Branch"
-              description="Branches are separate records — they inherit nothing."
-            >
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Parent</span>
-                {company.parent ? (
-                  <Link to={`/accounts/${company.parent.id}`} className="font-medium text-primary">
-                    {company.parent.name}
+            <FormCard title="Quick actions">
+              <div className="flex flex-wrap gap-2">
+                {company.can_update && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTab('people', 'contacts')
+                      setContactForm({ ...emptyContact })
+                    }}
+                    className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted"
+                  >
+                    Add contact
+                  </button>
+                )}
+                <Link
+                  to={`/opportunities/new?company_id=${id}`}
+                  className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted"
+                >
+                  Add deal
+                </Link>
+                {company.can_upload_contract && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTab('commercial', 'contracts')
+                      setContractForm({ ...emptyContract })
+                    }}
+                    className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted"
+                  >
+                    Upload contract
+                  </button>
+                )}
+                {company.can_update && (
+                  <Link
+                    to={`/communications/new?subject_type=company&subject_id=${id}`}
+                    className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted"
+                  >
+                    Log communication
                   </Link>
-                ) : (
-                  <span className="text-foreground">None</span>
+                )}
+                {company.can_update && (
+                  <Link
+                    to={`/follow-ups/new?subject_type=company&subject_id=${id}`}
+                    className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted"
+                  >
+                    Follow-up
+                  </Link>
                 )}
               </div>
-
-              <div className="mt-3 flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Branches</span>
-                <span className="text-foreground">{company.counts.branches}</span>
-              </div>
-
-              {branches.length > 0 && (
-                <ul className="mt-3 flex flex-col gap-1 border-t border-border pt-3">
-                  {branches.map((branch) => (
-                    <li key={branch.id} className="text-sm">
-                      <Link to={`/accounts/${branch.id}`} className="text-primary">
-                        {branch.name}
-                      </Link>
-                      <span className="ml-2 font-mono text-xs text-muted-foreground">
-                        {branch.reference}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-              )}
             </FormCard>
 
             <FormCard title="Record">
               <dl className="flex flex-col gap-3 text-sm">
                 <Detail label="Reference" value={company.reference} />
-                <Detail label="Status" value={statusMeta.label} />
-                <Detail
-                  label="Client since"
-                  value={company.client_since ? formatDate(company.client_since) : '—'}
-                />
                 <Detail label="Created" value={formatDate(company.created_at)} />
                 <Detail
                   label="Source lead"
@@ -1592,46 +1741,12 @@ export default function CompanyDetail() {
                 </div>
               )}
             </FormCard>
-
-            {company.can_view_billing && (
-              <FormCard
-                title="Billing"
-                description="Read-only snapshot from the Finance department (mocked)."
-              >
-                {billing === null ? (
-                  <p className="text-sm text-muted-foreground">Loading…</p>
-                ) : (
-                  <dl className="flex flex-col gap-3 text-sm">
-                    <Detail
-                      label="Account"
-                      value={
-                        billing.account_status === 'current'
-                          ? 'Current'
-                          : billing.account_status === 'overdue'
-                            ? 'Overdue'
-                            : 'Closed'
-                      }
-                    />
-                    <Detail label="Outstanding" value={formatCurrency(billing.outstanding)} />
-                    <Detail
-                      label="Overdue"
-                      value={Number(billing.overdue) > 0 ? formatCurrency(billing.overdue) : '—'}
-                    />
-                    <Detail label="Terms" value={billing.credit_terms} />
-                    <Detail
-                      label="Next due"
-                      value={billing.next_due_date ? formatDate(billing.next_due_date) : '—'}
-                    />
-                  </dl>
-                )}
-              </FormCard>
-            )}
           </div>
         </div>
       )}
 
-      {tab === 'sites' && (
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+      {tab === 'people' && (
+        <div id="account-sites" className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <div className="flex flex-col gap-6 lg:col-span-2">
             <FormCard
               title="Sites"
@@ -1836,8 +1951,8 @@ export default function CompanyDetail() {
         </div>
       )}
 
-      {tab === 'contacts' && (
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+      {tab === 'people' && (
+        <div id="account-contacts" className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
           <div className="flex flex-col gap-6 lg:col-span-2">
             <div className="flex flex-wrap items-center gap-2">
               <select
@@ -2062,8 +2177,48 @@ export default function CompanyDetail() {
         </div>
       )}
 
-      {tab === 'opportunities' && (
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+      {tab === 'people' && (
+        <div id="account-branches" className="mt-6">
+          <FormCard
+            title="Branch"
+            description="Branches are separate records — they inherit nothing."
+          >
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">Parent</span>
+              {company.parent ? (
+                <Link to={`/accounts/${company.parent.id}`} className="font-medium text-primary">
+                  {company.parent.name}
+                </Link>
+              ) : (
+                <span className="text-foreground">None</span>
+              )}
+            </div>
+
+            <div className="mt-3 flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">Branches</span>
+              <span className="text-foreground">{company.counts.branches}</span>
+            </div>
+
+            {branches.length > 0 && (
+              <ul className="mt-3 flex flex-col gap-1 border-t border-border pt-3">
+                {branches.map((branch) => (
+                  <li key={branch.id} className="text-sm">
+                    <Link to={`/accounts/${branch.id}`} className="text-primary">
+                      {branch.name}
+                    </Link>
+                    <span className="ml-2 font-mono text-xs text-muted-foreground">
+                      {branch.reference}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </FormCard>
+        </div>
+      )}
+
+      {tab === 'commercial' && (
+        <div id="account-opportunities" className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <div className="flex flex-col gap-6 lg:col-span-2">
             <div className="flex items-center justify-end">
               <Link
@@ -2100,7 +2255,7 @@ export default function CompanyDetail() {
           </div>
 
           <div className="flex flex-col gap-6">
-            <FormCard title="Engagements" description="Every deal on this account, open or closed.">
+            <FormCard title="Deals" description="Every deal on this account, open or closed.">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Deals</span>
                 <span className="text-foreground">{company.counts.opportunities}</span>
@@ -2133,8 +2288,8 @@ export default function CompanyDetail() {
         </div>
       )}
 
-      {tab === 'contracts' && (
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+      {tab === 'commercial' && (
+        <div id="account-contracts" className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
           <div className="flex flex-col gap-6 lg:col-span-2">
             <div className="flex items-center justify-end">
               <label className="text-xs font-medium text-muted-foreground">
@@ -2334,7 +2489,7 @@ export default function CompanyDetail() {
               </FormCard>
             )}
 
-            <FormCard title="Engagements">
+            <FormCard title="Contract summary">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Contracts</span>
                 <span className="text-foreground">{company.counts.contracts}</span>
@@ -2352,29 +2507,134 @@ export default function CompanyDetail() {
                 </span>
               </div>
             </FormCard>
+
+            {company.can_view_billing && (
+              <FormCard
+                title="Billing"
+                description="Read-only snapshot from the Finance department (mocked)."
+              >
+                {billing === null ? (
+                  <p className="text-sm text-muted-foreground">Loading…</p>
+                ) : (
+                  <dl className="flex flex-col gap-3 text-sm">
+                    <Detail
+                      label="Account"
+                      value={
+                        billing.account_status === 'current'
+                          ? 'Current'
+                          : billing.account_status === 'overdue'
+                            ? 'Overdue'
+                            : 'Closed'
+                      }
+                    />
+                    <Detail label="Outstanding" value={formatCurrency(billing.outstanding)} />
+                    <Detail
+                      label="Overdue"
+                      value={Number(billing.overdue) > 0 ? formatCurrency(billing.overdue) : '—'}
+                    />
+                    <Detail label="Terms" value={billing.credit_terms} />
+                    <Detail
+                      label="Next due"
+                      value={billing.next_due_date ? formatDate(billing.next_due_date) : '—'}
+                    />
+                  </dl>
+                )}
+              </FormCard>
+            )}
           </div>
         </div>
       )}
 
-      {tab === 'communications' && (
-        <FormCard
-          title="Communication history"
-          description="Every call, email, meeting and letter logged against this account. A logged entry also lands on the Activities timeline."
-        >
-          <CommunicationList
-            subjectType="company"
-            subjectId={company.id}
-            canLog={company.can_update}
-          />
-        </FormCard>
-      )}
-
-      {tab === 'satisfaction' && (
-        <CompanySatisfactionPanel companyId={company.id} canSend={company.can_update} />
-      )}
-
-      {tab === 'activities' && (
+      {tab === 'delivery' && (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <div className="lg:col-span-2">
+            <FormCard
+              title="Service handoff"
+              description="Read-only status of the mocked handoff to the Service department."
+            >
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">State</span>
+                <StatusBadge
+                  tone={
+                    company.handoff.status === 'sent'
+                      ? 'success'
+                      : company.handoff.status === 'failed'
+                        ? 'danger'
+                        : 'neutral'
+                  }
+                >
+                  {company.handoff.status === 'sent'
+                    ? 'Accepted'
+                    : company.handoff.status === 'failed'
+                      ? 'Failed'
+                      : 'Not requested'}
+                </StatusBadge>
+              </div>
+
+              <div className="mt-3 flex items-center justify-between gap-3 text-sm">
+                <span className="text-muted-foreground">Reference</span>
+                <span className="text-right font-mono text-xs text-foreground">
+                  {company.handoff.reference ?? '—'}
+                </span>
+              </div>
+
+              <div className="mt-3 flex items-center justify-between gap-3 text-sm">
+                <span className="text-muted-foreground">Requested</span>
+                <span className="text-right text-foreground">
+                  {company.handoff.requested_at
+                    ? formatDateTime(company.handoff.requested_at)
+                    : '—'}
+                </span>
+              </div>
+
+              {company.handoff.status === 'failed' && (
+                <p className="mt-4 border-t border-border pt-4 text-xs text-destructive">
+                  {company.handoff.error ?? 'The Service desk did not acknowledge the request.'}{' '}
+                  Retry it from the banner above.
+                </p>
+              )}
+
+              <p className="mt-4 border-t border-border pt-4 text-xs text-muted-foreground">
+                Signing a contract activates the client and asks Service to take over delivery. A
+                failed request leaves the client in onboarding until it is retried.
+              </p>
+            </FormCard>
+          </div>
+
+          <div className="flex flex-col gap-6">
+            <FormCard title="Delivery feeds" description="Read-only from Service and HR.">
+              <EmptyState
+                title="Feeds not connected yet"
+                description="Job orders, deployments and timesheet summaries will appear here. The CRM never writes those records."
+              />
+            </FormCard>
+          </div>
+        </div>
+      )}
+
+      {tab === 'engagement' && (
+        <div id="account-communications">
+          <FormCard
+            title="Communication history"
+            description="Every call, email, meeting and letter logged against this account. A logged entry also lands on the Activities timeline."
+          >
+            <CommunicationList
+              subjectType="company"
+              subjectId={company.id}
+              canLog={company.can_update}
+            />
+          </FormCard>
+        </div>
+      )}
+
+      {tab === 'engagement' && (
+        <div id="account-satisfaction" className="mt-6">
+          <CompanySatisfactionPanel companyId={company.id} canSend={company.can_update} />
+        </div>
+      )}
+
+      {tab === 'engagement' && (
+        <div id="account-activities" className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
           <div className="flex flex-col gap-6 lg:col-span-2">
             <FormCard
               title="Activities"
@@ -2482,16 +2742,6 @@ export default function CompanyDetail() {
                 </p>
               </FormCard>
             )}
-
-            <FormCard
-              title="Coming in later submodules"
-              description="The pipeline and cleanup work."
-            >
-              <p className="text-xs text-muted-foreground">
-                The deal pipeline (stage moves, won/lost, Kanban) and duplicate detection &amp;
-                merge (Phase 2) are not built yet.
-              </p>
-            </FormCard>
           </div>
         </div>
       )}
@@ -2532,6 +2782,15 @@ function Detail({ label, value }: { label: string; value: string }) {
     <div className="flex items-center justify-between gap-3">
       <dt className="text-muted-foreground">{label}</dt>
       <dd className="text-right text-foreground">{value}</dd>
+    </div>
+  )
+}
+
+function HeaderDetail({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt className="text-xs text-muted-foreground">{label}</dt>
+      <dd className="mt-0.5 text-sm font-medium text-foreground">{value}</dd>
     </div>
   )
 }

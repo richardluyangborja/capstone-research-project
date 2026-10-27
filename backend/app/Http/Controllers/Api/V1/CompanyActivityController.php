@@ -35,7 +35,7 @@ class CompanyActivityController extends Controller
             'owner_id' => $request->user()->id,
         ]);
 
-        $company = $company->load(['owner', 'parent'])->loadCount(['sites', 'children', 'contacts', 'opportunities', 'openOpportunities as open_opportunities_count', 'contracts', 'activities', 'communications']);
+        $company = $company->load(['owner', 'parent', 'primaryContact'])->loadCount(['sites', 'children', 'contacts', 'opportunities', 'openOpportunities as open_opportunities_count', 'contracts', 'activities', 'communications']);
 
         return (new CompanyResource($company))
             ->additional([
