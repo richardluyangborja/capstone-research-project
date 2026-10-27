@@ -306,7 +306,7 @@ class DashboardWorklistTest extends TestCase
         $contract = $this->row($data, 'contract:'.$this->repContract->id.':renewal');
         $this->assertSame('team', $contract['minTier']);
         $this->assertSame('danger', $contract['due']['severity']);
-        $this->assertSame('/companies/'.$this->repCompany->id.'?tab=contracts', $contract['href']);
+        $this->assertSame('/accounts/'.$this->repCompany->id.'?tab=contracts', $contract['href']);
 
         $this->assertSeverityOrdered($data);
     }

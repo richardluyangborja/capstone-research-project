@@ -84,7 +84,7 @@ advanced tiers/health are **built** (ADR-0006). Detailed implementation specs li
 9. **Client Account Lifecycle** — client status/tier/health, owner, renewal linkage, dormancy/
    churn, win-back.
 
-### Module 01 refresh (S0 docs landed — spec 16, ADR-0023–0026)
+### Module 01 refresh (S0 + S1 built — spec 16, ADR-0023–0026)
 
 The refresh keeps the records above but consolidates the working surface:
 
@@ -112,7 +112,7 @@ dashboard and AI reports are cross-cutting presentation layers, not data modules
 
 | Module | Name | Depends on | Spec |
 | --- | --- | --- | --- |
-| 01 | Lead & Client Tracking | — | `01`–`09` **(baseline built)** + `16` refresh (S0 docs landed; S1–S19 planned) |
+| 01 | Lead & Client Tracking | — | `01`–`09` **(baseline built)** + `16` refresh (S0 + S1 built; S2–S19 planned) |
 | 02 | Opportunity Pipeline Visualization | `Opportunity` record (08) | `10` **(built)** |
 | 03 | Communication History Management | objects from 01–02 | `11` **(built)** |
 | 04 | Follow-up Reminder System | 03 + notifications | `12` **(built)** |

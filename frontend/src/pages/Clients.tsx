@@ -21,7 +21,7 @@ const columns: DataTableColumn<Company>[] = [
     header: 'Account',
     render: (company) => (
       <>
-        <Link to={`/companies/${company.id}`} className="font-medium text-foreground">
+        <Link to={`/accounts/${company.id}`} className="font-medium text-foreground">
           {company.name}
         </Link>
         <div className="font-mono text-xs text-muted-foreground">{company.reference}</div>
@@ -77,7 +77,7 @@ const columns: DataTableColumn<Company>[] = [
     headerClassName: 'text-right',
     className: 'text-right',
     render: (company) => (
-      <Link to={`/companies/${company.id}`} className="text-sm font-medium text-primary">
+      <Link to={`/accounts/${company.id}`} className="text-sm font-medium text-primary">
         Open
       </Link>
     ),

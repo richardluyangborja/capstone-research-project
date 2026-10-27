@@ -268,7 +268,7 @@ export default function SurveyResponseDetail() {
 
             {response.company && (
               <Link
-                to={`/companies/${response.company.id}?tab=satisfaction`}
+                to={`/accounts/${response.company.id}?tab=satisfaction`}
                 className="mt-4 inline-flex items-center gap-1 text-xs font-medium text-counts"
               >
                 <ArrowLeft className="h-3.5 w-3.5 rotate-180" aria-hidden="true" />

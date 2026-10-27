@@ -161,7 +161,7 @@ export default function LeadConvert() {
         },
       })
 
-      navigate(`/companies/${result.company.id}`, {
+      navigate(`/accounts/${result.company.id}`, {
         state: {
           notice: `${result.lead.reference} converted into ${result.company.reference}.`,
           duplicates: result.duplicates,

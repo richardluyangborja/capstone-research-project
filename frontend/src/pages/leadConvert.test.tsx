@@ -151,7 +151,7 @@ function renderWizard() {
     <MemoryRouter initialEntries={['/leads/lead-1/convert']}>
       <Routes>
         <Route path="/leads/:id/convert" element={<LeadConvert />} />
-        <Route path="/companies/:id" element={<p>Account opened</p>} />
+        <Route path="/accounts/:id" element={<p>Account opened</p>} />
       </Routes>
     </MemoryRouter>,
   )

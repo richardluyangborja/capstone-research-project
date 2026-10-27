@@ -150,7 +150,7 @@ or force delete without the right role; 404 — missing deal. Creates return 201
   an edit form, the **stage control** (move to any `allowed_transitions` stage, reopen included), the
   **deal timeline** with a log-activity form, the linked **contracts** (with **Create contract from
   deal** when won), and delete/restore actions by role.
-- **Company Opportunities tab** (`/companies/:id`) — becomes interactive: rows link to the deal, an
+- **Company Opportunities tab** (`/accounts/:id`) — becomes interactive: rows link to the deal, an
   **Add deal** button seeds `company_id`, and the *Engagements* summary links to `/pipeline`.
 - Stage colors reuse the design tokens/`StatusBadge`; money uses the cost/orange domain color; no
   hardcoded hex (design system).

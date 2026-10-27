@@ -5,10 +5,10 @@ Module 01 (Lead & Client Tracking) refresh. Extends `00-data-model.md`, `01-lead
 health), **0024** (contract rate cards), **0025** (read-only feeds), **0026** (public acquisition &
 sign-in), plus 0004, 0005, 0007, 0010, 0013, 0014, 0016.
 
-> **S0 — planning contract (docs only).** No implementation slice below is built yet. S0 is this
-> contract plus its ADRs; S1–S19 each ship on their own `feature/module-01-*` branch and merge to
-> `main` only after review. The branch is deleted after merge, and the next slice starts from the
-> updated `main`.
+> **S0 — planning contract (merged). S1 — shell & routes (built).** S0 is this contract plus its
+> ADRs; S1 shipped the grouped sidebar, canonical routes, redirects and canonical dashboard/AI
+> hrefs. S2–S19 each ship on their own `feature/module-01-*` branch and merge to `main` only after
+> review. The branch is deleted after merge, and the next slice starts from the updated `main`.
 
 ## Purpose
 
@@ -91,6 +91,9 @@ Client Satisfaction & Survey
 AI Reports
   Management Reports
 ```
+
+Only destinations whose page exists are listed. **Import Leads** joins with S18; **Contracts**,
+**Deployments** and **Billing** join with S8, S10 and S12.
 
 **Canonical routes:** `/leads`, `/leads/new`, `/leads/import`, `/leads/:id`, `/leads/:id/convert`,
 `/accounts`, `/accounts/new`, `/accounts/:id`, `/contracts`, `/contracts/:id`, `/deployments`,

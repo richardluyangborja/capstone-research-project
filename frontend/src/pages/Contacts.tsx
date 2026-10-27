@@ -27,7 +27,7 @@ const columns: DataTableColumn<Contact>[] = [
     header: 'Company',
     render: (contact) =>
       contact.company ? (
-        <Link to={`/companies/${contact.company.id}`} className="text-primary">
+        <Link to={`/accounts/${contact.company.id}`} className="text-primary">
           {contact.company.name}
         </Link>
       ) : (

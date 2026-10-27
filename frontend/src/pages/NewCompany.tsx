@@ -75,14 +75,14 @@ export default function NewCompany() {
 
     try {
       const { data, duplicates } = await createCompany(toInput(form, isManagerOrAbove))
-      navigate(`/companies/${data.id}`, { state: { duplicates } })
+      navigate(`/accounts/${data.id}`, { state: { duplicates } })
     } catch (error) {
       const validation = parseValidationError(error)
       if (validation) {
         setErrors(validation.errors)
         setMessage(validation.message)
       } else {
-        setMessage('Could not create the company.')
+        setMessage('Could not create the account.')
       }
     } finally {
       setSaving(false)
@@ -92,7 +92,7 @@ export default function NewCompany() {
   return (
     <div>
       <PageHeader
-        title="New company"
+        title="New account"
         description="Add an organization — an existing client or a fresh prospect."
       />
 
@@ -110,7 +110,7 @@ export default function NewCompany() {
       )}
 
       <form onSubmit={onSubmit} className="max-w-3xl">
-        <FormCard title="Company details">
+        <FormCard title="Account details">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <Field label="Legal name" error={errors.name} className="md:col-span-2">
               <input
@@ -193,7 +193,7 @@ export default function NewCompany() {
             description={
               isManagerOrAbove
                 ? 'Import an existing client in its current state, or leave it as a prospect.'
-                : 'Your new company starts as a prospect and is owned by you.'
+                : 'Your new account starts as a prospect and is owned by you.'
             }
           >
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
@@ -257,7 +257,7 @@ export default function NewCompany() {
                 disabled={saving || form.name.trim() === ''}
                 className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60"
               >
-                {saving ? 'Creating…' : 'Create company'}
+                {saving ? 'Creating…' : 'Create account'}
               </button>
             </div>
           </FormCard>

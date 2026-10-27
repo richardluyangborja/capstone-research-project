@@ -3,8 +3,6 @@ import DashboardShell from '../components/layout/DashboardShell'
 import PublicLayout from '../components/layout/PublicLayout'
 import ProtectedRoute from '../components/ProtectedRoute'
 import { useAuth } from '../lib/auth-context'
-import Assignment from '../pages/Assignment'
-import Clients from '../pages/Clients'
 import Companies from '../pages/Companies'
 import CompanyDetail from '../pages/CompanyDetail'
 import CommunicationDetail from '../pages/CommunicationDetail'
@@ -14,14 +12,12 @@ import CommunicationThreads from '../pages/CommunicationThreads'
 import CommunicationTemplateForm from '../pages/CommunicationTemplateForm'
 import CommunicationTemplates from '../pages/CommunicationTemplates'
 import Contacts from '../pages/Contacts'
-import Conversion from '../pages/Conversion'
 import DashboardHome from '../pages/DashboardHome'
 import FollowUpForm from '../pages/FollowUpForm'
 import FollowUps from '../pages/FollowUps'
 import LeadConvert from '../pages/LeadConvert'
 import LeadDetail from '../pages/LeadDetail'
 import LeadsList from '../pages/LeadsList'
-import Lifecycle from '../pages/Lifecycle'
 import Login from '../pages/Login'
 import NewCommunication from '../pages/NewCommunication'
 import NewCompany from '../pages/NewCompany'
@@ -35,12 +31,18 @@ import PublicHome from '../pages/PublicHome'
 import PublicSurvey from '../pages/PublicSurvey'
 import Reports from '../pages/Reports'
 import Satisfaction from '../pages/Satisfaction'
-import Qualification from '../pages/Qualification'
 import SurveyForm from '../pages/SurveyForm'
 import SurveyInvitations from '../pages/SurveyInvitations'
 import SurveyResponseDetail from '../pages/SurveyResponseDetail'
 import SurveyResponses from '../pages/SurveyResponses'
 import Surveys from '../pages/Surveys'
+import {
+  RedirectToAccount,
+  RedirectToAccounts,
+  RedirectToClientAccounts,
+  RedirectToLeadView,
+  RedirectToNewAccount,
+} from './redirects'
 
 // CRM dashboard routes are added here as submodules are implemented (see resources/specs/).
 export default function AppRouter() {
@@ -57,20 +59,26 @@ export default function AppRouter() {
       <Route path="/survey/:token" element={<PublicSurvey />} />
 
       <Route element={<ProtectedRoute />}>
+        {/* Module 01 route cleanup (spec 16 §Navigation and routes). The old paths stay alive
+            so bookmarks and generated links keep working; they never render a page. */}
+        <Route path="/companies" element={<RedirectToAccounts />} />
+        <Route path="/companies/new" element={<RedirectToNewAccount />} />
+        <Route path="/companies/:id" element={<RedirectToAccount />} />
+        <Route path="/clients" element={<RedirectToClientAccounts />} />
+        <Route path="/qualification" element={<RedirectToLeadView view="qualification" />} />
+        <Route path="/assignment" element={<RedirectToLeadView view="unassigned" />} />
+        <Route path="/lifecycle" element={<RedirectToLeadView view="aging" />} />
+        <Route path="/conversion" element={<RedirectToLeadView view="conversion" />} />
+
         <Route element={<DashboardLayout />}>
           <Route path="/dashboard" element={<DashboardHome />} />
           <Route path="/leads" element={<LeadsList />} />
           <Route path="/leads/new" element={<NewLead />} />
           <Route path="/leads/:id" element={<LeadDetail />} />
           <Route path="/leads/:id/convert" element={<LeadConvert />} />
-          <Route path="/qualification" element={<Qualification />} />
-          <Route path="/assignment" element={<Assignment />} />
-          <Route path="/lifecycle" element={<Lifecycle />} />
-          <Route path="/conversion" element={<Conversion />} />
-          <Route path="/clients" element={<Clients />} />
-          <Route path="/companies" element={<Companies />} />
-          <Route path="/companies/new" element={<NewCompany />} />
-          <Route path="/companies/:id" element={<CompanyDetail />} />
+          <Route path="/accounts" element={<Companies />} />
+          <Route path="/accounts/new" element={<NewCompany />} />
+          <Route path="/accounts/:id" element={<CompanyDetail />} />
           <Route path="/contacts" element={<Contacts />} />
           <Route path="/pipeline" element={<Pipeline />} />
           <Route path="/opportunities" element={<Opportunities />} />

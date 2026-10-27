@@ -92,14 +92,14 @@ filters accept comma-separated values.
   3. Opportunity (name pre-filled, stage shown as `qualified` with its probability, close date;
      the amount input is rendered only when `can_set_amount`).
   A blocked lead (not qualified / already converted) shows the reason and offers no form.
-- **Confirmation** — after converting, the wizard navigates to the new account (`/companies/:id`)
+- **Confirmation** — after converting, the wizard navigates to the new account (`/accounts/:id`)
   with a success notice and the `duplicates` advisory in route state.
 - **Lead detail** — the Lifecycle card shows a `Convert to client` action when `lead.can_convert`;
   a converted lead shows a banner linking to the account it became.
 - **Company detail** — an **Opportunities** tab (read-only `DataTable`: reference, deal, stage badge,
   amount, probability, close date, owner, source lead link) plus a small pipeline summary card.
-- **Conversion worklist** (`/conversion`) — qualified, not-yet-converted leads with a `Convert`
-  link (added for discoverability; the sidebar lists the submodule).
+- **Conversion worklist** (`/leads?view=conversion`) — qualified, not-yet-converted leads with a
+  `Convert` link (a Lead Workspace saved view; the sidebar no longer lists the submodule — spec 16).
 
 ## Events
 

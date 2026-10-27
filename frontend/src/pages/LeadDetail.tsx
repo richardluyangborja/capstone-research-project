@@ -320,10 +320,7 @@ export default function LeadDetail() {
           <AlertItem variant="success">
             <p>
               This lead became a client.{' '}
-              <Link
-                to={`/companies/${lead.converted_company_id}`}
-                className="font-medium underline"
-              >
+              <Link to={`/accounts/${lead.converted_company_id}`} className="font-medium underline">
                 Open the account
               </Link>
               {lead.converted_opportunity_id && ' — its first deal was opened with it.'}

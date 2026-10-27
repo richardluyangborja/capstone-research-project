@@ -514,7 +514,7 @@ export default function OpportunityDetail() {
               )}
               {deal.is_won && deal.company && (
                 <Link
-                  to={`/companies/${deal.company_id}?tab=contracts&opportunity_id=${deal.id}`}
+                  to={`/accounts/${deal.company_id}?tab=contracts&opportunity_id=${deal.id}`}
                   className="inline-flex items-center justify-center rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground"
                 >
                   Create contract from deal

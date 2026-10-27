@@ -9,7 +9,7 @@ import type {
 } from '../types'
 
 /**
- * Deals on one company — the Opportunities tab on `/companies/:id` (spec 06 §API, built in
+ * Deals on one company — the Opportunities tab on `/accounts/:id` (spec 06 §API, built in
  * submodule 08). Still read-only here; the deal's own page holds the actions.
  */
 export const listCompanyOpportunities = async (

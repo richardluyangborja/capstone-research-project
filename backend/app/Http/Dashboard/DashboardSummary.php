@@ -109,7 +109,7 @@ final class DashboardSummary
                 'counts',
                 $this->percentTrend($qualified, $previousQualified),
                 'Passed the minimum criteria',
-                '/qualification',
+                '/leads?view=qualification',
             ),
             $this->kpi(
                 'pipeline',
@@ -152,7 +152,7 @@ final class DashboardSummary
                 'people',
                 $this->countTrend($clientsAdded),
                 'Past prospect, not churned',
-                '/clients',
+                '/accounts?view=clients',
             ),
             $this->kpi(
                 'follow-ups',
@@ -650,7 +650,7 @@ final class DashboardSummary
                 'variant' => 'info',
                 'title' => $contracts.' '.$this->plural($contracts, 'contract').' expiring within '.$days.' days',
                 'body' => 'Signed contracts inside the renewal window.',
-                'href' => '/clients',
+                'href' => '/accounts?view=clients',
                 'link_label' => 'Open clients',
                 'minTier' => 'team',
             ];
@@ -662,7 +662,7 @@ final class DashboardSummary
                 'variant' => 'info',
                 'title' => $unassigned.' '.$this->plural($unassigned, 'unassigned lead').' waiting',
                 'body' => 'Nobody has touched the shared queue for a day.',
-                'href' => '/assignment',
+                'href' => '/leads?view=unassigned',
                 'link_label' => 'Claim the lead',
                 'minTier' => 'team',
             ];
@@ -818,12 +818,12 @@ final class DashboardSummary
     {
         return match (true) {
             $subject instanceof Lead => '/leads/'.$subject->id,
-            $subject instanceof Company => '/companies/'.$subject->id,
+            $subject instanceof Company => '/accounts/'.$subject->id,
             $subject instanceof Contact => '/contacts',
             $subject instanceof Opportunity => '/opportunities/'.$subject->id,
             $subject instanceof Contract => $subject->company_id !== null
-                ? '/companies/'.$subject->company_id.'?tab=contracts'
-                : '/clients',
+                ? '/accounts/'.$subject->company_id.'?tab=contracts'
+                : '/accounts?view=clients',
             default => '/dashboard',
         };
     }
@@ -932,7 +932,7 @@ final class DashboardSummary
                 'id' => 'ai-action-people',
                 'label' => 'Review the staff scorecard',
                 'description' => 'Compare CRM output with core2 attendance.',
-                'href' => '/assignment',
+                'href' => '/leads?view=team',
             ],
         ];
 

@@ -157,7 +157,7 @@ export default function StaffPerformanceTable({ rows, note, caption }: StaffPerf
           </p>
         </div>
         <Link
-          to="/assignment"
+          to="/leads?view=team"
           className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
         >
           Team workload

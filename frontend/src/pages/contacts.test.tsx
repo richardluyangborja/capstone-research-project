@@ -112,7 +112,7 @@ describe('Contacts book', () => {
     expect(row).not.toBeNull()
     expect(
       within(row as HTMLElement).getByRole('link', { name: 'Sunrise Foods Inc' }),
-    ).toHaveAttribute('href', '/companies/company-1')
+    ).toHaveAttribute('href', '/accounts/company-1')
     expect(within(row as HTMLElement).getByText('Hiring manager')).toBeInTheDocument()
     expect(within(row as HTMLElement).getByText('Primary')).toBeInTheDocument()
     expect(

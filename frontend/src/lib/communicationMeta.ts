@@ -108,7 +108,7 @@ export const communicationRecordPath = (record: CommunicationRecordRef | null): 
     case 'lead':
       return `/leads/${record.id}`
     case 'company':
-      return `/companies/${record.id}`
+      return `/accounts/${record.id}`
     case 'opportunity':
       return `/opportunities/${record.id}`
     default:

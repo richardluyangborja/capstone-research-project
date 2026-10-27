@@ -107,7 +107,7 @@ const data = (overrides: Partial<ManagementReportData> = {}): ManagementReportDa
         id: 'open_clients',
         label: 'Review the client book',
         description: 'Check lifecycle, renewals and account health.',
-        to: '/clients',
+        to: '/accounts?view=clients',
       },
     ],
     generated_at: '24 Oct 2026, 12:00',

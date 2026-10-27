@@ -59,7 +59,7 @@ book paginates. `role_type`/`status` filters accept comma-separated values.
 
 ## UI
 
-- **Contacts tab** on `/companies/:id` — `DataTable` with role badges (people-domain green),
+- **Contacts tab** on `/accounts/:id` — `DataTable` with role badges (people-domain green),
   the primary row badged `Primary`, role/status filters, and row actions: `Make primary`, `Edit`
   and `Retire`. The add/edit `FormCard` sits beside it with name, position, role, email, phone,
   mobile, status and a primary toggle (new contacts only).

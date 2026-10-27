@@ -329,7 +329,7 @@ busy, other`).
   each record page, and deep-linkable
   (`/communications/new?subject_type=opportunity&subject_id=…`). Contracts are picked from the
   account's Contracts tab (there is no flat contract book to search).
-- A **Communications** tab on `/companies/:id` (beside Contacts / Sites / Opportunities / Contracts /
+- A **Communications** tab on `/accounts/:id` (beside Contacts / Sites / Opportunities / Contracts /
   Activities), a communications section on the lead and deal detail pages, and a per-contract **Log**
   action on the account's Contracts tab. All three render the shared `CommunicationList` panel.
 - The existing quick-log form stays where it is and is labelled **Quick log**; the new one is **Log
