@@ -49,6 +49,18 @@ class CompanyResource extends JsonResource
                 'name' => $this->parent->name,
             ]),
             'source_lead_id' => $this->source_lead_id,
+            // Account 360 header context (spec 16 §Account 360). The relation is loaded by the
+            // detail read only; the book returns null rather than lazy-loading per row.
+            'primary_contact' => $this->relationLoaded('primaryContact') && $this->primaryContact !== null
+                ? [
+                    'id' => $this->primaryContact->id,
+                    'name' => $this->primaryContact->name,
+                    'position' => $this->primaryContact->position,
+                    'email' => $this->primaryContact->email,
+                    'phone' => $this->primaryContact->phone,
+                    'mobile' => $this->primaryContact->mobile,
+                ]
+                : null,
             'owner' => $this->whenLoaded('owner', fn () => [
                 'id' => $this->owner->id,
                 'name' => $this->owner->name,

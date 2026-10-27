@@ -154,6 +154,15 @@ export interface CompanyParentRef {
   name: string
 }
 
+export interface CompanyPrimaryContact {
+  id: string
+  name: string
+  position: string | null
+  email: string | null
+  phone: string | null
+  mobile: string | null
+}
+
 export interface Company {
   id: string
   reference: string
@@ -174,6 +183,8 @@ export interface Company {
   parent_company_id: string | null
   parent: CompanyParentRef | null
   source_lead_id: string | null
+  /** The account's lead person, loaded by the detail read (spec 16 §Account 360). */
+  primary_contact: CompanyPrimaryContact | null
   owner: { id: number; name: string } | null
   owner_id: number
   counts: CompanyCounts

@@ -6,7 +6,7 @@ as ADR live in `../../decisions/`. The roadmap (module order + numbering) is ADR
 shared data model, `01`–`09` are module 01's submodules, and `10+` is **one file per later module**,
 with that module's **delivery slices** declared in the file (ADR-0016).
 
-## Module 01 — Lead & Client Tracking (baseline done; refresh S0–S3 built)
+## Module 01 — Lead & Client Tracking (baseline done; refresh S0–S4 built)
 
 | File | Submodule |
 | --- | --- |

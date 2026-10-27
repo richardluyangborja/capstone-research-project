@@ -60,6 +60,8 @@ class AccountBookTest extends TestCase
             ->assertJsonPath('data.0.counts.opportunities', 2)
             ->assertJsonPath('data.0.counts.open_opportunities', 1)
             ->assertJsonPath('data.0.counts.contracts', 1)
+            // The book does not eager-load the header contact for every row.
+            ->assertJsonPath('data.0.primary_contact', null)
             ->assertJsonPath('data.0.next_follow_up.state', 'upcoming')
             ->assertJsonPath('data.0.next_follow_up_at', $nextTask->due_at?->toISOString())
             ->assertJsonPath('data.0.last_activity_at', $lastMessage->occurred_at?->toISOString());
@@ -69,6 +71,9 @@ class AccountBookTest extends TestCase
             ->getJson("/api/v1/companies/{$company->id}")
             ->assertOk()
             ->assertJsonPath('data.counts.opportunities', 2)
-            ->assertJsonPath('data.counts.open_opportunities', 1);
+            ->assertJsonPath('data.counts.open_opportunities', 1)
+            // Account 360's header reads the primary contact without fetching the contact book.
+            ->assertJsonPath('data.primary_contact.id', $contact->id)
+            ->assertJsonPath('data.primary_contact.name', $contact->name);
     }
 }

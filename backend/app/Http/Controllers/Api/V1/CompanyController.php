@@ -146,7 +146,7 @@ class CompanyController extends Controller
 
     private function withRelations(Company $company): Company
     {
-        return $company->load(['owner', 'parent'])->loadCount([
+        return $company->load(['owner', 'parent', 'primaryContact'])->loadCount([
             'sites',
             'children',
             'contacts',

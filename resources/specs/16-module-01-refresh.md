@@ -6,12 +6,14 @@ health), **0024** (contract rate cards), **0025** (read-only feeds), **0026** (p
 sign-in), plus 0004, 0005, 0007, 0010, 0013, 0014, 0016.
 
 > **S0 — planning contract (merged). S1 — shell & routes (built). S2 — Lead Workspace (built).
-> S3 — Account Book (built).** S0 is this contract plus its ADRs; S1 shipped the grouped sidebar,
-> canonical routes, redirects and canonical dashboard/AI hrefs; S2 shipped the saved views, manager
-> workload panel and duplicate links; S3 shipped the scoped accounts+clients book, its filters,
-> derived next-follow-up/last-activity columns and the open-deal count. S4–S19 each ship on their own
-> `feature/module-01-*` branch and merge to `main` only after review. The branch is deleted after
-> merge, and the next slice starts from the updated `main`.
+> S3 — Account Book (built). S4 — Account 360 (built).** S0 is this contract plus its ADRs; S1
+> shipped the grouped sidebar, canonical routes, redirects and canonical dashboard/AI hrefs; S2
+> shipped the saved views, manager workload panel and duplicate links; S3 shipped the scoped
+> accounts+clients book, its filters, derived next-follow-up/last-activity columns and the open-deal
+> count; S4 shipped the five grouped tabs, the derived journey stepper, the account header summary,
+> the Delivery handoff/feed placeholder and moved lifecycle fields out of the profile form. S5–S19
+> each ship on their own `feature/module-01-*` branch and merge to `main` only after review. The
+> branch is deleted after merge, and the next slice starts from the updated `main`.
 
 ## Purpose
 
@@ -117,8 +119,8 @@ Only destinations whose page exists are listed. **Import Leads** joins with S18;
 
 Account 360 tab mapping: old `?tab=contacts|sites` → `?tab=people`; `?tab=opportunities|contracts` →
 `?tab=commercial&section=…`; `?tab=communications|satisfaction|activities` → `?tab=engagement&section=…`.
-The existing `?tab=contracts&opportunity_id=…` contract-upload deep link must keep working through the
-mapping.
+The mapped section scrolls into view once its data is loaded. The existing
+`?tab=contracts&opportunity_id=…` contract-upload deep link must keep working through the mapping.
 
 The API keeps `/companies`; only the frontend route changes. No route below is removed until its
 redirect exists.
@@ -494,7 +496,7 @@ names are suggestions; the `feature/module-01-*` prefix is required.
 | **S1** | `feature/module-01-shell` | Grouped sidebar, canonical routes, redirects, updated dashboard/AI links | All old paths redirect; no dead sidebar links; route tests |
 | **S2** | `feature/module-01-lead-workspace` | Saved views, manager workload panel, duplicate-created-record link | Each view filters correctly; workload is scoped; qualification/assignment/lifecycle/conversion actions unchanged |
 | **S3** | `feature/module-01-account-book` | `/accounts` accounts+clients book, filters, next follow-up, counts | `/clients` view works; salesrep/manager scoping; pagination |
-| **S4** | `feature/module-01-account-360` | Five grouped tabs, journey stepper, lifecycle moved out of the profile form | Tabs deep-link; old tab query maps; no lifecycle `status` in the profile form |
+| **S4** | `feature/module-01-account-360` | Five grouped tabs, journey stepper, header summary, Delivery handoff/feed placeholder, lifecycle moved out of the profile form | Tabs deep-link; old tab query maps to the grouped tab/section; no lifecycle `status` in the profile form |
 | **S5** | `feature/module-01-account-delegation` | Account assign/bulk-assign, activity, notification, target rules | Salesrep self only; manager team; admin all; new owner notified |
 | **S6** | `feature/module-01-contract-header` | Commercial fields, validation, form, resource, edit activity, seeds | New fields persist; only account update right edits; timeline records the edit |
 | **S7** | `feature/module-01-rate-cards` | Rate-card table/model/API/UI, computed values, renewal clone, manager gate | Hourly/monthly/placement totals compute; null margin stays null; salesrep cannot see pay/margin |

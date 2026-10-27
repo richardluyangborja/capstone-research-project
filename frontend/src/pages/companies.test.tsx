@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import Companies from './Companies'
 import CompanyDetail from './CompanyDetail'
@@ -34,6 +34,14 @@ const { company, site, contact, deal, contract, billing, paginated } = vi.hoiste
     parent_company_id: null,
     parent: null,
     source_lead_id: null,
+    primary_contact: {
+      id: 'contact-1',
+      name: 'Ramon Villanueva',
+      position: 'Plant HR Manager',
+      email: 'ramon.villanueva@sunrisefoods.ph',
+      phone: '+63 2 8712 4455',
+      mobile: '0917 555 2210',
+    },
     owner: { id: 1, name: 'Sam Salesrep' },
     owner_id: 1,
     counts: {
@@ -251,6 +259,42 @@ vi.mock('../lib/leads', () => ({
   parseValidationError: vi.fn().mockReturnValue(null),
 }))
 
+vi.mock('../lib/communications', () => ({
+  listCommunicationsFor: vi.fn().mockResolvedValue({ data: [], meta: { total: 0 } }),
+}))
+
+vi.mock('../lib/surveys', () => ({
+  listCompanySurveyInvitations: vi.fn().mockResolvedValue({
+    data: [],
+    meta: { current_page: 1, per_page: 25, total: 0, last_page: 1 },
+  }),
+  listSurveys: vi.fn().mockResolvedValue({
+    data: [],
+    meta: { current_page: 1, per_page: 25, total: 0, last_page: 1 },
+  }),
+  cancelSurveyInvitation: vi.fn(),
+  resendSurveyInvitation: vi.fn(),
+  sendSurveyInvitation: vi.fn(),
+}))
+
+vi.mock('../lib/satisfaction', () => ({
+  getCompanySatisfaction: vi.fn().mockResolvedValue({
+    responses: 0,
+    csat: null,
+    nps: null,
+    promoters: 0,
+    passives: 0,
+    detractors: 0,
+    answered: 0,
+    attention: 0,
+    invitations: 0,
+    response_rate: null,
+    latest: null,
+    trend: [],
+    recent: [],
+  }),
+}))
+
 describe('Companies list', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -319,9 +363,9 @@ describe('Companies list', () => {
 })
 
 describe('Company detail', () => {
-  const renderDetail = () =>
+  const renderDetail = (path = '/accounts/company-1') =>
     render(
-      <MemoryRouter initialEntries={['/accounts/company-1']}>
+      <MemoryRouter initialEntries={[path]}>
         <Routes>
           <Route path="/accounts/:id" element={<CompanyDetail />} />
         </Routes>
@@ -345,35 +389,43 @@ describe('Company detail', () => {
     vi.clearAllMocks()
   })
 
-  it('shows the profile and the tab counts from the roll-up', async () => {
+  it('shows the header, the journey and the grouped tab counts', async () => {
     renderDetail()
 
     expect(await screen.findByRole('heading', { name: 'Sunrise Foods Inc' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /^Contacts/ })).toHaveTextContent('1')
-    expect(screen.getByRole('button', { name: /^Sites/ })).toHaveTextContent('1')
-    expect(screen.getByRole('button', { name: /^Activities/ })).toHaveTextContent('2')
+    expect(screen.getByText('Primary contact')).toBeInTheDocument()
+    expect(screen.getByText('Ramon Villanueva')).toBeInTheDocument()
+    expect(screen.getByText('Journey')).toBeInTheDocument()
+    expect(screen.getByText('Lead captured')).toBeInTheDocument()
+    expect(screen.getAllByText('Created directly').length).toBeGreaterThan(0)
+    expect(screen.getByRole('button', { name: /^People & Sites/ })).toHaveTextContent('2')
+    expect(screen.getByRole('button', { name: /^Commercial/ })).toHaveTextContent('2')
+    expect(screen.getByRole('button', { name: /^Engagement/ })).toHaveTextContent('3')
+    // Lifecycle dates belong to the lifecycle panel, not the profile form.
+    expect(screen.queryByLabelText('Client since')).not.toBeInTheDocument()
   })
 
-  it('lists the account contacts with their decision-maker role', async () => {
+  it('groups contacts, sites and branches under People & Sites', async () => {
     renderDetail()
 
     await screen.findByRole('heading', { name: 'Sunrise Foods Inc' })
-    fireEvent.click(screen.getByRole('button', { name: /^Contacts/ }))
+    fireEvent.click(screen.getByRole('button', { name: /^People & Sites/ }))
 
-    const name = await screen.findByText('Ramon Villanueva')
-    const row = name.closest('tr')
+    const matches = await screen.findAllByText('Ramon Villanueva')
+    const row = matches.map((entry) => entry.closest('tr')).find((entry) => entry !== null)
     expect(row).not.toBeNull()
     expect(within(row as HTMLElement).getByText('Hiring manager')).toBeInTheDocument()
     expect(within(row as HTMLElement).getByText('Primary')).toBeInTheDocument()
     expect(within(row as HTMLElement).getByText('Plant HR Manager')).toBeInTheDocument()
+    expect(screen.getByText('Head office')).toBeInTheDocument()
+    expect(screen.getByText('Branch')).toBeInTheDocument()
   })
 
-  it('shows the account opportunities with their stage and value', async () => {
+  it('groups deals, contracts and billing under Commercial', async () => {
     renderDetail()
 
     await screen.findByRole('heading', { name: 'Sunrise Foods Inc' })
-    expect(screen.getByRole('button', { name: /^Opportunities/ })).toHaveTextContent('1')
-    fireEvent.click(screen.getByRole('button', { name: /^Opportunities/ }))
+    fireEvent.click(screen.getByRole('button', { name: /^Commercial/ }))
 
     const name = await screen.findByText('Sunrise Foods Inc — Warehouse staffing')
     const row = name.closest('tr')
@@ -384,9 +436,19 @@ describe('Company detail', () => {
     expect(
       within(row as HTMLElement).getByRole('link', { name: 'LD-2026-0001' }),
     ).toBeInTheDocument()
+
+    const contractTitle = await screen.findByText('Warehouse staffing agreement')
+    const contractRow = contractTitle.closest('tr')
+    expect(contractRow).not.toBeNull()
+    expect(within(contractRow as HTMLElement).getByText('CON-2026-0001')).toBeInTheDocument()
+    expect(within(contractRow as HTMLElement).getByText('Draft')).toBeInTheDocument()
+
+    expect(screen.getByText('Billing')).toBeInTheDocument()
+    expect(await screen.findByText('₱250,000.00')).toBeInTheDocument()
+    expect(screen.getByText('Net 30')).toBeInTheDocument()
   })
 
-  it('offers the legal lifecycle moves and the mocked billing snapshot', async () => {
+  it('offers the legal lifecycle moves on Overview', async () => {
     renderDetail()
 
     await screen.findByRole('heading', { name: 'Sunrise Foods Inc' })
@@ -396,11 +458,7 @@ describe('Company detail', () => {
     expect(screen.getByRole('button', { name: 'Move to Onboarding' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Move to Active' })).toBeInTheDocument()
     expect(screen.getByText('Every move is recorded on the account timeline.')).toBeInTheDocument()
-
-    // Billing is a read-only, manager-visible snapshot from the mocked Finance service.
-    expect(screen.getByText('Billing')).toBeInTheDocument()
-    expect(await screen.findByText('₱250,000.00')).toBeInTheDocument()
-    expect(screen.getByText('Net 30')).toBeInTheDocument()
+    expect(screen.queryByText('Billing')).not.toBeInTheDocument()
   })
 
   it('hides the billing snapshot when the payload says so', async () => {
@@ -409,6 +467,8 @@ describe('Company detail', () => {
     renderDetail()
 
     await screen.findByRole('heading', { name: 'Sunrise Foods Inc' })
+    fireEvent.click(screen.getByRole('button', { name: /^Commercial/ }))
+    await screen.findByText('Sunrise Foods Inc — Warehouse staffing')
     expect(screen.queryByText('Billing')).not.toBeInTheDocument()
   })
 
@@ -467,7 +527,7 @@ describe('Company detail', () => {
     renderDetail()
 
     await screen.findByRole('heading', { name: 'Sunrise Foods Inc' })
-    fireEvent.click(screen.getByRole('button', { name: /^Contracts/ }))
+    fireEvent.click(screen.getByRole('button', { name: /^Commercial/ }))
 
     const title = await screen.findByText('Warehouse staffing agreement')
     const row = title.closest('tr')
@@ -484,4 +544,67 @@ describe('Company detail', () => {
     await screen.findByText(/CON-2026-0001 is signed/)
     expect(contractApi.markContractSigned).toHaveBeenCalledWith('contract-1')
   })
+
+  it.each([
+    ['contacts', 'Plant HR Manager'],
+    ['sites', 'Head office'],
+    ['opportunities', 'Sunrise Foods Inc — Warehouse staffing'],
+    ['contracts', 'Warehouse staffing agreement'],
+    ['activities', 'No activity recorded yet.'],
+  ])('maps the old %s tab onto its grouped tab', async (tab, expected) => {
+    renderDetail(`/accounts/company-1?tab=${tab}`)
+
+    await screen.findByRole('heading', { name: 'Sunrise Foods Inc' })
+    expect(await screen.findByText(expected)).toBeInTheDocument()
+  })
+
+  it('groups communications, satisfaction and activities under Engagement', async () => {
+    renderDetail('/accounts/company-1?tab=engagement')
+
+    await screen.findByRole('heading', { name: 'Sunrise Foods Inc' })
+    expect(await screen.findByText('Communication history')).toBeInTheDocument()
+    expect(screen.getByText('Satisfaction')).toBeInTheDocument()
+    expect(screen.getByText('Activities')).toBeInTheDocument()
+  })
+
+  it('shows the Service handoff and the read-only feed state on Delivery', async () => {
+    renderDetail('/accounts/company-1?tab=delivery')
+
+    await screen.findByRole('heading', { name: 'Sunrise Foods Inc' })
+    expect(screen.getByText('Service handoff')).toBeInTheDocument()
+    expect(screen.getByText('Not requested')).toBeInTheDocument()
+    expect(screen.getByText('Feeds not connected yet')).toBeInTheDocument()
+  })
+
+  it('opens a deal-linked contract upload on Commercial', async () => {
+    render(
+      <MemoryRouter initialEntries={['/accounts/company-1?tab=contracts&opportunity_id=opp-1']}>
+        <Routes>
+          <Route
+            path="/accounts/:id"
+            element={
+              <>
+                <CompanyDetail />
+                <LocationProbe />
+              </>
+            }
+          />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    await screen.findByRole('heading', { name: 'Sunrise Foods Inc' })
+    await waitFor(() => {
+      expect(screen.getByTestId('company-location')).toHaveTextContent('tab=commercial')
+      expect(screen.getByTestId('company-location')).toHaveTextContent('section=contracts')
+      expect(screen.getByTestId('company-location')).toHaveTextContent('opportunity_id=opp-1')
+    })
+    expect(screen.getByRole('button', { name: 'Save contract' })).toBeInTheDocument()
+    expect(screen.getByText(/From deal/)).toBeInTheDocument()
+  })
 })
+
+function LocationProbe() {
+  const location = useLocation()
+  return <output data-testid="company-location">{location.search}</output>
+}

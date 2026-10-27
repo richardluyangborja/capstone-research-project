@@ -81,7 +81,7 @@ class CompanyLifecycleController extends Controller
     private function present(Company $company): Company
     {
         return $company
-            ->load(['owner', 'parent'])
+            ->load(['owner', 'parent', 'primaryContact'])
             ->loadCount(['sites', 'children', 'contacts', 'opportunities', 'openOpportunities as open_opportunities_count', 'contracts', 'activities', 'communications']);
     }
 }
