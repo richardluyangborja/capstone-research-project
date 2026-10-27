@@ -12,6 +12,7 @@ use App\Enums\HandoffStatus;
 use App\Enums\OpportunityStage;
 use App\Enums\Role;
 use App\Events\CompanyActivated;
+use App\Events\CompanyAssigned;
 use App\Events\CompanyChurned;
 use App\Events\CompanyStatusChanged;
 use App\Integrations\HandoffResult;
@@ -313,6 +314,29 @@ class Company extends Model
                 CompanyActivated::dispatch($this, null, $actor);
             }
         });
+    }
+
+    /**
+     * Hand the account to another owner (spec 16 §Account delegation). Returns false when the
+     * account already belongs to that person; every real move writes a `system` activity and
+     * notifies the new owner through `CompanyAssigned`.
+     */
+    public function assignTo(User $newOwner, ?User $actor = null): bool
+    {
+        if ($this->owner_id === $newOwner->id) {
+            return false;
+        }
+
+        DB::transaction(function () use ($newOwner, $actor): void {
+            $previous = $this->owner;
+
+            $this->owner_id = $newOwner->id;
+            $this->save();
+
+            CompanyAssigned::dispatch($this, $previous, $newOwner, $actor);
+        });
+
+        return true;
     }
 
     public function hasActiveContract(): bool

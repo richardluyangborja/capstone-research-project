@@ -425,10 +425,12 @@ existing match), `/leads/:id` (qualification panel + lifecycle control + ownersh
 timeline + "Convert to client" when convertible, converted banner), `/leads/:id/convert` (3-step
 conversion wizard); the old `/qualification`, `/assignment`, `/lifecycle` and `/conversion` paths
 redirect to `/leads?view=qualification|unassigned|aging|conversion`,
-`/accounts` (the account book: status/tier/owner/industry filters and pagination; the old `/clients`
+`/accounts` (the account book: status/tier/owner/industry filters and pagination, plus manager+
+row selection and bulk assignment to a single owner; the old `/clients`
 book is `/accounts?view=clients`), `/accounts/new` (manual creation), `/accounts/:id` (Account 360:
 **Overview** — owner/primary-contact/client-since/source header, derived journey stepper, company
-profile, lifecycle panel, ownership, quick actions and record facts; **People & Sites** — contacts,
+profile, lifecycle panel, ownership reassignment through the delegation endpoint, quick actions and
+record facts; **People & Sites** — contacts,
 sites and branch links (manager-only); **Commercial** — deals (row links, "Add deal", summary links
 to the board), contracts with renewal/sign/upload actions and the manager-only Finance billing
 snapshot; **Delivery** — the Service handoff status and a read-only feed placeholder; **Engagement**
@@ -705,7 +707,7 @@ Dedup/merge and advanced/stored tier scoring are module-01 deferrals
 (ADR-0006), and automatic client aging stays one too (ADR-0018 §6). Other departments are consumed via
 **read-only mocked feeds** (ADR-0005, ADR-0025), not built here.
 
-**Module 01 refresh (S0–S4 built — `specs/16`, ADR-0023–0026).** S0 is the planning contract and
+**Module 01 refresh (S0–S5 built — `specs/16`, ADR-0023–0026).** S0 is the planning contract and
 S1 is the shell: the sidebar is grouped by module, `/accounts` (plus `/accounts/new` and
 `/accounts/:id`) is the canonical account surface, and `/companies*`, `/clients`, `/qualification`,
 `/assignment`, `/lifecycle` and `/conversion` redirect with their query strings preserved. Dashboard
@@ -722,7 +724,12 @@ columns are computed on read; `GET /companies` also carries `counts.open_opportu
 Delivery, Engagement), a header summary and derived journey stepper, lifecycle fields out of the
 profile form, billing on Commercial, branches on People & Sites, and the Delivery handoff/read-only
 feed placeholder. Old tab deep links map onto the grouped tab (and section), and `CompanyResource`
-carries `primary_contact` on the detail read. The later slices add contract rate cards, read-only
+carries `primary_contact` on the detail read. S5 adds account delegation: `POST
+/companies/{id}/assign` and `POST /companies/bulk-assign` (salesrep self, manager team, admin all)
+both run `Company::assignTo()`, so every handover writes a `system` activity and notifies the new
+owner (`CompanyAssigned` → `CompanyAssignedNotification`); the Account Book selects rows for a batch
+handover and the Account 360 ownership panel uses the endpoint rather than a plain `PATCH` (a
+`PATCH` carrying `owner_id` now runs the same path). The later slices add contract rate cards, read-only
 Recruitment/Deployment/Timekeeping/Finance feeds, computed account health, the public landing refresh
 with embedded intake and modal sign-in, and all-role CSV import with ownership rules. Read
 `resources/specs/16-module-01-refresh.md` before changing Module 01; the old `01`, `06` and `09` files

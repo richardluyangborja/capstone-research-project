@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\CommunicationController;
 use App\Http\Controllers\Api\V1\CommunicationTemplateController;
 use App\Http\Controllers\Api\V1\CompanyActivityController;
+use App\Http\Controllers\Api\V1\CompanyAssignmentController;
 use App\Http\Controllers\Api\V1\CompanyBillingController;
 use App\Http\Controllers\Api\V1\CompanyContactController;
 use App\Http\Controllers\Api\V1\CompanyContractController;
@@ -104,6 +105,10 @@ Route::prefix('v1')->group(function (): void {
         Route::post('companies/{id}/restore', [CompanyController::class, 'restore']);
         Route::apiResource('companies', CompanyController::class)
             ->only(['index', 'store', 'show', 'update', 'destroy']);
+
+        // Module 01 refresh S5 — account delegation (spec 16).
+        Route::post('companies/bulk-assign', [CompanyAssignmentController::class, 'bulkAssign']);
+        Route::post('companies/{company}/assign', [CompanyAssignmentController::class, 'assign']);
 
         // Submodule 06 — company sites & activity history
         Route::get('companies/{company}/sites', [CompanySiteController::class, 'index']);

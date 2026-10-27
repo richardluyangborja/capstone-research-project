@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Enums\ActivityStatus;
 use App\Enums\ActivityType;
+use App\Http\Companies\CompanyPayload;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\LogActivityRequest;
 use App\Http\Resources\ActivityResource;
@@ -35,7 +36,7 @@ class CompanyActivityController extends Controller
             'owner_id' => $request->user()->id,
         ]);
 
-        $company = $company->load(['owner', 'parent', 'primaryContact'])->loadCount(['sites', 'children', 'contacts', 'opportunities', 'openOpportunities as open_opportunities_count', 'contracts', 'activities', 'communications']);
+        $company = CompanyPayload::load($company);
 
         return (new CompanyResource($company))
             ->additional([

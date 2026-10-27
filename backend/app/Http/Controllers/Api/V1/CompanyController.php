@@ -4,11 +4,13 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Events\CompanyCreated;
 use App\Http\Companies\AccountBookMetrics;
+use App\Http\Companies\CompanyPayload;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreCompanyRequest;
 use App\Http\Requests\UpdateCompanyRequest;
 use App\Http\Resources\CompanyResource;
 use App\Models\Company;
+use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -88,7 +90,17 @@ class CompanyController extends Controller
 
     public function update(UpdateCompanyRequest $request, Company $company): CompanyResource
     {
-        $company->update($request->validated());
+        $data = $request->validated();
+        $ownerId = $data['owner_id'] ?? null;
+        unset($data['owner_id']);
+
+        $company->update($data);
+
+        // Ownership changes run through the same delegation path as the assign endpoints, so a
+        // PATCH cannot move an account without its activity + notification (spec 16 S5).
+        if ($ownerId !== null) {
+            $company->assignTo(User::findOrFail($ownerId), $request->user());
+        }
 
         return new CompanyResource($this->withRelations($company->refresh()));
     }
@@ -146,15 +158,6 @@ class CompanyController extends Controller
 
     private function withRelations(Company $company): Company
     {
-        return $company->load(['owner', 'parent', 'primaryContact'])->loadCount([
-            'sites',
-            'children',
-            'contacts',
-            'opportunities',
-            'contracts',
-            'activities',
-            'communications',
-            'openOpportunities as open_opportunities_count',
-        ]);
+        return CompanyPayload::load($company);
     }
 }
