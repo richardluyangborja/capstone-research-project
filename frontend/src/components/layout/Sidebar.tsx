@@ -7,7 +7,6 @@ import {
   ClipboardList,
   FileText,
   Gauge,
-  Handshake,
   Inbox,
   LayoutDashboard,
   LogOut,
@@ -21,6 +20,7 @@ import {
   Users,
   type LucideIcon,
 } from 'lucide-react'
+import logo from '../../assets/logo.png'
 import { useAuth } from '../../lib/auth-context'
 import type { Role } from '../../types'
 
@@ -141,14 +141,15 @@ export default function Sidebar({ role }: { role: Role }) {
   const { user, logout } = useAuth()
 
   return (
-    <aside className="flex w-64 shrink-0 flex-col border-r border-border bg-sidebar">
+    <aside
+      data-role={role}
+      className="flex w-64 shrink-0 flex-col border-r border-border bg-sidebar"
+    >
       <div className="flex items-center gap-3 border-b border-border px-4 py-4">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-          <Handshake className="h-5 w-5" aria-hidden="true" />
-        </span>
+        <img src={logo} alt="" aria-hidden="true" className="h-10 w-auto shrink-0 object-contain" />
         <div className="min-w-0">
-          <p className="text-sm font-semibold leading-tight text-foreground">
-            <span className="text-logo-brand">Primepower</span> Manpower Services
+          <p className="text-sm font-semibold leading-tight text-logo-brand">
+            Primepower Manpower Services
           </p>
           <p className="mt-0.5 text-xs leading-tight text-muted-foreground">
             Customer Relationship Management
@@ -179,9 +180,6 @@ export default function Sidebar({ role }: { role: Role }) {
             </p>
             <p className="truncate text-xs text-muted-foreground">{user?.email ?? ''}</p>
           </div>
-          <span className="shrink-0 rounded bg-secondary px-1.5 py-0.5 text-xs font-medium uppercase text-secondary-foreground">
-            {role}
-          </span>
           <button
             type="button"
             onClick={() => void logout()}
@@ -206,7 +204,7 @@ function NavGroupSection({ group }: { group: NavGroup }) {
         type="button"
         onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
-        className="flex w-full items-center justify-between px-2 pb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground hover:text-foreground"
+        className="flex w-full items-center justify-between px-2 pb-1 text-xs font-semibold uppercase tracking-wide text-primary hover:text-primary/80"
       >
         {group.label}
         <ChevronDown
@@ -220,9 +218,7 @@ function NavGroupSection({ group }: { group: NavGroup }) {
           {group.sections.map((section, index) => (
             <div key={section.label ?? index} className={index > 0 ? 'mt-2' : ''}>
               {section.label && (
-                <p className="px-2 pb-1 pt-1 text-xs font-medium text-muted-foreground">
-                  {section.label}
-                </p>
+                <p className="px-2 pb-1 pt-1 text-xs font-medium text-primary">{section.label}</p>
               )}
               <ul className="flex flex-col gap-1">
                 {section.items.map((item) => (

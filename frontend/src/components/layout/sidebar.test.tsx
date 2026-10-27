@@ -72,6 +72,20 @@ describe('Sidebar', () => {
     expect(screen.getByRole('button', { name: 'AI Reports' })).toBeInTheDocument()
   })
 
+  it('brands the sidebar and leaves the account block free of a role badge', () => {
+    renderSidebar()
+
+    expect(screen.getByText('Primepower Manpower Services')).toHaveClass('text-logo-brand')
+    expect(screen.getByRole('button', { name: 'Lead & Client Tracking' })).toHaveClass(
+      'text-primary',
+    )
+    expect(screen.getByText('Leads')).toHaveClass('text-primary')
+
+    expect(screen.getByText('Maria Manager')).toBeInTheDocument()
+    expect(screen.getByText('manager@primepower.test')).toBeInTheDocument()
+    expect(screen.queryByText('manager')).not.toBeInTheDocument()
+  })
+
   it('no longer exposes the consolidated module 01 pages', () => {
     renderSidebar()
 
