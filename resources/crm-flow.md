@@ -9,8 +9,9 @@
 
 The CRM subsystem owns the **client-side relationship**: capturing leads, qualifying them, working
 opportunities, converting to clients, and retaining/tracking clients (contracts, follow-ups,
-satisfaction). It does **not** own recruitment, deployment, payroll, or billing — those belong to
-other departments and are consumed through **mocked integrations**.
+satisfaction). It does **not** own recruitment, deployment, timekeeping, payroll, or billing — those
+belong to other departments and are consumed as **read-only feeds/mocked integrations** (ADR-0005,
+ADR-0025).
 
 ## Object model (CRM-owned records)
 
@@ -25,7 +26,7 @@ Adopted from standard CRM design (Salesforce-style objects) adapted to a staffin
 | **Activity** | A logged touch or task (the quick log) | type (call/email/meeting/walk-in/task), subject, notes, due date, owner, related record | A `task` with a due date is a **follow-up** (module 04); mirrors a logged communication |
 | **Communication** | Detailed stored communication (module 03, spec 11) | channel, direction, participants, content/body, duration, outcome, external id, attachments, conversation links (thread/parent), scheduled send (module 04), timestamps | Detail-rich, per lead/company/contact/deal/contract |
 | **CommunicationTemplate** | Reusable wording for the composer (module 03 slice S5) | name, channel, subject line, body (with `{{merge}}` fields), active flag | A prefill only — a saved message never references one |
-| **Contract** | A signed agreement | reference no., term start/end, rate/terms summary, status, attachments (pdf/png/jpeg) | Upload required; drives renewals & billing handoff |
+| **Contract** | A signed agreement | reference no., commercial header, rate cards (hourly/monthly/placement), term start/end, status, document | Upload required; drives renewals, billing and delivery context |
 | **Client** | An account with a signed/active contract | (state on Company) status, tier, onboarding date, health | Modeled as a lifecycle state on Company, not a separate table (ADR-0001) |
 
 ## Two pipelines (best-practice split)
@@ -83,6 +84,27 @@ advanced tiers/health are **built** (ADR-0006). Detailed implementation specs li
 9. **Client Account Lifecycle** — client status/tier/health, owner, renewal linkage, dormancy/
    churn, win-back.
 
+### Module 01 refresh (S0 docs landed — spec 16, ADR-0023–0026)
+
+The refresh keeps the records above but consolidates the working surface:
+
+- **Grouped sidebar + canonical routes** — Leads (Lead Workspace, Capture, Import), Accounts (Account
+  Book, Contracts, Deployments, Billing) and Contacts. Qualification, assignment, lifecycle and
+  conversion become saved views/actions inside the Lead Workspace; `/clients` is an Account Book view;
+  `/companies` redirects to `/accounts`.
+- **Account 360** — five grouped tabs: Overview (journey, health, lifecycle), People & Sites,
+  Commercial (opportunities, contracts/rate cards, billing), Delivery (read-only feeds), Engagement
+  (communications, satisfaction, activities).
+- **Commercial contracts** — commercial header + `contract_rate_cards` (hourly/monthly/placement),
+  computed client value/cost/margin; bill rates visible to salesreps, pay/margin manager+ (ADR-0024).
+- **Read-only department feeds** — Recruitment job orders, Deployment assignment, Timekeeping
+  summaries and Finance AR/invoices; no CRM tables, no mutation UI, source-labelled (ADR-0025).
+- **Health & manager insight** — computed, explainable account flags and a manager dashboard strip;
+  no automatic lifecycle transition (ADR-0023).
+- **Public surface** — simple landing refresh, embedded request-staffing intake, modal sign-in and
+  all-role CSV import with ownership rules (ADR-0026).
+
+
 ## CRM module roadmap (ADR-0014)
 
 The CRM's five data modules (`system-modules.md`) are ordered so each builds on the one before; the
@@ -90,7 +112,7 @@ dashboard and AI reports are cross-cutting presentation layers, not data modules
 
 | Module | Name | Depends on | Spec |
 | --- | --- | --- | --- |
-| 01 | Lead & Client Tracking | — | `01`–`09` **(built)** |
+| 01 | Lead & Client Tracking | — | `01`–`09` **(baseline built)** + `16` refresh (S0 docs landed; S1–S19 planned) |
 | 02 | Opportunity Pipeline Visualization | `Opportunity` record (08) | `10` **(built)** |
 | 03 | Communication History Management | objects from 01–02 | `11` **(built)** |
 | 04 | Follow-up Reminder System | 03 + notifications | `12` **(built)** |
@@ -103,7 +125,8 @@ for the presentation, and **D2** now reads the real endpoints. Its former **D3**
 AI Management Reports** (spec `15`, ADR-0021): a read-only presentation module with its own page,
 three report variants, and the free Groq layer with a rules fallback. Module 07 owns no table
 and is not a data module.
-Duplicate detection/merge and advanced tiers/health are still-open **module-01** deferrals (ADR-0006).
+Duplicate detection/merge and **advanced/stored** tier scoring remain module-01 deferrals (ADR-0006).
+The refresh adds computed, explainable health flags, not automatic lifecycle moves (ADR-0023).
 
 ## Module 02 → submodules (built, ADR-0015)
 
@@ -229,30 +252,36 @@ Enforced server-side.
 | Capability | salesrep | manager | admin | superadmin |
 | --- | --- | --- | --- | --- |
 | Leads / clients | Own only | Team only | All | All |
-| Sensitive data (rate cards, margins, billing) | Hidden | View | Manage | Manage |
+| Sensitive data (pay rates, cost, margin, full billing) | Hidden; client-facing bill rates and contract values visible | View | Manage | Manage |
 | Reports / analytics | Own | Team | All | All |
 | App/system settings | — | — | Manage | Manage |
 | Low-level DB access | — | — | — | Yes |
 
-## Department integration contracts (mocked)
+## Department integration contracts (read-only feeds, mocked)
 
-Each integration sits behind an **interface + a mock driver** returning deterministic seeded data
-(ADR-0005, ADR-0013 §4). In Phase 1 they live in `backend/app/Integrations/` (interface, `Mock*`
-driver, readonly DTO), bound in `AppServiceProvider`, and the failure path is forced with a config
-flag (`CRM_HANDOFF_SIMULATE_FAILURE=true` for the Service handoff) rather than random failure. Contract
+Each integration sits behind an **interface + a mock driver** returning deterministic assumed data
+(ADR-0005, ADR-0013 §4, ADR-0025). They live in `backend/app/Integrations/` (interface, `Mock*`
+driver, readonly DTO), bound in `AppServiceProvider`; the failure path is forced with a config flag
+(`CRM_HANDOFF_SIMULATE_FAILURE=true` for the Service handoff) rather than random failure. Contract
 shapes are defined with OpenAPI (per the API convention).
+
+**Read-only feed boundary:** the CRM consumes the external department's **read side only**. It does
+not create job orders, deployments, timesheets or invoices, and it stores none of them as CRM tables.
+The only outbound write remains the Service handoff on signing/retry.
 
 | Integration | Direction | Trigger | Payload (summary) |
 | --- | --- | --- | --- |
-| Service / operations | CRM → Service | **Contract signed** (`mark-signed`) | client + contract + manpower requirement |
-| Recruitment | Service/CRM → Recruitment | Job order created | positions, skills, headcount, site |
-| Finance | CRM ← Finance | Contract active | billing status, invoices, AR state (read-only in CRM) |
-| Legal / documents | CRM → Legal | Contract uploaded | document + metadata; validation/ack |
-| HR | CRM ← HR | Client view | deployed employees, performance summary (read-only) |
+| Service / operations | CRM → Service | **Contract signed** (`mark-signed`) or handoff retry | client + contract + manpower requirement; returns `sent`/`failed` |
+| Recruitment | Recruitment → CRM | Company delivery view | job order reference, role, requested/filled headcount, status, priority, target start, recruiter, last update |
+| Deployment / assignment | Deployment → CRM | Company delivery view / `/deployments` | deployment reference, contract/job-order, role, site, status, active/filled headcount, start/end, fill rate |
+| Timekeeping | Timekeeping → CRM | Company delivery view | per-deployment period, approved/pending hours, last submission, status |
+| Finance | Finance → CRM | Company billing view / `/billing` | AR summary, invoices, due dates, balances, aging, payment status, credit terms |
+| Legal / documents | — | — | **Deferred**; contract upload is CRM-owned in Phase 1 |
+| HR / employee info | — | — | **Deferred**; no employee-level data in this iteration |
 
-**Shipped in Phase 1:** Service (handoff on signing + retry) and Finance (read-only billing
-snapshot). Recruitment, Legal and HR remain interface-only mocks to be added with their consuming
-features.
+**Shipped before the refresh:** Service (handoff on signing + retry) and a small Finance billing
+snapshot. **Spec 16 consumes:** Recruitment job orders, Deployment status, Timekeeping summaries and an
+expanded Finance AR feed as read-only mocks. Legal and HR remain deferred.
 
 ## Decisions
 
@@ -270,10 +299,15 @@ Recorded as ADRs in `decisions/` (read them before changing the design):
 - `decisions/0017-communication-history-model.md` — `Communication` vs `Activity`, mocked email, scoping
 - `decisions/0018-follow-up-reminder-model.md` — follow-ups as tasks + scheduled messages, on-demand dispatch
 - `decisions/0019-client-satisfaction-conventions.md` — surveys as templates, tokenized public form, CSAT/NPS, closed loop
+- `decisions/0023-module-01-workspace-consolidation.md` — grouped sidebar, Lead Workspace, Account 360, computed health
+- `decisions/0024-contract-rate-cards.md` — commercial header, rate cards, billing units, margin visibility
+- `decisions/0025-read-only-external-feeds.md` — job orders, deployments, timekeeping and Finance as read-only feeds
+- `decisions/0026-public-acquisition-and-sign-in.md` — landing refresh, public intake, modal sign-in, all-role CSV import
 
 Still open / to be decided later: dedup/merge rules (module-01 deferrals). The satisfaction survey
 structure is settled by `specs/13-client-satisfaction-survey.md` (ADR-0019). Follow-up/reminder rules
 are settled by `specs/12-follow-up-reminders.md` (ADR-0018), except automatic client aging (still
-deferred). The contract and billing data model is settled — see
-`specs/00-data-model.md` (Contract), `specs/09-client-account-lifecycle.md` and ADR-0013; the deal
-pipeline is specified in `specs/10-opportunity-pipeline-visualization.md` (ADR-0015).
+deferred). The contract and rate-card data model is settled by `specs/16-module-01-refresh.md`
+(ADR-0024), extending `specs/00-data-model.md` and `specs/09-client-account-lifecycle.md`; the deal
+pipeline is specified in `specs/10-opportunity-pipeline-visualization.md` (ADR-0015). The external
+feeds are read-only and add no tables (ADR-0025).

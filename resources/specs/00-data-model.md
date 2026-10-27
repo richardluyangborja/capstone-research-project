@@ -18,7 +18,9 @@ Lead ──(convert)──► Company ──► CompanySite
                       ├──► Contact
                       ├──► SurveyInvitation ──► SurveyResponse ──► SurveyAnswer
                       └──► Activity / Attachment   (polymorphic)
-Opportunity ──► Contract ──(signed)──► Company becomes "Client"
+Opportunity ──► Contract ──► ContractRateCard
+                    │
+                    └──(signed)──► Company becomes "Client"
 Survey ──► SurveyQuestion
 ```
 
@@ -81,6 +83,7 @@ Survey ──► SurveyQuestion
 | `owner_id` | FK users | | assignee (nullable = queue) |
 | `last_activity_at` | timestamp | | denormalised |
 | `next_follow_up_at` | timestamp | | the lead's earliest open follow-up — task or scheduled message (module 04) |
+| `consent_at` | timestamp | | when the public intake form recorded consent; null for manual/CSV leads (module 01 refresh) |
 | `converted_company_id` | FK companies | | set on conversion |
 | `converted_opportunity_id` | FK opportunities | | set on conversion |
 
@@ -229,8 +232,14 @@ record (and the caller); anything that cannot be filled is left verbatim and rep
 | `status` | `ContractStatus` | ✓ | default `draft`; `signed` only via `mark-signed` |
 | `start_date` / `end_date` | date | | `end_date` drives the expiry/renewal countdown |
 | `signed_at` | timestamp | | set when signed |
-| `value` | decimal(15,2) | | engagement value |
+| `value` | decimal(15,2) | | negotiated headline value; never recomputed from rate cards |
 | `currency` | string | | default PHP |
+| `payment_terms` | string | | e.g. “Net 30” (module 01 refresh, ADR-0024) |
+| `po_reference` | string | | client purchase-order reference |
+| `auto_renew` | bool | | default false; a manual renewal chain still applies |
+| `notice_days` | int | | renewal/termination notice window |
+| `signatory_name` | string | | client signatory |
+| `signatory_position` | string | | client signatory role |
 | `terms` | text | | terms summary |
 | `notes` | text | | |
 | `file_path` / `file_name` / `file_size` / `file_mime` | string / int | | document on the private disk (ADR-0013 §2) |
@@ -239,7 +248,36 @@ record (and the caller); anything that cannot be filled is left verbatim and rep
 Soft deletes; a `signed` contract blocks deleting its company. Indexes: `status`, `company_id`,
 `opportunity_id`, `end_date`. Full contract/document management (e-signature, clause versions,
 several files per record) stays a separate module — Phase 1 ships one document plus term/status
-tracking.
+tracking. The module 01 refresh adds the commercial header above and the rate-card table below.
+
+### ContractRateCard (module 01 refresh, ADR-0024)
+
+| Field | Type | Req | Notes |
+| --- | --- | --- | --- |
+| `contract_id` | FK contracts | ✓ | cascades with the contract |
+| `site_id` | FK company_sites | | optional delivery site |
+| `role_title` | string | ✓ | the role being billed |
+| `headcount` | int | ✓ | ≥ 1; multiplies the line |
+| `billing_unit` | enum | ✓ | `hourly`, `monthly`, `placement` |
+| `bill_rate` | decimal(15,2) | ✓ | client-facing rate; visible to salesrep |
+| `pay_rate` | decimal(15,2) | | internal cost; manager+ only |
+| `units_per_period` | decimal(8,2) | | hours/month for hourly (default 176), 1 for monthly/placement |
+| `notes` | text | | |
+| `position` | int | ✓ | display order |
+
+Soft deletes. The set is replaced wholesale by `PUT /contracts/{id}/rate-cards`; a contract may have
+zero rows. `client_monthly_value`, `internal_monthly_cost`, `gross_margin`,
+`gross_margin_percent` and `estimated_total_value` are **computed on read**; nothing is stored.
+`pay_rate`/margin/estimated internal cost are omitted for salesreps. See spec 16 §Contract commercial
+model for the formulas.
+
+### External read-only feeds (module 01 refresh, ADR-0025)
+
+Recruitment job orders, deployments, timekeeping summaries and Finance AR/invoices are **not CRM
+tables**. They are read-only integration DTOs under `backend/app/Integrations/`, assembled on read and
+labelled with `meta.source`, `read_only` and `as_of`. The CRM never writes them; the only outbound
+integration remains the Service handoff. No candidate, worker or employee-level rows are stored or
+exposed.
 
 ## Attachment (built — module 03 slice S3)
 
@@ -287,6 +325,7 @@ others). At most one `nps` question per survey. `rating` is 1–5 and `nps` 0–
   `survey_answers.response_id+question_id`.
 - Index: `leads.status`, `leads.owner_id`, `companies.status`, `companies.owner_id`,
   `opportunities.stage`, `contracts.status`, `contracts.company_id`, `contracts.end_date`,
+  `contract_rate_cards.contract_id`, `contract_rate_cards.billing_unit`,
   `activities.subject_type+subject_id`, `survey_invitations.status+expires_at`,
   `survey_invitations.company_id`, `survey_responses.company_id`, `survey_responses.submitted_at`.
 - `companies.name` — soft-unique (warn, don't hard-fail).

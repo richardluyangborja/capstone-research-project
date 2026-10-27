@@ -6,7 +6,7 @@ as ADR live in `../../decisions/`. The roadmap (module order + numbering) is ADR
 shared data model, `01`–`09` are module 01's submodules, and `10+` is **one file per later module**,
 with that module's **delivery slices** declared in the file (ADR-0016).
 
-## Module 01 — Lead & Client Tracking (done)
+## Module 01 — Lead & Client Tracking (baseline done; refresh S0 docs landed)
 
 | File | Submodule |
 | --- | --- |
@@ -19,9 +19,14 @@ with that module's **delivery slices** declared in the file (ADR-0016).
 | `07-contact-management.md` | 7. Contact Management |
 | `08-lead-to-client-conversion.md` | 8. Lead-to-Client Conversion |
 | `09-client-account-lifecycle.md` | 9. Client Account Lifecycle |
+| `16-module-01-refresh.md` | **Refresh** — workspace/Account 360 consolidation, contract rate cards, read-only department feeds, public intake and modal sign-in (ADR-0023–0026) |
 
-Deferred **inside** module 01: 5. Duplicate Detection & Merge and advanced tiers/health scoring
-(ADR-0006). These are not "Phase 2" — they are tracked module-01 deferrals.
+The refresh extends the baseline files rather than replacing their history. Where a rule differs —
+navigation, commercial terms, read-only feeds, public intake or sign-in — `16` is the newer contract.
+
+Deferred **inside** module 01: 5. Duplicate Detection & Merge and **advanced** tiers/scoring
+(ADR-0006). The refresh adds **computed, explainable health flags** (ADR-0023), not a stored health
+score or automatic lifecycle transition. These remain tracked module-01 deferrals.
 
 ## Later modules (ADR-0014, ADR-0021)
 
@@ -34,6 +39,9 @@ Deferred **inside** module 01: 5. Duplicate Detection & Merge and advanced tiers
 | `14-dashboard-management-reports.md` | 6. Dashboard (cross-cutting) *(D1 + D2 built; D3 moved to module 07)* |
 | `15-ai-management-reports.md` | 7. AI Management Reports *(built — S1 + S2)* |
 
+`16-module-01-refresh.md` is the one exception to the `10+` numbering: it is a **refresh of Module 01**,
+not a later data module. Its ADRs (0023–0026) are the current decisions for that work.
+
 The dashboard layer was pulled ahead of module 05 S4 for the presentation and shipped **D1 with
 simulated data**; **D2** now serves the real endpoints and deleted the fixtures (spec `14`,
 ADR-0020). Its former **D3** became **Module 07 — AI Management Reports** (spec `15`, ADR-0021):
@@ -41,8 +49,9 @@ a read-only page over the dashboard data, with rules variants and the free Groq 
 behind a rules fallback. Module 07 is not a data module and adds no table.
 
 From module 02 on, the delivery unit is the **slice**, not the spec file: each spec declares its slices
-with their own acceptance criteria and each ships as its own PR (ADR-0016). Module 01 predates this and
-used one file (and one PR) per submodule.
+with their own acceptance criteria and each ships as its own PR (ADR-0016). Module 01's original
+submodules predate this and used one file (and one PR) per submodule; its **refresh follows the slice
+rule** (spec `16`, S1–S19).
 
 ## Shared conventions (proposed defaults — confirm before scaffolding)
 
@@ -85,7 +94,8 @@ used one file (and one PR) per submodule.
 
 Enforced **server-side** via policies combining role + ownership/team:
 
-- `salesrep` — own records only; sensitive fields (rate, budget, billing) stripped from responses.
+- `salesrep` — own records only; sensitive fields (pay rate, margin, billing) stripped from responses.
+  Client-facing bill rates and contract values are visible on their own accounts (ADR-0024).
 - `manager` — records owned by users in their team; sensitive fields read-only.
 - `admin`, `superadmin` — all records.
 
@@ -98,8 +108,9 @@ records are visible to manager+.
 - Reuse shared components: `DataTable`, `FormCard`, `PageHeader`, `StatusBadge`, `StatCard`,
   `EmptyState`, `AlertItem`. Never hardcode colors — use tokens.
 - Domain color mapping: counts=blue, people=green, activity=purple, cost=orange.
-- Suggested routes (dashboard): `/leads`, `/leads/:id`, `/companies`, `/companies/:id`,
-  `/contacts`, `/opportunities`, `/opportunities/:id`, `/pipeline`.
+- Suggested routes (dashboard): `/leads`, `/leads/:id`, `/accounts`, `/accounts/:id`,
+  `/contracts`, `/deployments`, `/billing`, `/contacts`, `/opportunities`, `/opportunities/:id`,
+  `/pipeline`. Module 01 refresh canonicalizes `/accounts`; `/companies` redirects (spec 16).
 
 ## Phase-1 event map (for wiring + mocks)
 
