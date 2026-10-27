@@ -416,12 +416,15 @@ badge; the AI card links to `/reports`), `/reports` (Module 07: Executive / Pipe
 tabs, period toggle, standard report with provenance, **Generate with AI**, the cached **Refresh AI
 report** path, the cooldown notice and the fallback info alert),
 `/login`,
-`/leads` (the Lead Workspace: All / My Leads / Unassigned / Team / Archived, inline
-owner control, bulk assign, status/rating/aging columns, "Stale only" filter), `/leads/new`,
-`/leads/:id` (qualification panel + lifecycle control + ownership + activity form + timeline +
-"Convert to client" when convertible, converted banner), `/leads/:id/convert` (3-step conversion
-wizard); the old `/qualification`, `/assignment`, `/lifecycle` and `/conversion` paths redirect to
-`/leads?view=qualification|unassigned|aging|conversion` (the saved views themselves land in S2),
+`/leads` (the Lead Workspace: URL-backed All / My Leads / Unassigned / Team / Needs qualification /
+Aging / Ready to convert / Archived views, saved-view counts, search + status/rating/urgency filters,
+inline owner control, bulk assign, status/rating/aging columns, "Stale only" filter; the Team view
+and Unassigned for manager+ carry open leads, overdue follow-ups, the unassigned queue, workload by
+rep and bulk transfer), `/leads/new` (a duplicate advisory links both the saved record and each
+existing match), `/leads/:id` (qualification panel + lifecycle control + ownership + activity form +
+timeline + "Convert to client" when convertible, converted banner), `/leads/:id/convert` (3-step
+conversion wizard); the old `/qualification`, `/assignment`, `/lifecycle` and `/conversion` paths
+redirect to `/leads?view=qualification|unassigned|aging|conversion`,
 `/accounts` (the account book: status/tier filters and pagination; the old `/clients` book is
 `/accounts?view=clients` once S3 lands), `/accounts/new` (manual creation), `/accounts/:id` (the old
 company detail: Overview / Contacts / Sites / Opportunities (row links + "Add deal", engagements
@@ -698,14 +701,18 @@ Dedup/merge and advanced/stored tier scoring are module-01 deferrals
 (ADR-0006), and automatic client aging stays one too (ADR-0018 §6). Other departments are consumed via
 **read-only mocked feeds** (ADR-0005, ADR-0025), not built here.
 
-**Module 01 refresh (S0 + S1 built — `specs/16`, ADR-0023–0026).** S0 is the planning contract and
+**Module 01 refresh (S0–S2 built — `specs/16`, ADR-0023–0026).** S0 is the planning contract and
 S1 is the shell: the sidebar is grouped by module, `/accounts` (plus `/accounts/new` and
 `/accounts/:id`) is the canonical account surface, and `/companies*`, `/clients`, `/qualification`,
 `/assignment`, `/lifecycle` and `/conversion` redirect with their query strings preserved. Dashboard
-and AI/report hrefs now point at the canonical routes. The later slices add the Lead Workspace saved
-views, Account Book, Account 360 five-tab grouping (Overview, People & Sites, Commercial, Delivery,
-Engagement), contract rate cards and read-only Recruitment/Deployment/Timekeeping/Finance feeds,
-computed account health, the public landing refresh with embedded intake and modal sign-in, and
-all-role CSV import with ownership rules. Read `resources/specs/16-module-01-refresh.md` before
-changing Module 01; the old `01`, `06` and `09` files remain the baseline for behavior the refresh
-does not replace.
+and AI/report hrefs now point at the canonical routes. S2 turns `/leads` into the Lead Workspace:
+`?view=all|mine|unassigned|team|qualification|aging|conversion|archived` drives the scoped list,
+the tab counters come from `GET /leads/summary`, and the manager view (Team, plus Unassigned for
+manager+) adds open leads, overdue follow-ups, the unassigned queue, per-rep workload and bulk
+transfer. The new-lead duplicate advisory links both the saved record and each existing duplicate.
+The later slices add the Account Book, Account 360 five-tab grouping (Overview, People & Sites,
+Commercial, Delivery, Engagement), contract rate cards and read-only
+Recruitment/Deployment/Timekeeping/Finance feeds, computed account health, the public landing refresh
+with embedded intake and modal sign-in, and all-role CSV import with ownership rules. Read
+`resources/specs/16-module-01-refresh.md` before changing Module 01; the old `01`, `06` and `09` files
+remain the baseline for behavior the refresh does not replace.

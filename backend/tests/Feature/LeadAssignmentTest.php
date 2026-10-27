@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Enums\ActivityType;
+use App\Enums\LeadStatus;
 use App\Models\Activity;
 use App\Models\Lead;
 use App\Models\Team;
@@ -212,15 +213,27 @@ class LeadAssignmentTest extends TestCase
         $manager = User::factory()->manager()->create(['team_id' => $team->id]);
         $rep = User::factory()->salesrep()->create(['team_id' => $team->id]);
 
-        Lead::factory()->create(['owner_id' => $rep->id]);
-        Lead::factory()->create(['owner_id' => null]);
+        Lead::factory()->create(['owner_id' => $rep->id, 'status' => LeadStatus::New]);
+        Lead::factory()->create(['owner_id' => null, 'status' => LeadStatus::Contacted]);
+        Lead::factory()->create(['owner_id' => $rep->id, 'status' => LeadStatus::Qualified]);
+        Lead::factory()->create(['owner_id' => $rep->id, 'status' => LeadStatus::Nurture]);
+        Lead::factory()->create([
+            'owner_id' => $rep->id,
+            'status' => LeadStatus::New,
+            'last_activity_at' => now()->subDays(35),
+        ]);
+        Lead::factory()->create(['owner_id' => $rep->id, 'status' => LeadStatus::Archived]);
 
         $this->actingAs($manager, 'api')
             ->getJson('/api/v1/leads/summary')
             ->assertOk()
-            ->assertJsonPath('data.all', 2)
+            ->assertJsonPath('data.all', 5)
             ->assertJsonPath('data.unassigned', 1)
-            ->assertJsonPath('data.team', 1);
+            ->assertJsonPath('data.team', 4)
+            ->assertJsonPath('data.qualification', 3)
+            ->assertJsonPath('data.aging', 1)
+            ->assertJsonPath('data.conversion', 1)
+            ->assertJsonPath('data.archived', 1);
     }
 
     public function test_timeline_endpoint_lists_assignment_history(): void

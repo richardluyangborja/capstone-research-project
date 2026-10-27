@@ -76,6 +76,11 @@ class LeadController extends Controller
                 'team' => $user->team_id !== null
                     ? $base()->whereHas('owner', fn ($query) => $query->where('team_id', $user->team_id))->count()
                     : 0,
+                'qualification' => $base()
+                    ->whereIn('status', [LeadStatus::New->value, LeadStatus::Contacted->value])
+                    ->count(),
+                'aging' => $base()->stale()->count(),
+                'conversion' => $base()->where('status', LeadStatus::Qualified->value)->count(),
                 'archived' => Lead::query()
                     ->visibleTo($user)
                     ->where('status', LeadStatus::Archived->value)

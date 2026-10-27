@@ -1,5 +1,6 @@
 import { api } from './api'
 import type {
+  FollowUpCounts,
   FollowUpsPage,
   GenerateRemindersResult,
   Task,
@@ -43,6 +44,14 @@ const buildParams = (filters: FollowUpFilters): Record<string, string> => {
 export const listFollowUps = async (filters: FollowUpFilters = {}): Promise<FollowUpsPage> => {
   const { data } = await api.get<FollowUpsPage>('/follow-ups', { params: buildParams(filters) })
   return data
+}
+
+/** The counters alone — the worklist header uses this when it does not need any rows. */
+export const getFollowUpCounts = async (filters: FollowUpFilters = {}): Promise<FollowUpCounts> => {
+  const { data } = await api.get<{ counts: FollowUpCounts }>('/follow-ups', {
+    params: { ...buildParams(filters), per_page: '1' },
+  })
+  return data.counts
 }
 
 export const getTask = async (id: string): Promise<Task> => {

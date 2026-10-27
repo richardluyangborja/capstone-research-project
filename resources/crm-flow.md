@@ -84,7 +84,7 @@ advanced tiers/health are **built** (ADR-0006). Detailed implementation specs li
 9. **Client Account Lifecycle** — client status/tier/health, owner, renewal linkage, dormancy/
    churn, win-back.
 
-### Module 01 refresh (S0 + S1 built — spec 16, ADR-0023–0026)
+### Module 01 refresh (S0–S2 built — spec 16, ADR-0023–0026)
 
 The refresh keeps the records above but consolidates the working surface:
 
@@ -92,6 +92,10 @@ The refresh keeps the records above but consolidates the working surface:
   Book, Contracts, Deployments, Billing) and Contacts. Qualification, assignment, lifecycle and
   conversion become saved views/actions inside the Lead Workspace; `/clients` is an Account Book view;
   `/companies` redirects to `/accounts`.
+- **Lead Workspace** — URL-backed All / My Leads / Unassigned / Team / Needs qualification / Aging /
+  Ready to convert / Archived views over the existing scoped lead queries, with rating and urgency
+  filters, a manager workload panel (open leads, overdue follow-ups, queue, per-rep load and bulk
+  transfer) and links from a new lead's duplicate advisory to the saved and existing records.
 - **Account 360** — five grouped tabs: Overview (journey, health, lifecycle), People & Sites,
   Commercial (opportunities, contracts/rate cards, billing), Delivery (read-only feeds), Engagement
   (communications, satisfaction, activities).
@@ -112,7 +116,7 @@ dashboard and AI reports are cross-cutting presentation layers, not data modules
 
 | Module | Name | Depends on | Spec |
 | --- | --- | --- | --- |
-| 01 | Lead & Client Tracking | — | `01`–`09` **(baseline built)** + `16` refresh (S0 + S1 built; S2–S19 planned) |
+| 01 | Lead & Client Tracking | — | `01`–`09` **(baseline built)** + `16` refresh (S0–S2 built; S3–S19 planned) |
 | 02 | Opportunity Pipeline Visualization | `Opportunity` record (08) | `10` **(built)** |
 | 03 | Communication History Management | objects from 01–02 | `11` **(built)** |
 | 04 | Follow-up Reminder System | 03 + notifications | `12` **(built)** |
