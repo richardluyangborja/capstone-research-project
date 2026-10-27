@@ -58,7 +58,7 @@ final class ManagementReportMap
         ],
         'churn' => [
             'domain' => 'activity',
-            'href' => '/clients',
+            'href' => '/accounts?view=clients',
             'link_label' => 'Review clients',
         ],
     ];
@@ -68,7 +68,7 @@ final class ManagementReportMap
         'open_pipeline' => '/pipeline',
         'open_board' => '/pipeline',
         'open_deals' => '/opportunities',
-        'open_clients' => '/clients',
+        'open_clients' => '/accounts?view=clients',
         'open_satisfaction' => '/satisfaction',
         'open_worklist' => '/follow-ups',
         'read_answers' => '/satisfaction/responses?attention=true',

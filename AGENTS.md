@@ -416,17 +416,17 @@ badge; the AI card links to `/reports`), `/reports` (Module 07: Executive / Pipe
 tabs, period toggle, standard report with provenance, **Generate with AI**, the cached **Refresh AI
 report** path, the cooldown notice and the fallback info alert),
 `/login`,
-`/leads` (views: All / My Leads / Unassigned / Team / Archived, inline
+`/leads` (the Lead Workspace: All / My Leads / Unassigned / Team / Archived, inline
 owner control, bulk assign, status/rating/aging columns, "Stale only" filter), `/leads/new`,
 `/leads/:id` (qualification panel + lifecycle control + ownership + activity form + timeline +
 "Convert to client" when convertible, converted banner), `/leads/:id/convert` (3-step conversion
-wizard), `/qualification` (worklist), `/assignment` (unassigned queue, team workload, bulk transfer),
-`/lifecycle` (aging / stale triage worklist), `/conversion` (qualified leads awaiting conversion),
-`/clients` (client book: accounts past prospect, lifecycle/tier filters, contract counts, links to
-the account), `/companies` (account book: status/tier filters and
-pagination), `/companies/new` (manual creation), `/companies/:id` (Overview / Contacts / Sites /
-Opportunities (row links + "Add deal", engagements summary links to the board) / Contracts /
-Communications / Satisfaction / Activities tabs; the Satisfaction tab carries the account's card
+wizard); the old `/qualification`, `/assignment`, `/lifecycle` and `/conversion` paths redirect to
+`/leads?view=qualification|unassigned|aging|conversion` (the saved views themselves land in S2),
+`/accounts` (the account book: status/tier filters and pagination; the old `/clients` book is
+`/accounts?view=clients` once S3 lands), `/accounts/new` (manual creation), `/accounts/:id` (the old
+company detail: Overview / Contacts / Sites / Opportunities (row links + "Add deal", engagements
+summary links to the board) / Contracts / Communications / Satisfaction / Activities tabs; the
+Account 360 five-tab regrouping is S4; the Satisfaction tab carries the account's card
 (latest CSAT/NPS, the four numbers, the promoter split, a CSAT trend, **Read every answer**) and
 lists its survey sends (state, recipient, sent/closes, **Copy link**, **Resend**, **Withdraw**, the
 score once answered) and, for whoever may update the account, **Send survey** opens the dialog — active survey,
@@ -435,12 +435,14 @@ contacts are editable by whoever owns the account, the Overview carries the clie
 the failed-handoff retry banner and the manager-only billing snapshot), `/contacts` (global contact
 book: search + role/status/
 company filters, rows link back
-to their account), `/pipeline` (Kanban board: open-stage columns with count/value/weighted totals,
+to their account). The old `/companies`, `/companies/new`, `/companies/:id` and `/clients` paths
+redirect to their `/accounts` equivalents while preserving the query string. `/pipeline` (Kanban
+board: open-stage columns with count/value/weighted totals,
 native drag-and-drop + a keyboard "Move to…" menu per card, a Lost-reason dialog, a Closed column for
 won/lost, owner/close-window/search filters and a forecast header), `/opportunities` (deal book:
 filters, pagination, summary), `/opportunities/new` (deal created directly on an account),
 `/opportunities/:id` (edit form, stage control, deal timeline + log-activity, linked contracts and
-"Create contract from deal" when won). `/companies/:id?tab=contracts&opportunity_id=…` opens the
+"Create contract from deal" when won). `/accounts/:id?tab=contracts&opportunity_id=…` opens the
 contract upload prefilled from a won deal. `/communications` (history book: summary cards, channel/
 direction/status/**due**/record-type/owner/date filters — the status picker names the scheduled count
 — a `?subject_type=&subject_id=` deep link and an admin
@@ -696,13 +698,14 @@ Dedup/merge and advanced/stored tier scoring are module-01 deferrals
 (ADR-0006), and automatic client aging stays one too (ADR-0018 §6). Other departments are consumed via
 **read-only mocked feeds** (ADR-0005, ADR-0025), not built here.
 
-**Module 01 refresh (S0 docs landed — `specs/16`, ADR-0023–0026).** No refresh implementation slice is
-built yet; S0 is the planning contract. The
-approved contract replaces the flat Module 01 navigation with a grouped tree (Lead Workspace, Account
-Book, Contracts, Deployments, Billing, Contacts), groups the account page into five tabs (Overview,
-People & Sites, Commercial, Delivery, Engagement), adds contract rate cards and read-only Recruitment/
-Deployment/Timekeeping/Finance feeds, computes account health without automatic lifecycle moves, and
-refreshes the public landing page with embedded intake and modal sign-in. CSV import becomes available
-to every role with ownership rules. Read `resources/specs/16-module-01-refresh.md` before changing
-Module 01; the old `01`, `06` and `09` files remain the baseline for behavior the refresh does not
-replace.
+**Module 01 refresh (S0 + S1 built — `specs/16`, ADR-0023–0026).** S0 is the planning contract and
+S1 is the shell: the sidebar is grouped by module, `/accounts` (plus `/accounts/new` and
+`/accounts/:id`) is the canonical account surface, and `/companies*`, `/clients`, `/qualification`,
+`/assignment`, `/lifecycle` and `/conversion` redirect with their query strings preserved. Dashboard
+and AI/report hrefs now point at the canonical routes. The later slices add the Lead Workspace saved
+views, Account Book, Account 360 five-tab grouping (Overview, People & Sites, Commercial, Delivery,
+Engagement), contract rate cards and read-only Recruitment/Deployment/Timekeeping/Finance feeds,
+computed account health, the public landing refresh with embedded intake and modal sign-in, and
+all-role CSV import with ownership rules. Read `resources/specs/16-module-01-refresh.md` before
+changing Module 01; the old `01`, `06` and `09` files remain the baseline for behavior the refresh
+does not replace.

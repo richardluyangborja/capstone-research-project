@@ -727,7 +727,7 @@ export default function CompanyDetail() {
     setSaving(true)
     try {
       await deleteCompany(id)
-      navigate('/companies')
+      navigate('/accounts')
     } catch (error) {
       setConfirmingDelete(false)
       handleFailure(error, 'Could not delete the company.')
@@ -744,8 +744,8 @@ export default function CompanyDetail() {
     return (
       <div>
         <AlertItem variant="danger">{message || 'Company not found.'}</AlertItem>
-        <Link to="/companies" className="mt-4 inline-block text-sm font-medium text-primary">
-          Back to companies
+        <Link to="/accounts" className="mt-4 inline-block text-sm font-medium text-primary">
+          Back to accounts
         </Link>
       </div>
     )
@@ -1057,11 +1057,11 @@ export default function CompanyDetail() {
   return (
     <div>
       <Link
-        to="/companies"
+        to="/accounts"
         className="mb-3 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-        Back to companies
+        Back to accounts
       </Link>
 
       <PageHeader
@@ -1515,7 +1515,7 @@ export default function CompanyDetail() {
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Parent</span>
                 {company.parent ? (
-                  <Link to={`/companies/${company.parent.id}`} className="font-medium text-primary">
+                  <Link to={`/accounts/${company.parent.id}`} className="font-medium text-primary">
                     {company.parent.name}
                   </Link>
                 ) : (
@@ -1532,7 +1532,7 @@ export default function CompanyDetail() {
                 <ul className="mt-3 flex flex-col gap-1 border-t border-border pt-3">
                   {branches.map((branch) => (
                     <li key={branch.id} className="text-sm">
-                      <Link to={`/companies/${branch.id}`} className="text-primary">
+                      <Link to={`/accounts/${branch.id}`} className="text-primary">
                         {branch.name}
                       </Link>
                       <span className="ml-2 font-mono text-xs text-muted-foreground">

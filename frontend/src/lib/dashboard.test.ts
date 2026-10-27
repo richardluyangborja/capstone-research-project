@@ -56,7 +56,7 @@ const summary = (overrides: Record<string, unknown> = {}) => ({
       domain: 'people',
       trend: { direction: 'up', value: 3, unit: 'count', tone: 'positive' },
       hint: 'Past prospect, not churned',
-      href: '/clients',
+      href: '/accounts?view=clients',
     },
     {
       id: 'follow-ups',
@@ -114,7 +114,7 @@ const summary = (overrides: Record<string, unknown> = {}) => ({
       title: 'Follow-up completed',
       detail: 'Prepare the crew schedule · Sunrise Foods Inc',
       occurred_at: '2026-10-24T02:00:00Z',
-      href: '/companies/company-1',
+      href: '/accounts/company-1',
     },
   ],
   ai: {

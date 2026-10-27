@@ -267,9 +267,9 @@ describe('Companies list', () => {
 describe('Company detail', () => {
   const renderDetail = () =>
     render(
-      <MemoryRouter initialEntries={['/companies/company-1']}>
+      <MemoryRouter initialEntries={['/accounts/company-1']}>
         <Routes>
-          <Route path="/companies/:id" element={<CompanyDetail />} />
+          <Route path="/accounts/:id" element={<CompanyDetail />} />
         </Routes>
       </MemoryRouter>,
     )

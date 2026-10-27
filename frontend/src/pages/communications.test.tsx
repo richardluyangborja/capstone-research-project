@@ -222,7 +222,7 @@ describe('Communication history book', () => {
     expect(within(row).getByText('Outbound')).toBeInTheDocument()
     expect(within(row).getByRole('link', { name: 'Sunrise Foods Inc' })).toHaveAttribute(
       'href',
-      '/companies/company-1',
+      '/accounts/company-1',
     )
 
     expect(screen.getByText('All entries')).toBeInTheDocument()
@@ -461,7 +461,7 @@ describe('Communication detail', () => {
     expect(await screen.findByText('Rates hold for 30 days.')).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Sunrise Foods Inc' })).toHaveAttribute(
       'href',
-      '/companies/company-1',
+      '/accounts/company-1',
     )
     // A sent message is a record of what was said — it cannot be edited (ADR-0017 §6).
     expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument()

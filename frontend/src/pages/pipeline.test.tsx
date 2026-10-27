@@ -312,6 +312,6 @@ describe('Deal detail', () => {
     renderDetail()
 
     const link = await screen.findByRole('link', { name: /create contract from deal/i })
-    expect(link).toHaveAttribute('href', '/companies/company-1?tab=contracts&opportunity_id=opp-1')
+    expect(link).toHaveAttribute('href', '/accounts/company-1?tab=contracts&opportunity_id=opp-1')
   })
 })

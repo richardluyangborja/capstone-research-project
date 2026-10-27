@@ -4,12 +4,9 @@ import {
   Building2,
   CalendarClock,
   ChevronDown,
-  ClipboardCheck,
   ClipboardList,
   FileText,
   Gauge,
-  Handshake,
-  History,
   Inbox,
   LayoutDashboard,
   LogOut,
@@ -19,11 +16,11 @@ import {
   Sparkles,
   SquareKanban,
   Target,
-  UserCheck,
   UserPlus,
   Users,
   type LucideIcon,
 } from 'lucide-react'
+import logo from '../../assets/logo.png'
 import { useAuth } from '../../lib/auth-context'
 import type { Role } from '../../types'
 
@@ -35,75 +32,108 @@ interface NavItem {
   end?: boolean
 }
 
-interface NavGroup {
-  label: string
+interface NavSection {
+  label?: string
   items: NavItem[]
 }
 
-// The CRM module map (resources/system-modules.md). Only **implemented** submodules are listed;
-// add new entries as their specs are built (resources/specs/).
+interface NavGroup {
+  label: string
+  sections: NavSection[]
+}
+
+// The CRM module map (resources/system-modules.md, spec 16 §Navigation and routes). Only
+// **implemented** destinations are listed; later slices add their entries as their pages land,
+// so the sidebar never carries a dead link.
 const primaryItems: NavItem[] = [{ to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard }]
 
 const groups: NavGroup[] = [
   {
     label: 'Lead & Client Tracking',
-    items: [
-      { to: '/leads', label: 'Lead Capture & Intake', icon: Inbox },
-      { to: '/qualification', label: 'Lead Qualification & Scoring', icon: ClipboardCheck },
-      { to: '/assignment', label: 'Lead Assignment & Ownership', icon: UserCheck },
-      { to: '/lifecycle', label: 'Lead Lifecycle & Status', icon: History },
-      { to: '/companies', label: 'Company / Account Management', icon: Building2 },
-      { to: '/contacts', label: 'Contact Management', icon: Users },
-      { to: '/conversion', label: 'Lead-to-Client Conversion', icon: UserPlus },
-      { to: '/clients', label: 'Client Account Lifecycle', icon: Handshake },
+    sections: [
+      {
+        label: 'Leads',
+        items: [
+          { to: '/leads', label: 'Lead Workspace', icon: Inbox, end: true },
+          { to: '/leads/new', label: 'Capture Lead', icon: UserPlus },
+        ],
+      },
+      {
+        label: 'Accounts',
+        items: [{ to: '/accounts', label: 'Account Book', icon: Building2, end: true }],
+      },
+      {
+        label: 'Contacts',
+        items: [{ to: '/contacts', label: 'Contact Book', icon: Users }],
+      },
     ],
   },
   {
     // Module 02 (ADR-0014 §1). Submodules 3–5 (stage/outcome, activity & timeline, forecast)
     // live inside these two screens rather than as separate destinations.
     label: 'Opportunity Pipeline Visualization',
-    items: [
-      { to: '/pipeline', label: 'Pipeline Board', icon: SquareKanban },
-      { to: '/opportunities', label: 'Deal Management', icon: Target },
-    ],
-  },
-  {
-    // Module 03 (ADR-0014 §1, ADR-0016). One entry per shipped slice: S1 is the log & the
-    // history book, S4 the conversations read back as threads; the template picker follows.
-    label: 'Communication History Management',
-    items: [
+    sections: [
       {
-        to: '/communications',
-        label: 'Communication Log & History',
-        icon: MessageSquare,
-        end: true,
+        label: 'Pipeline',
+        items: [
+          { to: '/pipeline', label: 'Pipeline Board', icon: SquareKanban },
+          { to: '/opportunities', label: 'Deal Book', icon: Target },
+        ],
       },
-      { to: '/communications/threads', label: 'Threaded Conversations', icon: MessagesSquare },
-      { to: '/communications/templates', label: 'Communication Templates', icon: FileText },
     ],
   },
   {
-    // Module 04 (ADR-0014 §1, ADR-0018, ADR-0016). One entry per shipped slice: S1 is the task
-    // and the worklist; the scheduled-message and notification slices follow.
-    label: 'Follow-up Reminder System',
-    items: [{ to: '/follow-ups', label: 'Follow-up Reminders', icon: CalendarClock }],
+    // Module 03 (ADR-0014 §1, ADR-0016). The log, its conversations and the reusable wording.
+    label: 'Communication History Management',
+    sections: [
+      {
+        label: 'History',
+        items: [
+          { to: '/communications', label: 'Log & History', icon: MessageSquare, end: true },
+          { to: '/communications/threads', label: 'Conversations', icon: MessagesSquare },
+        ],
+      },
+      {
+        label: 'Templates',
+        items: [{ to: '/communications/templates', label: 'Template Library', icon: FileText }],
+      },
+    ],
   },
   {
-    // Module 05 (ADR-0014 §1, ADR-0019, ADR-0016). One entry per shipped slice: S1 the library,
-    // S2 the invitations, S3 the answers and the satisfaction view; the closed loop follows.
+    // Module 04 (ADR-0014 §1, ADR-0018, ADR-0016). One worklist over tasks and scheduled sends.
+    label: 'Follow-up Reminder System',
+    sections: [
+      {
+        label: 'Worklist',
+        items: [{ to: '/follow-ups', label: 'Follow-up Worklist', icon: CalendarClock }],
+      },
+    ],
+  },
+  {
+    // Module 05 (ADR-0014 §1, ADR-0019, ADR-0016). The library and its sends, then the answers.
     label: 'Client Satisfaction & Survey',
-    items: [
-      { to: '/surveys', label: 'Survey Library', icon: ClipboardList },
-      { to: '/survey-invitations', label: 'Invitations', icon: Send },
-      { to: '/satisfaction', label: 'Satisfaction', icon: Gauge, end: true },
-      { to: '/satisfaction/responses', label: 'Responses', icon: MessagesSquare },
+    sections: [
+      {
+        label: 'Surveys',
+        items: [
+          { to: '/surveys', label: 'Survey Library', icon: ClipboardList },
+          { to: '/survey-invitations', label: 'Invitations', icon: Send },
+        ],
+      },
+      {
+        label: 'Feedback',
+        items: [
+          { to: '/satisfaction', label: 'Satisfaction', icon: Gauge, end: true },
+          { to: '/satisfaction/responses', label: 'Responses', icon: MessagesSquare },
+        ],
+      },
     ],
   },
   {
     // Module 07 (ADR-0021, spec 15). S1 owns the page and its rules variants; later AI
     // submodules join this group, never as dead links.
     label: 'AI Reports',
-    items: [{ to: '/reports', label: 'Management Reports', icon: Sparkles }],
+    sections: [{ items: [{ to: '/reports', label: 'Management Reports', icon: Sparkles }] }],
   },
 ]
 
@@ -111,14 +141,15 @@ export default function Sidebar({ role }: { role: Role }) {
   const { user, logout } = useAuth()
 
   return (
-    <aside className="flex w-64 shrink-0 flex-col border-r border-border bg-sidebar">
+    <aside
+      data-role={role}
+      className="flex w-64 shrink-0 flex-col border-r border-border bg-sidebar"
+    >
       <div className="flex items-center gap-3 border-b border-border px-4 py-4">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-          <Handshake className="h-5 w-5" aria-hidden="true" />
-        </span>
+        <img src={logo} alt="" aria-hidden="true" className="h-10 w-auto shrink-0 object-contain" />
         <div className="min-w-0">
-          <p className="text-sm font-semibold leading-tight text-foreground">
-            <span className="text-logo-brand">Primepower</span> Manpower Services
+          <p className="text-sm font-semibold leading-tight text-logo-brand">
+            Primepower Manpower Services
           </p>
           <p className="mt-0.5 text-xs leading-tight text-muted-foreground">
             Customer Relationship Management
@@ -149,9 +180,6 @@ export default function Sidebar({ role }: { role: Role }) {
             </p>
             <p className="truncate text-xs text-muted-foreground">{user?.email ?? ''}</p>
           </div>
-          <span className="shrink-0 rounded bg-secondary px-1.5 py-0.5 text-xs font-medium uppercase text-secondary-foreground">
-            {role}
-          </span>
           <button
             type="button"
             onClick={() => void logout()}
@@ -176,7 +204,7 @@ function NavGroupSection({ group }: { group: NavGroup }) {
         type="button"
         onClick={() => setOpen((value) => !value)}
         aria-expanded={open}
-        className="flex w-full items-center justify-between px-2 pb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground hover:text-foreground"
+        className="flex w-full items-center justify-between px-2 pb-1 text-xs font-semibold uppercase tracking-wide text-primary hover:text-primary/80"
       >
         {group.label}
         <ChevronDown
@@ -186,11 +214,20 @@ function NavGroupSection({ group }: { group: NavGroup }) {
       </button>
 
       {open && (
-        <ul className="mt-1 flex flex-col gap-1">
-          {group.items.map((item) => (
-            <NavRow key={item.to} item={item} end={item.end} />
+        <div className="mt-1 flex flex-col">
+          {group.sections.map((section, index) => (
+            <div key={section.label ?? index} className={index > 0 ? 'mt-2' : ''}>
+              {section.label && (
+                <p className="px-2 pb-1 pt-1 text-xs font-medium text-primary">{section.label}</p>
+              )}
+              <ul className="flex flex-col gap-1">
+                {section.items.map((item) => (
+                  <NavRow key={item.to} item={item} end={item.end} />
+                ))}
+              </ul>
+            </div>
           ))}
-        </ul>
+        </div>
       )}
     </div>
   )

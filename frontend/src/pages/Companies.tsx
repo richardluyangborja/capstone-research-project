@@ -14,10 +14,10 @@ import type { Company, CompanyStatus, CompanyTier } from '../types'
 const columns: DataTableColumn<Company>[] = [
   {
     key: 'name',
-    header: 'Company',
+    header: 'Account',
     render: (company) => (
       <>
-        <Link to={`/companies/${company.id}`} className="font-medium text-foreground">
+        <Link to={`/accounts/${company.id}`} className="font-medium text-foreground">
           {company.name}
         </Link>
         <div className="font-mono text-xs text-muted-foreground">{company.reference}</div>
@@ -116,15 +116,15 @@ export default function Companies() {
   return (
     <div>
       <PageHeader
-        title="Companies"
-        description="Accounts and prospects, with their sites, branches and activity."
+        title="Accounts"
+        description="Prospects and clients, with their sites, branches and activity."
         actions={
           <Link
-            to="/companies/new"
+            to="/accounts/new"
             className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground"
           >
             <Plus className="h-4 w-4" aria-hidden="true" />
-            New company
+            New account
           </Link>
         }
       />
@@ -203,15 +203,15 @@ export default function Companies() {
         }}
         empty={
           <EmptyState
-            title="No companies yet"
+            title="No accounts yet"
             description="Add an existing client, or convert a qualified lead."
             action={
               <Link
-                to="/companies/new"
+                to="/accounts/new"
                 className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground"
               >
                 <Plus className="h-4 w-4" aria-hidden="true" />
-                New company
+                New account
               </Link>
             }
           />

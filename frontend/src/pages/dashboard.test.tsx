@@ -63,7 +63,7 @@ const managerDashboard: DashboardData = {
       id: 'qualified',
       label: 'Qualified leads',
       value: '31',
-      to: '/qualification',
+      to: '/leads?view=qualification',
       trend: { direction: 'up', label: '+11% vs previous 30 days', tone: 'positive' },
     }),
     kpi({
@@ -97,7 +97,7 @@ const managerDashboard: DashboardData = {
       label: 'Active clients',
       value: '12',
       domain: 'people',
-      to: '/clients',
+      to: '/accounts?view=clients',
       trend: { direction: 'up', label: '+3 accounts', tone: 'positive' },
     }),
     kpi({
@@ -168,7 +168,7 @@ const managerDashboard: DashboardData = {
       due: '3 days',
       severity: 'warning',
       action: 'Claim lead',
-      to: '/assignment',
+      to: '/leads?view=unassigned',
       minTier: 'team',
     },
   ],
@@ -283,7 +283,7 @@ const managerDashboard: DashboardData = {
         id: 'ai-action-people',
         label: 'Review the staff scorecard',
         description: 'Compare CRM output with core2 attendance.',
-        to: '/assignment',
+        to: '/leads?view=team',
       },
     ],
   },
@@ -303,7 +303,7 @@ const managerDashboard: DashboardData = {
       title: '2 contracts expire within 30 days',
       body: 'Harbor Logistics renews on 29 Oct; BPO follows in November.',
       link_label: 'Open clients',
-      to: '/clients',
+      to: '/accounts?view=clients',
       minTier: 'team',
     },
   ],
@@ -322,7 +322,7 @@ const managerDashboard: DashboardData = {
       title: 'Lead qualified',
       detail: 'Metro Builders passed the minimum criteria',
       when: 'Yesterday',
-      to: '/qualification',
+      to: '/leads?view=qualification',
     },
   ],
 }
@@ -389,9 +389,12 @@ describe('dashboard home', () => {
 
     expect(screen.getByRole('link', { name: 'Metro Builders' })).toHaveAttribute(
       'href',
-      '/assignment',
+      '/leads?view=unassigned',
     )
-    expect(screen.getByRole('link', { name: /Claim lead/ })).toHaveAttribute('href', '/assignment')
+    expect(screen.getByRole('link', { name: /Claim lead/ })).toHaveAttribute(
+      'href',
+      '/leads?view=unassigned',
+    )
   })
 
   it('renders the AI report and links its insights and actions', async () => {

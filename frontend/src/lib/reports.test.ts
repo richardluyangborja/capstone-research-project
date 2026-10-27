@@ -28,7 +28,7 @@ const wire = (overrides: Record<string, unknown> = {}) => ({
         id: 'open_clients',
         label: 'Review the client book',
         description: 'Check lifecycle and renewals.',
-        href: '/clients',
+        href: '/accounts?view=clients',
       },
     ],
     generated_at: '2026-10-24T04:00:00Z',
@@ -79,7 +79,7 @@ describe('getManagementReport', () => {
       to: '/satisfaction/responses?attention=true',
       link_label: 'Read the answers',
     })
-    expect(result.report.actions[0].to).toBe('/clients')
+    expect(result.report.actions[0].to).toBe('/accounts?view=clients')
     expect(result.meta.ai_available).toBe(false)
     expect(result.meta.variants).toEqual(['executive', 'pipeline', 'client_health'])
   })
@@ -162,8 +162,6 @@ describe('generateManagementReport', () => {
   it('rethrows any other generation failure', async () => {
     post.mockRejectedValue(new Error('ai service is down'))
 
-    await expect(generateManagementReport('30d', 'executive')).rejects.toThrow(
-      'ai service is down',
-    )
+    await expect(generateManagementReport('30d', 'executive')).rejects.toThrow('ai service is down')
   })
 })

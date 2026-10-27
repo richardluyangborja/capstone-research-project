@@ -17,7 +17,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Contracts of one company — the Contracts tab on `/companies/:id` (spec 09). Creation
+ * Contracts of one company — the Contracts tab on `/accounts/:id` (spec 09). Creation
  * lives here; the flat routes handle a single contract.
  */
 class CompanyContractController extends Controller

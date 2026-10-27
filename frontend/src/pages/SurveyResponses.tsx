@@ -96,7 +96,7 @@ export default function SurveyResponses() {
       render: (response) => (
         <div className="min-w-0">
           <Link
-            to={response.company ? `/companies/${response.company.id}?tab=satisfaction` : '#'}
+            to={response.company ? `/accounts/${response.company.id}?tab=satisfaction` : '#'}
             className="font-medium text-foreground hover:text-primary"
           >
             {response.company?.name ?? '—'}

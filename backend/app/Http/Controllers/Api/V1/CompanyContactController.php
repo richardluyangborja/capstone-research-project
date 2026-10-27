@@ -15,7 +15,7 @@ use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Contacts of one company — the Contacts tab on `/companies/:id` (spec 07).
+ * Contacts of one company — the Contacts tab on `/accounts/:id` (spec 07).
  */
 class CompanyContactController extends Controller
 {

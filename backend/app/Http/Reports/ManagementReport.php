@@ -177,7 +177,7 @@ final class ManagementReport
                     'id' => 'open_clients',
                     'label' => 'Review the client book',
                     'description' => 'Check lifecycle, renewals and account health.',
-                    'href' => '/clients',
+                    'href' => '/accounts?view=clients',
                 ],
             ],
         ];
@@ -359,7 +359,7 @@ final class ManagementReport
                     'body' => $atRisk.' at risk, '.$dormant.' dormant and '.$churned.' churned in view.'
                         .($expiring > 0 ? ' '.$expiring.' '.$this->plural($expiring, 'contract').' expire soon.' : ''),
                     'domain' => 'activity',
-                    'href' => '/clients',
+                    'href' => '/accounts?view=clients',
                     'link_label' => 'Review clients',
                 ],
             ],
@@ -380,7 +380,7 @@ final class ManagementReport
                     'id' => 'open_clients',
                     'label' => 'Review the client book',
                     'description' => 'Check lifecycle, renewals and the accounts at risk.',
-                    'href' => '/clients',
+                    'href' => '/accounts?view=clients',
                 ],
                 [
                     'id' => 'open_followups',

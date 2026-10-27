@@ -56,7 +56,7 @@ export default function Satisfaction() {
       render: (response) => (
         <div className="flex flex-col">
           <Link
-            to={response.company ? `/companies/${response.company.id}?tab=satisfaction` : '#'}
+            to={response.company ? `/accounts/${response.company.id}?tab=satisfaction` : '#'}
             className="font-medium text-foreground hover:text-primary"
           >
             {response.company?.name ?? '—'}
@@ -134,7 +134,7 @@ export default function Satisfaction() {
       render: (response) => (
         <div className="flex flex-col">
           <Link
-            to={response.company ? `/companies/${response.company.id}?tab=satisfaction` : '#'}
+            to={response.company ? `/accounts/${response.company.id}?tab=satisfaction` : '#'}
             className="font-medium text-foreground hover:text-primary"
           >
             {response.company?.name ?? '—'}

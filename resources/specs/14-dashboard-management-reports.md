@@ -241,17 +241,17 @@ are fixed in spec `15`.
 
 | Element | Destination |
 | --- | --- |
-| New leads · Qualified | `/leads` · `/qualification` |
+| New leads · Qualified | `/leads` · `/leads?view=qualification` |
 | Open pipeline · Revenue won · Win rate | `/pipeline` · `/opportunities` |
-| Active clients · Needs attention | `/clients` · `/satisfaction/responses?attention=true` |
+| Active clients · Needs attention | `/accounts?view=clients` · `/satisfaction/responses?attention=true` |
 | Follow-ups due | `/follow-ups` |
 | Line chart `Leads` | `/leads` |
 | Donut legend + `Board` | `/pipeline` |
 | Worklist rows and actions | the module page owning the item |
 | Alerts | the worklist/book they summarise |
 | Activity rows | the record's module page |
-| Staff `Team workload` | `/assignment` |
-| AI insights / actions | `/satisfaction/responses?attention=true`, `/pipeline`, `/follow-ups`, `/assignment` |
+| Staff `Team workload` | `/leads?view=team` |
+| AI insights / actions | `/satisfaction/responses?attention=true`, `/pipeline`, `/follow-ups`, `/accounts?view=clients`, `/leads?view=team` |
 
 The response book reads `?attention=` (and `?band=`) from the URL, so an "attention" link lands
 pre-filtered; `/satisfaction/responses?company=` already existed (S3).

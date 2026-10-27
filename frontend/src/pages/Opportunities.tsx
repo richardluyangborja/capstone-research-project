@@ -30,7 +30,7 @@ const columns: DataTableColumn<Opportunity>[] = [
     header: 'Account',
     render: (deal) =>
       deal.company ? (
-        <Link to={`/companies/${deal.company.id}`} className="text-foreground hover:underline">
+        <Link to={`/accounts/${deal.company.id}`} className="text-foreground hover:underline">
           {deal.company.name}
         </Link>
       ) : (

@@ -10,7 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 /**
- * The Opportunities tab on `/companies/:id` (spec 06 §API, built in submodule 08).
+ * The Opportunities tab on `/accounts/:id` (spec 06 §API, built in submodule 08).
  * Read-only: conversion opens deals, and stage moves belong to the pipeline module.
  */
 class CompanyOpportunityController extends Controller

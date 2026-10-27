@@ -200,7 +200,7 @@ describe('the follow-up worklist', () => {
     )
     expect(screen.getByRole('link', { name: 'Sunrise Foods Inc' })).toHaveAttribute(
       'href',
-      '/companies/company-1',
+      '/accounts/company-1',
     )
     // The header counts the work, and a completed task is only counted, not listed.
     expect(screen.getByText('Completed')).toBeInTheDocument()
