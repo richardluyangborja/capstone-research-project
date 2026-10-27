@@ -596,15 +596,17 @@ Sunrise one as unresolved work through the real path — its answer raises the o
 - **Delivery unit is the slice, not the spec file** (ADR-0016). From module 02 on, one spec file covers a
   module and declares its **delivery slices** (each demoable end to end, with its own acceptance
   criteria). Planning docs (spec + ADRs) land first; then **one PR per slice**, merged and the branch
-  deleted. Module 01 predates this: one file and one PR per submodule. A module whose work is genuinely
-  one increment says so in the spec instead of splitting (module 02 = one slice; module 03 = five).
+  deleted. Module 01's original submodules predate this (one file and one PR each); its refresh follows
+  the slice rule (`specs/16`, S0–S19). After the user reviews and approves a slice PR, **the agent
+  merges it, deletes the branch, and starts the next slice from updated `main`** — never before.
 - **Seeds:** do **not** use faker. Data is seeded for a production/demo proposal, not real business.
-- **Other-department integrations are mocked in `backend/app/Integrations/`** (ADR-0005, ADR-0013 §4):
-  an interface + a `Mock*` driver (bound in `AppServiceProvider`) + `final readonly` DTOs. This is the
-  one deliberate new base folder under `backend/app/` — do not add others without approval. Driver
-  behaviour is deterministic, never faker: `CRM_HANDOFF_SIMULATE_FAILURE=true` makes the Service
-  handoff fail (that is how the retry path is demoed and tested), and the Finance billing snapshot is
-  derived from the company reference.
+- **Other-department integrations are read-only feeds mocked in `backend/app/Integrations/`**
+  (ADR-0005, ADR-0013 §4, ADR-0025): an interface + a `Mock*` driver (bound in `AppServiceProvider`) +
+  `final readonly` DTOs. This is the one deliberate new base folder under `backend/app/` — do not add
+  others without approval. Driver behaviour is deterministic, never faker:
+  `CRM_HANDOFF_SIMULATE_FAILURE=true` makes the Service handoff fail (that is how the retry path is
+  demoed and tested), and the Finance billing snapshot is derived from the company reference. The CRM
+  does not write Recruitment, Deployment, Timekeeping or Finance operations or store their records.
 - **Icons:** use `lucide` (lucide-react) only.
 - **Locale / currency is PH-based:** `en-PH`, `Asia/Manila` (store UTC), dates `DD MMM YYYY`, PH
   address/phone formats, and **single currency PHP (₱)** — no multi-currency.
@@ -654,6 +656,7 @@ Design docs an agent should read before touching CRM features:
 - `resources/business-flow.md` — business context and end-to-end flow
 - `resources/crm-flow.md` — object model, pipelines, submodules, integrations, role visibility
 - `resources/specs/` — per-submodule implementation specs (data model, API, UI, acceptance criteria)
+- `resources/specs/16-module-01-refresh.md` — the Module 01 refresh delivery contract (ADR-0023–0026)
 - `decisions/` — accepted design decisions (ADRs)
 - `DEPLOYMENT.md` — local vs deployed environment variables, Neon Postgres, per-app build/start
   commands, persistent storage and CORS
@@ -689,6 +692,17 @@ built**: the `/reports` page, `GET /reports/management`, the three rules variant
 link and `POST /reports/management/generate` behind the authenticated `ai/` Groq seam (shared
 `AI_SERVICE_TOKEN`) with cache, cooldown, daily caps and the rules fallback. S3/S4 (record catch-up
 summaries, message drafting) are future submodules.
-Dedup/merge and advanced tiers are module-01 deferrals
+Dedup/merge and advanced/stored tier scoring are module-01 deferrals
 (ADR-0006), and automatic client aging stays one too (ADR-0018 §6). Other departments are consumed via
-**mocked integrations** (ADR-0005), not built here.
+**read-only mocked feeds** (ADR-0005, ADR-0025), not built here.
+
+**Module 01 refresh (S0 docs landed — `specs/16`, ADR-0023–0026).** No refresh implementation slice is
+built yet; S0 is the planning contract. The
+approved contract replaces the flat Module 01 navigation with a grouped tree (Lead Workspace, Account
+Book, Contracts, Deployments, Billing, Contacts), groups the account page into five tabs (Overview,
+People & Sites, Commercial, Delivery, Engagement), adds contract rate cards and read-only Recruitment/
+Deployment/Timekeeping/Finance feeds, computes account health without automatic lifecycle moves, and
+refreshes the public landing page with embedded intake and modal sign-in. CSV import becomes available
+to every role with ownership rules. Read `resources/specs/16-module-01-refresh.md` before changing
+Module 01; the old `01`, `06` and `09` files remain the baseline for behavior the refresh does not
+replace.
