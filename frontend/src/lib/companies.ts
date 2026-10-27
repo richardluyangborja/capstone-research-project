@@ -91,6 +91,28 @@ export const updateCompany = async (id: string, input: Partial<CompanyInput>): P
   return data.data
 }
 
+/**
+ * Delegation (module 01 refresh S5, spec 16 §Account delegation). The new owner is notified and
+ * the move is written to the account timeline, so the UI never reassigns through a plain PATCH.
+ */
+export const assignCompany = async (id: string, ownerId: number): Promise<Company> => {
+  const { data } = await api.post<{ data: Company }>(`/companies/${id}/assign`, {
+    owner_id: ownerId,
+  })
+  return data.data
+}
+
+export const bulkAssignCompanies = async (
+  companyIds: string[],
+  ownerId: number,
+): Promise<{ assigned: number; unchanged: number }> => {
+  const { data } = await api.post<{ data: { assigned: number; unchanged: number } }>(
+    '/companies/bulk-assign',
+    { company_ids: companyIds, owner_id: ownerId },
+  )
+  return data.data
+}
+
 export const deleteCompany = async (id: string): Promise<void> => {
   await api.delete(`/companies/${id}`)
 }

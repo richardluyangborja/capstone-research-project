@@ -11,6 +11,7 @@ import CommunicationList from '../components/common/CommunicationList'
 import CompanySatisfactionPanel from '../components/common/CompanySatisfactionPanel'
 import JourneyStepper, { type JourneyStep } from '../components/common/JourneyStepper'
 import {
+  assignCompany,
   createCompanySite,
   deleteCompany,
   deleteCompanySite,
@@ -520,11 +521,20 @@ export default function CompanyDetail() {
   }
 
   const onAssign = async (ownerId: number) => {
+    if (!company || ownerId === company.owner_id) return
     setSaving(true)
     try {
-      const updated = await updateCompany(id, { owner_id: ownerId })
+      const updated = await assignCompany(id, ownerId)
       setCompany(updated)
-      succeed('Owner updated.')
+      succeed('Owner updated. The new owner was notified.')
+
+      // The assignment lands on the timeline as a system activity (spec 16 S5); a refresh miss
+      // must not turn a successful handover into an error message.
+      try {
+        setActivities((await getCompanyTimeline(id)).data)
+      } catch {
+        // The account page still shows the new owner.
+      }
     } catch (error) {
       handleFailure(error, 'Could not reassign this company.')
     } finally {
@@ -825,6 +835,8 @@ export default function CompanyDetail() {
   const hasSourceLead = company.source_lead_id !== null
   const hasSignedContract = contracts.some((contract) => contract.status === 'signed')
   const handoffAccepted = company.handoff.status === 'sent'
+  // A salesrep only ever sees themselves in the target list; there is nothing to choose.
+  const assignTargets = targets.filter((target) => target.id !== company.owner_id)
   const journey = [
     {
       key: 'captured',
@@ -1623,26 +1635,29 @@ export default function CompanyDetail() {
                 </span>
               </div>
 
-              {company.can_assign && (
+              {company.can_assign && assignTargets.length > 0 && (
                 <div className="mt-3">
                   <Field label="Reassign to">
                     <select
-                      value={company.owner_id}
+                      value=""
                       disabled={saving}
-                      onChange={(event) => void onAssign(Number(event.target.value))}
+                      onChange={(event) => {
+                        const next = Number(event.target.value)
+                        if (next) void onAssign(next)
+                      }}
                       className={inputClass}
                     >
-                      {targets.map((target) => (
+                      <option value="">Choose a new owner…</option>
+                      {assignTargets.map((target) => (
                         <option key={target.id} value={target.id}>
                           {target.name}
                         </option>
                       ))}
-                      {company.owner &&
-                        !targets.some((target) => target.id === company.owner_id) && (
-                          <option value={company.owner_id}>{company.owner.name}</option>
-                        )}
                     </select>
                   </Field>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    The new owner is notified and the move is logged on the timeline.
+                  </p>
                 </div>
               )}
             </FormCard>

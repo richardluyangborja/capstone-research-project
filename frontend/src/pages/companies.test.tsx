@@ -236,6 +236,8 @@ vi.mock('../lib/companies', () => ({
     meta: { source: 'Finance (mocked)', read_only: true, as_of: '2026-10-17T00:00:00+00:00' },
   }),
   updateCompany: vi.fn(),
+  assignCompany: vi.fn().mockResolvedValue(company),
+  bulkAssignCompanies: vi.fn().mockResolvedValue({ assigned: 1, unchanged: 0 }),
   updateCompanyLifecycle: vi.fn().mockResolvedValue(company),
   reactivateCompany: vi.fn().mockResolvedValue(company),
   retryCompanyHandoff: vi.fn().mockResolvedValue(company),
@@ -255,7 +257,10 @@ vi.mock('../lib/contacts', () => ({
 }))
 
 vi.mock('../lib/leads', () => ({
-  getAssignableUsers: vi.fn().mockResolvedValue([{ id: 1, name: 'Sam Salesrep', team_id: null }]),
+  getAssignableUsers: vi.fn().mockResolvedValue([
+    { id: 1, name: 'Sam Salesrep', team_id: null },
+    { id: 2, name: 'Liza Lopez', team_id: null },
+  ]),
   parseValidationError: vi.fn().mockReturnValue(null),
 }))
 
@@ -359,6 +364,27 @@ describe('Companies list', () => {
         expect.objectContaining({ owner_id: 1, industry: 'food' }),
       ),
     )
+  })
+
+  it('bulk assigns the selected accounts to one owner', async () => {
+    render(
+      <MemoryRouter>
+        <Companies />
+      </MemoryRouter>,
+    )
+
+    await screen.findByRole('link', { name: 'Sunrise Foods Inc' })
+
+    fireEvent.click(screen.getByLabelText('Select company-1'))
+    fireEvent.change(screen.getByLabelText('Assign selected accounts to'), {
+      target: { value: '2' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Assign selected' }))
+
+    await waitFor(() =>
+      expect(companyApi.bulkAssignCompanies).toHaveBeenCalledWith(['company-1'], 2),
+    )
+    expect(await screen.findByText(/Assigned 1 account/)).toBeInTheDocument()
   })
 })
 
@@ -601,6 +627,22 @@ describe('Company detail', () => {
     })
     expect(screen.getByRole('button', { name: 'Save contract' })).toBeInTheDocument()
     expect(screen.getByText(/From deal/)).toBeInTheDocument()
+  })
+
+  it('reassigns the account through the delegation endpoint', async () => {
+    renderDetail()
+
+    await screen.findByRole('heading', { name: 'Sunrise Foods Inc' })
+
+    // The current owner is not an option — only someone else can be chosen.
+    expect(screen.queryByRole('option', { name: 'Sam Salesrep' })).not.toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText('Reassign to'), { target: { value: '2' } })
+
+    await waitFor(() => expect(companyApi.assignCompany).toHaveBeenCalledWith('company-1', 2))
+    expect(
+      await screen.findByText('Owner updated. The new owner was notified.'),
+    ).toBeInTheDocument()
   })
 })
 

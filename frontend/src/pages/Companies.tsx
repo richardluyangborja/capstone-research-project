@@ -6,7 +6,7 @@ import StatusBadge from '../components/common/StatusBadge'
 import EmptyState from '../components/common/EmptyState'
 import AlertItem from '../components/common/AlertItem'
 import DataTable, { type DataTableColumn } from '../components/common/DataTable'
-import { listCompanies } from '../lib/companies'
+import { bulkAssignCompanies, listCompanies } from '../lib/companies'
 import { getAssignableUsers } from '../lib/leads'
 import { companyStatusMeta, companyTierLabels } from '../lib/companyMeta'
 import { followUpDueMeta } from '../lib/followUpMeta'
@@ -161,9 +161,17 @@ export default function Companies() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
+  // Delegation (spec 16 S5): manager+ hand a batch of accounts to one owner without leaving the book.
+  const canBulkAssign = user !== null && user.role !== 'salesrep' && targets.length > 0
+  const [selected, setSelected] = useState<string[]>([])
+  const [bulkOwner, setBulkOwner] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [notice, setNotice] = useState('')
+
   const load = useCallback(async (targetPage: number, filters: AccountFilters) => {
     setLoading(true)
     setError('')
+    setSelected([])
     try {
       const [response, assignable] = await Promise.all([
         listCompanies({
@@ -222,6 +230,7 @@ export default function Companies() {
   const changeView = (next: BookView) => {
     if (next === view) return
 
+    setNotice('')
     const params = new URLSearchParams(searchParams)
     if (next === 'all') {
       params.delete('view')
@@ -245,6 +254,27 @@ export default function Companies() {
     setOwner('')
     setIndustry('')
     void load(1, { search: '', status: '', tier: '', owner: '', industry: '', view })
+  }
+
+  const onBulkAssign = async () => {
+    if (!bulkOwner || selected.length === 0) return
+    setBusy(true)
+    setError('')
+    setNotice('')
+    try {
+      const result = await bulkAssignCompanies(selected, Number(bulkOwner))
+      setBulkOwner('')
+      setNotice(
+        result.assigned === 0
+          ? 'Those accounts already belong to that owner.'
+          : `Assigned ${result.assigned} account${result.assigned === 1 ? '' : 's'}. The new owner was notified.`,
+      )
+      await load(page, filters)
+    } catch {
+      setError('Could not assign the selected accounts.')
+    } finally {
+      setBusy(false)
+    }
   }
 
   return (
@@ -370,6 +400,12 @@ export default function Companies() {
         )}
       </form>
 
+      {notice && (
+        <div className="mb-4">
+          <AlertItem variant="success">{notice}</AlertItem>
+        </div>
+      )}
+
       {error && (
         <div className="mb-4">
           <AlertItem variant="danger">{error}</AlertItem>
@@ -381,6 +417,46 @@ export default function Companies() {
         rows={companies}
         rowKey={(company) => company.id}
         loading={loading}
+        selection={
+          canBulkAssign
+            ? {
+                selected,
+                onToggle: (key) =>
+                  setSelected((previous) =>
+                    previous.includes(key)
+                      ? previous.filter((entry) => entry !== key)
+                      : [...previous, key],
+                  ),
+                onToggleAll: (keys, checked) => setSelected(checked ? keys : []),
+                onClear: () => setSelected([]),
+              }
+            : undefined
+        }
+        bulkActions={
+          <>
+            <select
+              value={bulkOwner}
+              onChange={(event) => setBulkOwner(event.target.value)}
+              aria-label="Assign selected accounts to"
+              className="rounded-md border border-input bg-card px-2 py-1.5 text-sm text-foreground outline-none focus:ring-2 focus:ring-ring"
+            >
+              <option value="">Assign to…</option>
+              {targets.map((target) => (
+                <option key={target.id} value={target.id}>
+                  {target.name}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              disabled={busy || !bulkOwner}
+              onClick={() => void onBulkAssign()}
+              className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground disabled:opacity-60"
+            >
+              Assign selected
+            </button>
+          </>
+        }
         pagination={{
           currentPage: page,
           lastPage,
