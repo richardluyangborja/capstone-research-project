@@ -37,6 +37,12 @@ export const createContract = async (
     ['start_date', input.start_date],
     ['end_date', input.end_date],
     ['value', input.value ?? undefined],
+    ['payment_terms', input.payment_terms],
+    ['po_reference', input.po_reference],
+    ['auto_renew', input.auto_renew ? '1' : undefined],
+    ['notice_days', input.notice_days ?? undefined],
+    ['signatory_name', input.signatory_name],
+    ['signatory_position', input.signatory_position],
     ['terms', input.terms],
     ['notes', input.notes],
     ['status', input.status],
@@ -57,6 +63,12 @@ export interface ContractUpdate {
   start_date?: string | null
   end_date?: string | null
   value?: number | null
+  payment_terms?: string | null
+  po_reference?: string | null
+  auto_renew?: boolean
+  notice_days?: number | null
+  signatory_name?: string | null
+  signatory_position?: string | null
   terms?: string | null
   notes?: string | null
   status?: ContractStatus

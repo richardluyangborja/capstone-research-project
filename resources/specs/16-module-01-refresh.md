@@ -6,7 +6,8 @@ health), **0024** (contract rate cards), **0025** (read-only feeds), **0026** (p
 sign-in), plus 0004, 0005, 0007, 0010, 0013, 0014, 0016.
 
 > **S0 — planning contract (merged). S1 — shell & routes (built). S2 — Lead Workspace (built).
-> S3 — Account Book (built). S4 — Account 360 (built). S5 — account delegation (built).** S0 is this
+> S3 — Account Book (built). S4 — Account 360 (built). S5 — account delegation (built).
+> S6 — contract commercial header (built).** S0 is this
 > contract plus its ADRs; S1
 > shipped the grouped sidebar, canonical routes, redirects and canonical dashboard/AI hrefs; S2
 > shipped the saved views, manager workload panel and duplicate links; S3 shipped the scoped
@@ -14,7 +15,9 @@ sign-in), plus 0004, 0005, 0007, 0010, 0013, 0014, 0016.
 > count; S4 shipped the five grouped tabs, the derived journey stepper, the account header summary,
 > the Delivery handoff/feed placeholder and moved lifecycle fields out of the profile form; S5
 > shipped single/bulk account assignment with the `CompanyAssigned` activity + notification and the
-> Account Book batch handover. S6–S19
+> Account Book batch handover; S6 shipped the contract commercial header fields, their validation,
+> the upload/edit form, the resource payload, renewal prefill and the account-timeline edit record.
+> S7–S19
 > each ship on their own `feature/module-01-*` branch and merge to `main` only after review. The
 > branch is deleted after merge, and the next slice starts from the updated `main`.
 

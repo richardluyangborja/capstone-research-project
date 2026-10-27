@@ -43,6 +43,7 @@ import {
   downloadContractFile,
   listCompanyContracts,
   markContractSigned,
+  updateContract,
 } from '../lib/contracts'
 import { getAssignableUsers, parseValidationError } from '../lib/leads'
 import { listCompanyOpportunities } from '../lib/opportunities'
@@ -128,14 +129,22 @@ interface ContactForm {
   is_primary: boolean
 }
 
-/** Upload form for a contract — the signed document is part of the record (spec 09). */
+/** Upload/edit form for a contract — the signed document is part of the record (spec 09). */
 interface ContractForm {
+  /** Set when editing an existing header; null while uploading a new agreement. */
+  id: string | null
   file: File | null
   title: string
   status: ContractStatus
   start_date: string
   end_date: string
   value: string
+  payment_terms: string
+  po_reference: string
+  auto_renew: boolean
+  notice_days: string
+  signatory_name: string
+  signatory_position: string
   terms: string
   renewal_of_contract_id: string
   /** Set when the contract is created from a won deal (module 02 §5). */
@@ -173,16 +182,43 @@ const emptyContact: ContactForm = {
 }
 
 const emptyContract: ContractForm = {
+  id: null,
   file: null,
   title: '',
   status: 'draft',
   start_date: '',
   end_date: '',
   value: '',
+  payment_terms: '',
+  po_reference: '',
+  auto_renew: false,
+  notice_days: '',
+  signatory_name: '',
+  signatory_position: '',
   terms: '',
   renewal_of_contract_id: '',
   opportunity_id: '',
 }
+
+const formFromContract = (contract: Contract): ContractForm => ({
+  id: contract.id,
+  // The document is not replaced by a header edit; it keeps what was uploaded.
+  file: null,
+  title: contract.title,
+  status: contract.status,
+  start_date: contract.start_date ?? '',
+  end_date: contract.end_date ?? '',
+  value: contract.value ?? '',
+  payment_terms: contract.payment_terms ?? '',
+  po_reference: contract.po_reference ?? '',
+  auto_renew: contract.auto_renew,
+  notice_days: contract.notice_days === null ? '' : String(contract.notice_days),
+  signatory_name: contract.signatory_name ?? '',
+  signatory_position: contract.signatory_position ?? '',
+  terms: contract.terms ?? '',
+  renewal_of_contract_id: contract.renewal_of_contract_id ?? '',
+  opportunity_id: contract.opportunity_id ?? '',
+})
 
 const formFromContact = (contact: Contact): ContactForm => ({
   id: contact.id,
@@ -574,7 +610,9 @@ export default function CompanyDetail() {
     event.preventDefault()
     if (!contractForm) return
 
-    if (!contractForm.file) {
+    const editing = contractForm.id
+
+    if (!editing && !contractForm.file) {
       setAlertVariant('danger')
       setMessage('Attach the signed document before saving the contract.')
       return
@@ -582,23 +620,53 @@ export default function CompanyDetail() {
 
     setSaving(true)
     try {
-      await createContract(id, {
-        file: contractForm.file,
-        title: contractForm.title.trim(),
-        status: contractForm.status,
-        start_date: blankToNull(contractForm.start_date),
-        end_date: blankToNull(contractForm.end_date),
-        value: contractForm.value.trim() === '' ? null : Number(contractForm.value),
-        terms: blankToNull(contractForm.terms),
-        renewal_of_contract_id: blankToNull(contractForm.renewal_of_contract_id),
-        opportunity_id: blankToNull(contractForm.opportunity_id),
-      })
+      const value = contractForm.value.trim() === '' ? null : Number(contractForm.value)
+      const noticeDays =
+        contractForm.notice_days.trim() === '' ? null : Number(contractForm.notice_days)
+
+      if (editing) {
+        // Only the header is editable here — the document and signing keep their own paths.
+        await updateContract(editing, {
+          title: contractForm.title.trim(),
+          start_date: blankToNull(contractForm.start_date),
+          end_date: blankToNull(contractForm.end_date),
+          value,
+          payment_terms: blankToNull(contractForm.payment_terms),
+          po_reference: blankToNull(contractForm.po_reference),
+          auto_renew: contractForm.auto_renew,
+          notice_days: noticeDays,
+          signatory_name: blankToNull(contractForm.signatory_name),
+          signatory_position: blankToNull(contractForm.signatory_position),
+          terms: blankToNull(contractForm.terms),
+        })
+      } else {
+        await createContract(id, {
+          file: contractForm.file as File,
+          title: contractForm.title.trim(),
+          status: contractForm.status,
+          start_date: blankToNull(contractForm.start_date),
+          end_date: blankToNull(contractForm.end_date),
+          value,
+          payment_terms: blankToNull(contractForm.payment_terms),
+          po_reference: blankToNull(contractForm.po_reference),
+          auto_renew: contractForm.auto_renew,
+          notice_days: noticeDays,
+          signatory_name: blankToNull(contractForm.signatory_name),
+          signatory_position: blankToNull(contractForm.signatory_position),
+          terms: blankToNull(contractForm.terms),
+          renewal_of_contract_id: blankToNull(contractForm.renewal_of_contract_id),
+          opportunity_id: blankToNull(contractForm.opportunity_id),
+        })
+      }
 
       setContractForm(null)
       await refreshContracts()
-      succeed('Contract uploaded.')
+      succeed(editing ? 'Contract updated.' : 'Contract uploaded.')
     } catch (error) {
-      handleFailure(error, 'Could not upload the contract.')
+      handleFailure(
+        error,
+        editing ? 'Could not update the contract.' : 'Could not upload the contract.',
+      )
     } finally {
       setSaving(false)
     }
@@ -661,7 +729,20 @@ export default function CompanyDetail() {
       start_date: contract.end_date ?? '',
       status: 'draft',
       renewal_of_contract_id: contract.id,
+      // A renewal starts from the previous commercial header (spec 16 §Contract commercial model).
+      payment_terms: contract.payment_terms ?? '',
+      po_reference: contract.po_reference ?? '',
+      auto_renew: contract.auto_renew,
+      notice_days: contract.notice_days === null ? '' : String(contract.notice_days),
+      signatory_name: contract.signatory_name ?? '',
+      signatory_position: contract.signatory_position ?? '',
+      terms: contract.terms ?? '',
     })
+  }
+
+  const onEditContract = (contract: Contract) => {
+    setTab('commercial', 'contracts')
+    setContractForm(formFromContract(contract))
   }
 
   const onTransition = async (status: CompanyStatus, reason?: string, note?: string) => {
@@ -925,6 +1006,17 @@ export default function CompanyDetail() {
               renews {contract.renewal_of.reference}
             </span>
           )}
+          {(contract.payment_terms || contract.po_reference || contract.auto_renew) && (
+            <span className="text-xs text-muted-foreground">
+              {[
+                contract.payment_terms,
+                contract.po_reference,
+                contract.auto_renew ? 'Auto-renew' : null,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+            </span>
+          )}
         </div>
       ),
     },
@@ -984,6 +1076,16 @@ export default function CompanyDetail() {
       className: 'text-right',
       render: (contract) => (
         <div className="flex items-center justify-end gap-2">
+          {contract.can_update && (
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => onEditContract(contract)}
+              className="rounded-md border border-border px-2.5 py-1 text-xs font-medium text-foreground hover:bg-muted"
+            >
+              Edit
+            </button>
+          )}
           <Link
             to={`/communications/new?subject_type=contract&subject_id=${contract.id}&subject_label=${encodeURIComponent(contract.title)}`}
             title="Log a communication against this contract"
@@ -2342,8 +2444,18 @@ export default function CompanyDetail() {
           <div className="flex flex-col gap-6">
             {contractForm ? (
               <FormCard
-                title={contractForm.renewal_of_contract_id ? 'Renew contract' : 'Upload a contract'}
-                description="PDF, PNG or JPEG. The document is stored privately and served through the API."
+                title={
+                  contractForm.id
+                    ? 'Edit contract'
+                    : contractForm.renewal_of_contract_id
+                      ? 'Renew contract'
+                      : 'Upload a contract'
+                }
+                description={
+                  contractForm.id
+                    ? 'The commercial header is editable here. The signed document and signing keep their own paths.'
+                    : 'PDF, PNG or JPEG. The document is stored privately and served through the API.'
+                }
               >
                 <form onSubmit={onSaveContract} className="flex flex-col gap-4">
                   {contractForm.renewal_of_contract_id && (
@@ -2376,42 +2488,52 @@ export default function CompanyDetail() {
                   </Field>
 
                   <Field label="Document" error={errors.file}>
-                    <input
-                      type="file"
-                      accept="application/pdf,image/png,image/jpeg"
-                      onChange={(event) =>
-                        setContractForm(
-                          (previous) =>
-                            previous && { ...previous, file: event.target.files?.[0] ?? null },
-                        )
-                      }
-                      className="mt-1 w-full text-sm text-foreground"
-                    />
+                    {contractForm.id ? (
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        {contracts.find((contract) => contract.id === contractForm.id)?.file.name ??
+                          'On file'}{' '}
+                        — a header edit never replaces the document.
+                      </p>
+                    ) : (
+                      <input
+                        type="file"
+                        accept="application/pdf,image/png,image/jpeg"
+                        onChange={(event) =>
+                          setContractForm(
+                            (previous) =>
+                              previous && { ...previous, file: event.target.files?.[0] ?? null },
+                          )
+                        }
+                        className="mt-1 w-full text-sm text-foreground"
+                      />
+                    )}
                   </Field>
 
-                  <Field label="Status" error={errors.status}>
-                    <select
-                      value={contractForm.status}
-                      onChange={(event) =>
-                        setContractForm(
-                          (previous) =>
-                            previous && {
-                              ...previous,
-                              status: event.target.value as ContractStatus,
-                            },
-                        )
-                      }
-                      className={inputClass}
-                    >
-                      {contractStatusOptions
-                        .filter((status) => status === 'draft' || status === 'sent')
-                        .map((status) => (
-                          <option key={status} value={status}>
-                            {contractStatusMeta[status].label}
-                          </option>
-                        ))}
-                    </select>
-                  </Field>
+                  {!contractForm.id && (
+                    <Field label="Status" error={errors.status}>
+                      <select
+                        value={contractForm.status}
+                        onChange={(event) =>
+                          setContractForm(
+                            (previous) =>
+                              previous && {
+                                ...previous,
+                                status: event.target.value as ContractStatus,
+                              },
+                          )
+                        }
+                        className={inputClass}
+                      >
+                        {contractStatusOptions
+                          .filter((status) => status === 'draft' || status === 'sent')
+                          .map((status) => (
+                            <option key={status} value={status}>
+                              {contractStatusMeta[status].label}
+                            </option>
+                          ))}
+                      </select>
+                    </Field>
+                  )}
 
                   <div className="grid grid-cols-2 gap-3">
                     <Field label="Start" error={errors.start_date}>
@@ -2456,6 +2578,97 @@ export default function CompanyDetail() {
                       className={inputClass}
                     />
                   </Field>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <Field label="Payment terms" error={errors.payment_terms}>
+                      <input
+                        value={contractForm.payment_terms}
+                        placeholder="Net 30"
+                        onChange={(event) =>
+                          setContractForm(
+                            (previous) =>
+                              previous && { ...previous, payment_terms: event.target.value },
+                          )
+                        }
+                        className={inputClass}
+                      />
+                    </Field>
+
+                    <Field label="PO reference" error={errors.po_reference}>
+                      <input
+                        value={contractForm.po_reference}
+                        placeholder="PO-2026-0001"
+                        onChange={(event) =>
+                          setContractForm(
+                            (previous) =>
+                              previous && { ...previous, po_reference: event.target.value },
+                          )
+                        }
+                        className={inputClass}
+                      />
+                    </Field>
+                  </div>
+
+                  <div className="grid grid-cols-2 items-end gap-3">
+                    <Field label="Notice days" error={errors.notice_days}>
+                      <input
+                        type="number"
+                        min="0"
+                        max="365"
+                        value={contractForm.notice_days}
+                        onChange={(event) =>
+                          setContractForm(
+                            (previous) =>
+                              previous && { ...previous, notice_days: event.target.value },
+                          )
+                        }
+                        className={inputClass}
+                      />
+                    </Field>
+
+                    <label className="flex items-center gap-2 pb-2 text-sm text-foreground">
+                      <input
+                        type="checkbox"
+                        checked={contractForm.auto_renew}
+                        onChange={(event) =>
+                          setContractForm(
+                            (previous) =>
+                              previous && { ...previous, auto_renew: event.target.checked },
+                          )
+                        }
+                        className="h-4 w-4 rounded border-input"
+                      />
+                      Auto-renew
+                    </label>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <Field label="Signatory name" error={errors.signatory_name}>
+                      <input
+                        value={contractForm.signatory_name}
+                        onChange={(event) =>
+                          setContractForm(
+                            (previous) =>
+                              previous && { ...previous, signatory_name: event.target.value },
+                          )
+                        }
+                        className={inputClass}
+                      />
+                    </Field>
+
+                    <Field label="Signatory position" error={errors.signatory_position}>
+                      <input
+                        value={contractForm.signatory_position}
+                        onChange={(event) =>
+                          setContractForm(
+                            (previous) =>
+                              previous && { ...previous, signatory_position: event.target.value },
+                          )
+                        }
+                        className={inputClass}
+                      />
+                    </Field>
+                  </div>
 
                   <Field label="Terms" error={errors.terms}>
                     <textarea

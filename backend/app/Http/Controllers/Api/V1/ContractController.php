@@ -2,12 +2,15 @@
 
 namespace App\Http\Controllers\Api\V1;
 
+use App\Enums\ActivityStatus;
+use App\Enums\ActivityType;
 use App\Enums\ContractStatus;
 use App\Events\ContractSigned;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\UpdateContractRequest;
 use App\Http\Resources\ContractResource;
 use App\Models\Contract;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -30,7 +33,10 @@ class ContractController extends Controller
 
     public function update(UpdateContractRequest $request, Contract $contract): ContractResource
     {
-        $contract->update($request->validated());
+        DB::transaction(function () use ($request, $contract): void {
+            $contract->update($request->validated());
+            $this->recordHeaderChange($contract, $request->user());
+        });
 
         return new ContractResource($contract->load(['company', 'owner:id,name']));
     }
@@ -99,5 +105,53 @@ class ContractController extends Controller
         $contract->restore();
 
         return new ContractResource($contract->load(['company', 'owner:id,name']));
+    }
+
+    /**
+     * A header edit is commercial work on the account, so it lands on the account timeline as a
+     * `system` activity naming what changed (spec 16 §Contract commercial model). A no-op PATCH
+     * writes nothing.
+     */
+    private function recordHeaderChange(Contract $contract, ?User $actor): void
+    {
+        $labels = [
+            'title' => 'title',
+            'status' => 'status',
+            'start_date' => 'start date',
+            'end_date' => 'end date',
+            'value' => 'value',
+            'currency' => 'currency',
+            'payment_terms' => 'payment terms',
+            'po_reference' => 'PO reference',
+            'auto_renew' => 'auto-renew',
+            'notice_days' => 'notice window',
+            'signatory_name' => 'signatory',
+            'signatory_position' => 'signatory position',
+            'terms' => 'terms',
+            'notes' => 'notes',
+        ];
+
+        $changed = [];
+
+        foreach (array_keys($contract->getChanges()) as $field) {
+            if ($field === 'updated_at') {
+                continue;
+            }
+
+            $changed[] = $labels[$field] ?? str_replace('_', ' ', $field);
+        }
+
+        if ($changed === []) {
+            return;
+        }
+
+        $contract->company->activities()->create([
+            'type' => ActivityType::System,
+            'subject' => sprintf('Contract %s updated', $contract->reference),
+            'body' => ucfirst(implode(', ', $changed)).' changed.',
+            'status' => ActivityStatus::Done,
+            'owner_id' => $actor?->id ?? $contract->owner_id,
+            'occurred_at' => now(),
+        ]);
     }
 }

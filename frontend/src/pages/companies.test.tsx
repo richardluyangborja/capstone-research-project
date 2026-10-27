@@ -172,6 +172,12 @@ const { company, site, contact, deal, contract, billing, paginated } = vi.hoiste
       signed_at: null,
       value: '450000.00',
       currency: 'PHP',
+      payment_terms: 'Net 15',
+      po_reference: 'PO-SF-2026-002',
+      auto_renew: false,
+      notice_days: 30,
+      signatory_name: 'Ramon Villanueva',
+      signatory_position: 'Plant HR Manager',
       terms: 'Net 30, seasonal headcount billed monthly.',
       notes: null,
       file: { present: true, name: 'agreement.pdf', size: 1200, mime: 'application/pdf' },
@@ -219,7 +225,7 @@ vi.mock('../lib/contracts', () => ({
     .fn()
     .mockResolvedValue({ data: [contract], meta: { total: 1, active: 0 } }),
   createContract: vi.fn(),
-  updateContract: vi.fn(),
+  updateContract: vi.fn().mockResolvedValue(contract),
   markContractSigned: vi.fn().mockResolvedValue(contract),
   deleteContract: vi.fn(),
   restoreContract: vi.fn(),
@@ -561,6 +567,7 @@ describe('Company detail', () => {
     expect(within(row as HTMLElement).getByText('CON-2026-0001')).toBeInTheDocument()
     expect(within(row as HTMLElement).getByText('Draft')).toBeInTheDocument()
     expect(within(row as HTMLElement).getByText('₱450,000.00')).toBeInTheDocument()
+    expect(within(row as HTMLElement).getByText(/Net 15/)).toBeInTheDocument()
     expect(
       within(row as HTMLElement).getByRole('button', { name: 'agreement.pdf' }),
     ).toBeInTheDocument()
@@ -569,6 +576,86 @@ describe('Company detail', () => {
 
     await screen.findByText(/CON-2026-0001 is signed/)
     expect(contractApi.markContractSigned).toHaveBeenCalledWith('contract-1')
+  })
+
+  it('edits the commercial header of a contract', async () => {
+    renderDetail()
+
+    await screen.findByRole('heading', { name: 'Sunrise Foods Inc' })
+    fireEvent.click(screen.getByRole('button', { name: /^Commercial/ }))
+
+    const title = await screen.findByText('Warehouse staffing agreement')
+    const row = title.closest('tr')
+    expect(row).not.toBeNull()
+
+    fireEvent.click(within(row as HTMLElement).getByRole('button', { name: 'Edit' }))
+
+    expect(screen.getByLabelText('Payment terms')).toHaveValue('Net 15')
+    expect(screen.getByLabelText('PO reference')).toHaveValue('PO-SF-2026-002')
+    expect(screen.getByLabelText('Notice days')).toHaveValue(30)
+    expect(screen.getByLabelText('Signatory name')).toHaveValue('Ramon Villanueva')
+    // The document is not replaced by a header edit.
+    expect(screen.getByText(/a header edit never replaces the document/)).toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText('Payment terms'), { target: { value: 'Net 45' } })
+    fireEvent.change(screen.getByLabelText('Notice days'), { target: { value: '45' } })
+    fireEvent.click(screen.getByLabelText('Auto-renew'))
+    fireEvent.click(screen.getByRole('button', { name: 'Save contract' }))
+
+    await waitFor(() =>
+      expect(contractApi.updateContract).toHaveBeenCalledWith(
+        'contract-1',
+        expect.objectContaining({
+          payment_terms: 'Net 45',
+          po_reference: 'PO-SF-2026-002',
+          notice_days: 45,
+          auto_renew: true,
+          signatory_name: 'Ramon Villanueva',
+        }),
+      ),
+    )
+    expect(await screen.findByText('Contract updated.')).toBeInTheDocument()
+  })
+
+  it('captures the commercial header when uploading a contract', async () => {
+    renderDetail()
+
+    await screen.findByRole('heading', { name: 'Sunrise Foods Inc' })
+    fireEvent.click(screen.getByRole('button', { name: /^Commercial/ }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Upload a contract' }))
+
+    fireEvent.change(screen.getByLabelText('Title'), {
+      target: { value: 'Forklift pooling agreement' },
+    })
+    fireEvent.change(screen.getByLabelText('Document'), {
+      target: {
+        files: [new File(['pdf'], 'signed.pdf', { type: 'application/pdf' })],
+      },
+    })
+    fireEvent.change(screen.getByLabelText('Payment terms'), { target: { value: 'Net 30' } })
+    fireEvent.change(screen.getByLabelText('PO reference'), { target: { value: 'PO-HL-9' } })
+    fireEvent.change(screen.getByLabelText('Notice days'), { target: { value: '60' } })
+    fireEvent.change(screen.getByLabelText('Signatory name'), { target: { value: 'Elena Cruz' } })
+    fireEvent.change(screen.getByLabelText('Signatory position'), {
+      target: { value: 'VP, Operations' },
+    })
+    fireEvent.click(screen.getByLabelText('Auto-renew'))
+    fireEvent.click(screen.getByRole('button', { name: 'Save contract' }))
+
+    await waitFor(() =>
+      expect(contractApi.createContract).toHaveBeenCalledWith(
+        'company-1',
+        expect.objectContaining({
+          title: 'Forklift pooling agreement',
+          payment_terms: 'Net 30',
+          po_reference: 'PO-HL-9',
+          auto_renew: true,
+          notice_days: 60,
+          signatory_name: 'Elena Cruz',
+          signatory_position: 'VP, Operations',
+        }),
+      ),
+    )
   })
 
   it.each([
