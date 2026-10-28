@@ -53,7 +53,7 @@ class DemoOpportunitySeeder extends Seeder
         $this->deal('BPO Solutions PH', $sam, [
             'name' => 'BPO Solutions PH — 40-seat contact centre ramp',
             'stage' => OpportunityStage::Negotiation,
-            'amount' => 1250000.00,
+            'amount' => 14760000.00,
             'expected_close_date' => Carbon::now()->addWeeks(2),
             'next_step' => 'Legal review of the 90-day ramp-down clause',
             'note' => 'Down to commercial terms.',
@@ -64,7 +64,7 @@ class DemoOpportunitySeeder extends Seeder
         $this->deal('BPO Solutions PH', $sam, [
             'name' => 'BPO Solutions PH — graveyard shift expansion',
             'stage' => OpportunityStage::OnHold,
-            'amount' => 900000.00,
+            'amount' => 7380000.00,
             'expected_close_date' => Carbon::now()->addMonths(2),
             'next_step' => 'Revisit once the Ortigas ramp completes',
             'note' => 'Client deferred the second shift to next quarter.',

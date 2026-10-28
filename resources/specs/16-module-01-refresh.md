@@ -7,7 +7,7 @@ sign-in), plus 0004, 0005, 0007, 0010, 0013, 0014, 0016.
 
 > **S0 — planning contract (merged). S1 — shell & routes (built). S2 — Lead Workspace (built).
 > S3 — Account Book (built). S4 — Account 360 (built). S5 — account delegation (built).
-> S6 — contract commercial header (built).** S0 is this
+> S6 — contract commercial header (built). S7 — contract rate cards (built).** S0 is this
 > contract plus its ADRs; S1
 > shipped the grouped sidebar, canonical routes, redirects and canonical dashboard/AI hrefs; S2
 > shipped the saved views, manager workload panel and duplicate links; S3 shipped the scoped
@@ -17,7 +17,10 @@ sign-in), plus 0004, 0005, 0007, 0010, 0013, 0014, 0016.
 > shipped single/bulk account assignment with the `CompanyAssigned` activity + notification and the
 > Account Book batch handover; S6 shipped the contract commercial header fields, their validation,
 > the upload/edit form, the resource payload, renewal prefill and the account-timeline edit record.
-> S7–S19
+> S7 added the `contract_rate_cards` set, its replace endpoint, the read-time run-rate/cost/margin
+> totals, the manager-only editor and the renewal clone (a salesrep renewing still carries the
+> previous internal rates they cannot see).
+> S8–S19
 > each ship on their own `feature/module-01-*` branch and merge to `main` only after review. The
 > branch is deleted after merge, and the next slice starts from the updated `main`.
 
@@ -505,7 +508,7 @@ names are suggestions; the `feature/module-01-*` prefix is required.
 | **S4** | `feature/module-01-account-360` | Five grouped tabs, journey stepper, header summary, Delivery handoff/feed placeholder, lifecycle moved out of the profile form | Tabs deep-link; old tab query maps to the grouped tab/section; no lifecycle `status` in the profile form |
 | **S5** | `feature/module-01-account-delegation` | Account assign/bulk-assign, activity, notification, target rules | Salesrep self only; manager team; admin all; new owner notified |
 | **S6** | `feature/module-01-contract-header` | Commercial fields, validation, form, resource, edit activity, seeds | New fields persist; only account update right edits; timeline records the edit |
-| **S7** | `feature/module-01-rate-cards` | Rate-card table/model/API/UI, computed values, renewal clone, manager gate | Hourly/monthly/placement totals compute; null margin stays null; salesrep cannot see pay/margin |
+| **S7** | `feature/module-01-rate-cards` (built) | Rate-card table/model/API/UI, computed values, renewal clone, manager gate | Hourly/monthly/placement totals compute; null margin stays null; salesrep cannot see pay/margin |
 | **S8** | `feature/module-01-contracts-book` | `/contracts`, `/contracts/:id`, filters, rate summary | Scoped list; renewal/expiry/status filters; detail shows document + rates |
 | **S9** | `feature/module-01-delivery-feed` | Recruitment/deployment/timekeeping interfaces, DTOs, mocks, Delivery tab, source labels | Read-only UI; no write routes; seeded scenarios; manager/salesrep scoping |
 | **S10** | `feature/module-01-deployments-book` | `/deployments` read-only book, fill rate and timesheet summary | Filters/search; source label; no mutation actions |

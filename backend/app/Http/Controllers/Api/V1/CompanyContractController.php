@@ -30,7 +30,7 @@ class CompanyContractController extends Controller
         $filters = (array) $request->input('filter', []);
 
         $contracts = $company->contracts()
-            ->with(['owner:id,name', 'renewalOf:id,reference,end_date'])
+            ->with(['owner:id,name', 'renewalOf:id,reference,end_date', 'rateCards.site'])
             ->visibleTo($request->user())
             ->when($filters['status'] ?? null, fn ($query, $status) => $query->whereIn('status', explode(',', (string) $status)))
             ->when($filters['expiring'] ?? null, fn ($query) => $query
@@ -93,10 +93,31 @@ class CompanyContractController extends Controller
                 'occurred_at' => now(),
             ]);
 
+            // A renewal starts from the previous commercial terms (ADR-0024 §6). The old
+            // contract is untouched; the clone includes pay rates even when a salesrep —
+            // who may upload but not edit rate cards — is the one renewing.
+            if (! empty($data['renewal_of_contract_id'])) {
+                $source = Contract::withTrashed()->find($data['renewal_of_contract_id']);
+
+                foreach ($source?->rateCards()->get() ?? [] as $card) {
+                    $contract->rateCards()->create([
+                        'site_id' => $card->site_id,
+                        'role_title' => $card->role_title,
+                        'headcount' => $card->headcount,
+                        'billing_unit' => $card->billing_unit,
+                        'bill_rate' => $card->bill_rate,
+                        'pay_rate' => $card->pay_rate,
+                        'units_per_period' => $card->units_per_period,
+                        'notes' => $card->notes,
+                        'position' => $card->position,
+                    ]);
+                }
+            }
+
             return $contract;
         });
 
-        return (new ContractResource($contract->load(['company', 'owner:id,name'])))
+        return (new ContractResource($contract->load(['company', 'owner:id,name', 'rateCards.site'])))
             ->response()
             ->setStatusCode(201);
     }

@@ -48,6 +48,24 @@ class ContractPolicy
     }
 
     /**
+     * Pay rates, internal cost and margin are sensitive data — manager+ (ADR-0004,
+     * ADR-0024 §5). Bill rates and client values stay visible to the account's salesrep.
+     */
+    public function viewMargin(User $user, Contract $contract): bool
+    {
+        return $user->canSeeSensitiveData() && $user->can('view', $contract);
+    }
+
+    /**
+     * Writing rate cards is manager+; editing the header stays with the account's
+     * existing update right (ADR-0024 §5).
+     */
+    public function manageRateCards(User $user, Contract $contract): bool
+    {
+        return $user->can('manageContracts', $contract->company);
+    }
+
+    /**
      * Deleting/restoring a contract is a structural operation — manager+ (spec 06 §2).
      */
     public function delete(User $user, Contract $contract): bool

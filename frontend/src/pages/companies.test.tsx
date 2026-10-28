@@ -180,6 +180,34 @@ const { company, site, contact, deal, contract, billing, paginated } = vi.hoiste
       signatory_position: 'Plant HR Manager',
       terms: 'Net 30, seasonal headcount billed monthly.',
       notes: null,
+      rate_cards: [
+        {
+          id: 'rate-1',
+          contract_id: 'contract-1',
+          site_id: null,
+          site: null,
+          role_title: 'Warehouse associate',
+          headcount: 6,
+          billing_unit: 'hourly',
+          bill_rate: '110.00',
+          pay_rate: '85.00',
+          units_per_period: '176.00',
+          notes: null,
+          position: 1,
+          line_client_monthly: '116160.00',
+          line_internal_monthly: '89760.00',
+          line_placement_fee: '0.00',
+          can_view_margin: true,
+        },
+      ],
+      commercial: {
+        client_monthly_value: '116160.00',
+        internal_monthly_cost: '89760.00',
+        gross_margin: '26400.00',
+        gross_margin_percent: 22.73,
+        estimated_total_value: '1393920.00',
+        can_view_margin: true,
+      },
       file: { present: true, name: 'agreement.pdf', size: 1200, mime: 'application/pdf' },
       days_until_expiry: 349,
       is_expiring_soon: false,
@@ -191,6 +219,7 @@ const { company, site, contact, deal, contract, billing, paginated } = vi.hoiste
       can_update: true,
       can_mark_signed: true,
       can_delete: true,
+      can_manage_rate_cards: true,
       created_at: '2026-10-15T03:51:40.000000Z',
       updated_at: '2026-10-17T03:51:40.000000Z',
     } satisfies Contract,
@@ -226,6 +255,7 @@ vi.mock('../lib/contracts', () => ({
     .mockResolvedValue({ data: [contract], meta: { total: 1, active: 0 } }),
   createContract: vi.fn(),
   updateContract: vi.fn().mockResolvedValue(contract),
+  replaceContractRateCards: vi.fn().mockResolvedValue(contract),
   markContractSigned: vi.fn().mockResolvedValue(contract),
   deleteContract: vi.fn(),
   restoreContract: vi.fn(),
@@ -656,6 +686,111 @@ describe('Company detail', () => {
         }),
       ),
     )
+  })
+
+  it('shows the rate-card lines and the computed contract totals', async () => {
+    renderDetail()
+
+    await screen.findByRole('heading', { name: 'Sunrise Foods Inc' })
+    fireEvent.click(screen.getByRole('button', { name: /^Commercial/ }))
+
+    expect(await screen.findByText('₱116,160.00/mo')).toBeInTheDocument()
+    expect(screen.getByText(/22.7% margin/)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Rates' }))
+
+    expect(await screen.findByText('CON-2026-0001 rate cards')).toBeInTheDocument()
+    expect(screen.getByText('Warehouse associate')).toBeInTheDocument()
+    expect(screen.getByText('₱110.00')).toBeInTheDocument()
+    expect(screen.getByText('Pay rate')).toBeInTheDocument()
+    expect(screen.getByText('₱85.00')).toBeInTheDocument()
+    expect(screen.getByText('Internal / mo')).toBeInTheDocument()
+    expect(screen.getAllByText('₱89,760.00').length).toBeGreaterThan(0)
+    expect(screen.getByText('Gross margin')).toBeInTheDocument()
+    expect(screen.getByText('₱26,400.00 (22.7%)')).toBeInTheDocument()
+  })
+
+  it('lets a manager replace the rate-card set', async () => {
+    renderDetail()
+
+    await screen.findByRole('heading', { name: 'Sunrise Foods Inc' })
+    fireEvent.click(screen.getByRole('button', { name: /^Commercial/ }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Rates' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Edit rate cards' }))
+
+    expect(screen.getByLabelText('Role 1')).toHaveValue('Warehouse associate')
+    expect(screen.getByLabelText('Bill rate 1')).toHaveValue(110)
+    expect(screen.getByLabelText('Pay rate 1')).toHaveValue(85)
+
+    fireEvent.change(screen.getByLabelText('Bill rate 1'), { target: { value: '120' } })
+    fireEvent.change(screen.getByLabelText('Headcount 1'), { target: { value: '8' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Add rate card' }))
+    fireEvent.change(screen.getByLabelText('Role 2'), { target: { value: 'Team lead' } })
+    fireEvent.change(screen.getByLabelText('Billing unit 2'), { target: { value: 'monthly' } })
+    fireEvent.change(screen.getByLabelText('Bill rate 2'), { target: { value: '45000' } })
+    fireEvent.change(screen.getByLabelText('Pay rate 2'), { target: { value: '32000' } })
+    fireEvent.change(screen.getByLabelText('Headcount 2'), { target: { value: '2' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save rate cards' }))
+
+    await waitFor(() =>
+      expect(contractApi.replaceContractRateCards).toHaveBeenCalledWith('contract-1', [
+        expect.objectContaining({
+          role_title: 'Warehouse associate',
+          headcount: 8,
+          billing_unit: 'hourly',
+          bill_rate: 120,
+          pay_rate: 85,
+          units_per_period: 176,
+        }),
+        expect.objectContaining({
+          role_title: 'Team lead',
+          headcount: 2,
+          billing_unit: 'monthly',
+          bill_rate: 45000,
+          pay_rate: 32000,
+          units_per_period: 1,
+        }),
+      ]),
+    )
+    expect(await screen.findByText('Rate cards updated.')).toBeInTheDocument()
+  })
+
+  it('hides pay rates and margin from a salesrep', async () => {
+    const redacted: Contract = {
+      ...contract,
+      can_manage_rate_cards: false,
+      commercial: {
+        ...contract.commercial,
+        internal_monthly_cost: null,
+        gross_margin: null,
+        gross_margin_percent: null,
+        can_view_margin: false,
+      },
+      rate_cards: contract.rate_cards.map((card) => ({
+        ...card,
+        pay_rate: null,
+        line_internal_monthly: null,
+        can_view_margin: false,
+      })),
+    }
+
+    vi.mocked(contractApi.listCompanyContracts).mockResolvedValueOnce({
+      data: [redacted],
+      meta: { total: 1, active: 0 },
+    })
+
+    renderDetail()
+
+    await screen.findByRole('heading', { name: 'Sunrise Foods Inc' })
+    fireEvent.click(screen.getByRole('button', { name: /^Commercial/ }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Rates' }))
+
+    expect(await screen.findByText('CON-2026-0001 rate cards')).toBeInTheDocument()
+    expect(screen.getByText('₱110.00')).toBeInTheDocument()
+    expect(screen.queryByText('Pay rate')).not.toBeInTheDocument()
+    expect(screen.queryByText('Internal / mo')).not.toBeInTheDocument()
+    expect(screen.queryByText('Gross margin')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Edit rate cards' })).not.toBeInTheDocument()
   })
 
   it.each([

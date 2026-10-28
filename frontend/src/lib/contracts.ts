@@ -1,5 +1,12 @@
 import { api } from './api'
-import type { CompanyContracts, Contract, ContractInput, ContractStatus } from '../types'
+import type {
+  BillingUnit,
+  CompanyContracts,
+  Contract,
+  ContractInput,
+  ContractRateCard,
+  ContractStatus,
+} from '../types'
 
 export interface ContractFilters {
   status?: string
@@ -76,6 +83,39 @@ export interface ContractUpdate {
 
 export const updateContract = async (id: string, input: ContractUpdate): Promise<Contract> => {
   const { data } = await api.patch<{ data: Contract }>(`/contracts/${id}`, input)
+  return data.data
+}
+
+/** One line in the replace-the-set payload (array order is display order). */
+export interface ContractRateCardInput {
+  site_id?: string | null
+  role_title: string
+  headcount: number
+  billing_unit: BillingUnit
+  bill_rate: number
+  pay_rate?: number | null
+  units_per_period?: number | null
+  notes?: string | null
+}
+
+export const listContractRateCards = async (contractId: string): Promise<ContractRateCard[]> => {
+  const { data } = await api.get<{ data: ContractRateCard[] }>(
+    `/contracts/${contractId}/rate-cards`,
+  )
+  return data.data
+}
+
+/**
+ * Replaces the contract's rate-card set (manager+). The response is the full contract with
+ * the computed totals, so the caller can refresh its row without a second read.
+ */
+export const replaceContractRateCards = async (
+  contractId: string,
+  rateCards: ContractRateCardInput[],
+): Promise<Contract> => {
+  const { data } = await api.put<{ data: Contract }>(`/contracts/${contractId}/rate-cards`, {
+    rate_cards: rateCards,
+  })
   return data.data
 }
 

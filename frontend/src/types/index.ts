@@ -567,6 +567,46 @@ export interface ContractOpportunityRef {
   name: string
 }
 
+/** How a rate-card line is billed (module 01 refresh S7, ADR-0024). */
+export type BillingUnit = 'hourly' | 'monthly' | 'placement'
+
+export interface ContractRateCardSiteRef {
+  id: string
+  label: string
+}
+
+/** One structured commercial line behind a contract. */
+export interface ContractRateCard {
+  id: string
+  contract_id: string
+  site_id: string | null
+  site?: ContractRateCardSiteRef | null
+  role_title: string
+  headcount: number
+  billing_unit: BillingUnit
+  bill_rate: string
+  /** Internal cost — manager+ only; null for a salesrep. */
+  pay_rate: string | null
+  units_per_period: string | null
+  notes: string | null
+  position: number
+  line_client_monthly: string
+  /** Internal monthly cost — manager+ only; null for a salesrep. */
+  line_internal_monthly: string | null
+  line_placement_fee: string
+  can_view_margin: boolean
+}
+
+/** Read-time totals over a contract's rate cards; nothing is stored. */
+export interface ContractCommercial {
+  client_monthly_value: string
+  internal_monthly_cost: string | null
+  gross_margin: string | null
+  gross_margin_percent: number | null
+  estimated_total_value: string
+  can_view_margin: boolean
+}
+
 /** A contract on a client account (spec 09). Signing activates the client. */
 export interface Contract {
   id: string
@@ -592,6 +632,9 @@ export interface Contract {
   signatory_position: string | null
   terms: string | null
   notes: string | null
+  /** Structured commercial lines and their read-time totals (ADR-0024). */
+  rate_cards: ContractRateCard[]
+  commercial: ContractCommercial
   file: ContractFileRef
   days_until_expiry: number | null
   is_expiring_soon: boolean
@@ -604,6 +647,8 @@ export interface Contract {
   can_update: boolean
   can_mark_signed: boolean
   can_delete: boolean
+  /** Writing rate cards is manager+ (ADR-0024 §5). */
+  can_manage_rate_cards: boolean
   created_at: string
   updated_at: string
 }
