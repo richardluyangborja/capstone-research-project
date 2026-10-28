@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\V1\CompanyOpportunityController;
 use App\Http\Controllers\Api\V1\CompanySiteController;
 use App\Http\Controllers\Api\V1\ContactController;
 use App\Http\Controllers\Api\V1\ContractController;
+use App\Http\Controllers\Api\V1\ContractRateCardController;
 use App\Http\Controllers\Api\V1\DashboardController;
 use App\Http\Controllers\Api\V1\FollowUpController;
 use App\Http\Controllers\Api\V1\LeadAssignmentController;
@@ -141,6 +142,8 @@ Route::prefix('v1')->group(function (): void {
         Route::get('companies/{company}/contracts', [CompanyContractController::class, 'index']);
         Route::post('companies/{company}/contracts', [CompanyContractController::class, 'store']);
         Route::get('contracts/{contract}/file', [ContractController::class, 'download']);
+        Route::get('contracts/{contract}/rate-cards', [ContractRateCardController::class, 'index']);
+        Route::put('contracts/{contract}/rate-cards', [ContractRateCardController::class, 'update']);
         Route::post('contracts/{contract}/mark-signed', [ContractController::class, 'markSigned']);
         Route::post('contracts/{id}/restore', [ContractController::class, 'restore']);
         Route::apiResource('contracts', ContractController::class)

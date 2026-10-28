@@ -52,6 +52,11 @@ class DemoContractSeeder extends Seeder
                 'signatory_position' => 'VP, Operations',
                 'terms' => 'Net 30, 60-day notice on volume changes.',
                 'ageDays' => 200,
+                'rates' => [
+                    ['role_title' => 'Warehouse associate', 'headcount' => 5, 'billing_unit' => 'hourly', 'bill_rate' => 105, 'pay_rate' => 80, 'units_per_period' => 176, 'site' => 'Manila South Harbor office'],
+                    ['role_title' => 'Forklift operator', 'headcount' => 2, 'billing_unit' => 'hourly', 'bill_rate' => 130, 'pay_rate' => 95, 'units_per_period' => 176, 'site' => 'Manila South Harbor office'],
+                    ['role_title' => 'Site supervisor', 'headcount' => 1, 'billing_unit' => 'monthly', 'bill_rate' => 25000, 'pay_rate' => 18000, 'units_per_period' => 1, 'site' => 'Manila South Harbor office'],
+                ],
             ]);
 
             $this->contract($harbor, $liza, [
@@ -70,6 +75,11 @@ class DemoContractSeeder extends Seeder
                 'signatory_position' => 'VP, Operations',
                 'terms' => 'Net 30, 60-day notice on volume changes. Annual escalation capped at 5%.',
                 'ageDays' => 180,
+                'rates' => [
+                    ['role_title' => 'Warehouse associate', 'headcount' => 6, 'billing_unit' => 'hourly', 'bill_rate' => 110, 'pay_rate' => 85, 'units_per_period' => 176, 'site' => 'Manila South Harbor office'],
+                    ['role_title' => 'Forklift operator', 'headcount' => 2, 'billing_unit' => 'hourly', 'bill_rate' => 140, 'pay_rate' => 105, 'units_per_period' => 176, 'site' => 'Manila South Harbor office'],
+                    ['role_title' => 'Site supervisor', 'headcount' => 1, 'billing_unit' => 'monthly', 'bill_rate' => 30000, 'pay_rate' => 22000, 'units_per_period' => 1, 'site' => 'Manila South Harbor office'],
+                ],
             ]);
 
             $harbor->forceFill([
@@ -90,7 +100,7 @@ class DemoContractSeeder extends Seeder
                 'start_date' => Carbon::now()->subMonth(),
                 'end_date' => Carbon::now()->addMonths(11),
                 'signed_at' => Carbon::now()->subMonth(),
-                'value' => 1250000.00,
+                'value' => 14760000.00,
                 'payment_terms' => 'Net 30',
                 'po_reference' => 'PO-BPO-2026-011',
                 'auto_renew' => true,
@@ -99,6 +109,11 @@ class DemoContractSeeder extends Seeder
                 'signatory_position' => 'Country Manager',
                 'terms' => 'Net 30, 90-day ramp-down notice, monthly service review.',
                 'ageDays' => 30,
+                'rates' => [
+                    ['role_title' => 'Customer service associate', 'headcount' => 35, 'billing_unit' => 'monthly', 'bill_rate' => 28000, 'pay_rate' => 22000, 'units_per_period' => 1, 'site' => 'Ortigas delivery center'],
+                    ['role_title' => 'Team lead', 'headcount' => 4, 'billing_unit' => 'monthly', 'bill_rate' => 45000, 'pay_rate' => 35000, 'units_per_period' => 1, 'site' => 'Ortigas delivery center'],
+                    ['role_title' => 'Account manager', 'headcount' => 1, 'billing_unit' => 'monthly', 'bill_rate' => 70000, 'pay_rate' => 55000, 'units_per_period' => 1, 'site' => 'Ortigas delivery center'],
+                ],
             ]);
 
             $bpo->forceFill([
@@ -128,6 +143,10 @@ class DemoContractSeeder extends Seeder
                 'signatory_position' => 'Plant HR Manager',
                 'terms' => 'Net 15, seasonal headcount billed monthly.',
                 'ageDays' => 6,
+                'rates' => [
+                    ['role_title' => 'Warehouse associate', 'headcount' => 2, 'billing_unit' => 'hourly', 'bill_rate' => 110, 'pay_rate' => 85, 'units_per_period' => 176, 'site' => 'Head office'],
+                    ['role_title' => 'Recruitment placement', 'headcount' => 2, 'billing_unit' => 'placement', 'bill_rate' => 15000, 'pay_rate' => 4000, 'units_per_period' => 1, 'site' => null, 'notes' => 'One-time placement fee per successful hire.'],
+                ],
             ]);
         }
 
@@ -150,6 +169,10 @@ class DemoContractSeeder extends Seeder
                 'signatory_position' => 'General Manager',
                 'terms' => 'Net 30. Terminated by mutual agreement.',
                 'ageDays' => 90,
+                'rates' => [
+                    ['role_title' => 'Housekeeper', 'headcount' => 5, 'billing_unit' => 'hourly', 'bill_rate' => 80, 'pay_rate' => 60, 'units_per_period' => 176, 'site' => 'Makati property'],
+                    ['role_title' => 'Housekeeping supervisor', 'headcount' => 1, 'billing_unit' => 'monthly', 'bill_rate' => 12000, 'pay_rate' => 9500, 'units_per_period' => 1, 'site' => 'Makati property'],
+                ],
             ]);
         }
 
@@ -171,6 +194,11 @@ class DemoContractSeeder extends Seeder
                 'signatory_position' => 'General Manager',
                 'terms' => "Draft — awaiting the Cebu property's headcount confirmation.",
                 'ageDays' => 3,
+                'rates' => [
+                    ['role_title' => 'Housekeeper', 'headcount' => 3, 'billing_unit' => 'hourly', 'bill_rate' => 88, 'pay_rate' => 65, 'units_per_period' => 176, 'site' => 'Cebu resort'],
+                    // Awaiting the client's confirmation — the margin stays null until it lands.
+                    ['role_title' => 'Site supervisor', 'headcount' => 1, 'billing_unit' => 'monthly', 'bill_rate' => 10000, 'pay_rate' => null, 'units_per_period' => 1, 'site' => 'Cebu resort'],
+                ],
             ]);
         }
     }
@@ -181,7 +209,8 @@ class DemoContractSeeder extends Seeder
     private function contract(Company $company, User $owner, array $attributes): Contract
     {
         $ageDays = $attributes['ageDays'] ?? 0;
-        unset($attributes['ageDays']);
+        $rates = $attributes['rates'] ?? [];
+        unset($attributes['ageDays'], $attributes['rates']);
 
         /** @var Contract $contract */
         $contract = $company->contracts()->create([
@@ -205,6 +234,7 @@ class DemoContractSeeder extends Seeder
         ]);
 
         $this->attachPlaceholder($contract);
+        $this->createRateCards($contract, $company, $rates);
 
         $contract->forceFill([
             'created_at' => Carbon::now()->subDays($ageDays),
@@ -221,6 +251,28 @@ class DemoContractSeeder extends Seeder
         ]);
 
         return $contract;
+    }
+
+    /**
+     * The structured commercial lines behind the agreement (module 01 refresh S7). Each
+     * seeded contract has a realistic shape so the Commercial tab demos every unit.
+     *
+     * @param  array<int, array<string, mixed>>  $rates
+     */
+    private function createRateCards(Contract $contract, Company $company, array $rates): void
+    {
+        foreach ($rates as $index => $rate) {
+            $siteLabel = $rate['site'] ?? null;
+            unset($rate['site']);
+
+            $contract->rateCards()->create([
+                ...$rate,
+                'site_id' => $siteLabel
+                    ? $company->sites()->where('label', $siteLabel)->value('id')
+                    : null,
+                'position' => $index + 1,
+            ]);
+        }
     }
 
     private function attachPlaceholder(Contract $contract): void

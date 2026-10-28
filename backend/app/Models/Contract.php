@@ -117,6 +117,14 @@ class Contract extends Model
         return $this->belongsTo(User::class, 'owner_id');
     }
 
+    /**
+     * The contract's commercial lines, in display order (module 01 refresh S7).
+     */
+    public function rateCards(): HasMany
+    {
+        return $this->hasMany(ContractRateCard::class)->orderBy('position')->orderBy('id');
+    }
+
     public function activities(): MorphMany
     {
         return $this->morphMany(Activity::class, 'subjectable', 'subject_type', 'subject_id');
@@ -203,6 +211,89 @@ class Contract extends Model
         return $this->isSigned()
             && $days !== null
             && $days <= (int) config('crm.contracts.expiring_soon_days');
+    }
+
+    /**
+     * Whole months in the contract term, minimum 1 — the multiplier for the estimated
+     * contract value (spec 16 §Contract commercial model).
+     */
+    public function wholeMonthsInTerm(): int
+    {
+        if ($this->start_date === null || $this->end_date === null) {
+            return 1;
+        }
+
+        return max(1, (int) $this->start_date->diffInMonths($this->end_date));
+    }
+
+    /**
+     * The commercial totals, derived from the rate cards on read and never stored. An
+     * `internal_monthly_cost` of null means no recurring line carries a pay rate; a null
+     * margin means at least one recurring line is missing its pay rate (ADR-0024 §4).
+     *
+     * @return array{
+     *     client_monthly_value: float,
+     *     internal_monthly_cost: float|null,
+     *     gross_margin: float|null,
+     *     gross_margin_percent: float|null,
+     *     estimated_total_value: float,
+     *     placement_fees: float,
+     *     rate_card_count: int
+     * }
+     */
+    public function commercialSummary(): array
+    {
+        $cards = $this->relationLoaded('rateCards') ? $this->rateCards : $this->rateCards()->get();
+
+        $clientMonthly = 0.0;
+        $internalMonthly = 0.0;
+        $placementFees = 0.0;
+        $recurringLines = 0;
+        $hasPayRate = false;
+        $missingPayRate = false;
+
+        foreach ($cards as $card) {
+            if ($card->billing_unit->contributesToMonthly()) {
+                $recurringLines++;
+                $clientMonthly += $card->clientMonthlyValue();
+
+                if ($card->pay_rate === null) {
+                    $missingPayRate = true;
+                } else {
+                    $hasPayRate = true;
+                    $internalMonthly += $card->internalMonthlyCost();
+                }
+
+                continue;
+            }
+
+            $placementFees += $card->placementFee();
+        }
+
+        $clientMonthly = round($clientMonthly, 2);
+        $internalMonthly = round($internalMonthly, 2);
+        $placementFees = round($placementFees, 2);
+
+        $margin = $recurringLines === 0 || $missingPayRate
+            ? null
+            : round($clientMonthly - $internalMonthly, 2);
+
+        $marginPercent = $margin === null || $clientMonthly <= 0
+            ? null
+            : round($margin / $clientMonthly * 100, 2);
+
+        return [
+            'client_monthly_value' => $clientMonthly,
+            'internal_monthly_cost' => $hasPayRate ? $internalMonthly : null,
+            'gross_margin' => $margin,
+            'gross_margin_percent' => $marginPercent,
+            'estimated_total_value' => round(
+                $clientMonthly * $this->wholeMonthsInTerm() + $placementFees,
+                2,
+            ),
+            'placement_fees' => $placementFees,
+            'rate_card_count' => $cards->count(),
+        ];
     }
 
     /**

@@ -28,7 +28,7 @@ class ContractController extends Controller
     {
         $this->authorize('view', $contract);
 
-        return new ContractResource($contract->load(['company', 'opportunity', 'renewalOf', 'owner:id,name']));
+        return new ContractResource($contract->load(['company', 'opportunity', 'renewalOf', 'owner:id,name', 'rateCards.site']));
     }
 
     public function update(UpdateContractRequest $request, Contract $contract): ContractResource
@@ -38,7 +38,7 @@ class ContractController extends Controller
             $this->recordHeaderChange($contract, $request->user());
         });
 
-        return new ContractResource($contract->load(['company', 'owner:id,name']));
+        return new ContractResource($contract->load(['company', 'owner:id,name', 'rateCards.site']));
     }
 
     /**
@@ -60,7 +60,7 @@ class ContractController extends Controller
 
         ContractSigned::dispatch($contract, $contract->company, $request->user());
 
-        return new ContractResource($contract->fresh()->load(['company', 'owner:id,name']));
+        return new ContractResource($contract->fresh()->load(['company', 'owner:id,name', 'rateCards.site']));
     }
 
     /**
@@ -93,7 +93,7 @@ class ContractController extends Controller
 
         $contract->delete();
 
-        return new ContractResource($contract->load(['company', 'owner:id,name']));
+        return new ContractResource($contract->load(['company', 'owner:id,name', 'rateCards.site']));
     }
 
     public function restore(string $id): ContractResource
@@ -104,7 +104,7 @@ class ContractController extends Controller
 
         $contract->restore();
 
-        return new ContractResource($contract->load(['company', 'owner:id,name']));
+        return new ContractResource($contract->load(['company', 'owner:id,name', 'rateCards.site']));
     }
 
     /**

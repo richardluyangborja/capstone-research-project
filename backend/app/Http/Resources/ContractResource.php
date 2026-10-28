@@ -52,6 +52,28 @@ class ContractResource extends JsonResource
             'signatory_position' => $this->signatory_position,
             'terms' => $this->terms,
             'notes' => $this->notes,
+            // The structured commercial lines and their read-time totals (spec 16
+            // §Contract commercial model, ADR-0024).
+            'rate_cards' => ContractRateCardResource::collection($this->whenLoaded('rateCards')),
+            'commercial' => $this->whenLoaded('rateCards', function () use ($request): array {
+                $summary = $this->commercialSummary();
+                $canViewMargin = (bool) $request->user()?->can('viewMargin', $this->resource);
+
+                return [
+                    'client_monthly_value' => $this->money($summary['client_monthly_value']),
+                    'internal_monthly_cost' => $canViewMargin && $summary['internal_monthly_cost'] !== null
+                        ? $this->money($summary['internal_monthly_cost'])
+                        : null,
+                    'gross_margin' => $canViewMargin && $summary['gross_margin'] !== null
+                        ? $this->money($summary['gross_margin'])
+                        : null,
+                    'gross_margin_percent' => $canViewMargin
+                        ? $summary['gross_margin_percent']
+                        : null,
+                    'estimated_total_value' => $this->money($summary['estimated_total_value']),
+                    'can_view_margin' => $canViewMargin,
+                ];
+            }),
             // The document itself is streamed from an authorized endpoint; the storage path
             // is never exposed (spec 09 §API).
             'file' => [
@@ -77,8 +99,14 @@ class ContractResource extends JsonResource
             'can_update' => (bool) $request->user()?->can('update', $this->resource),
             'can_mark_signed' => (bool) $request->user()?->can('markSigned', $this->resource),
             'can_delete' => (bool) $request->user()?->can('delete', $this->resource),
+            'can_manage_rate_cards' => (bool) $request->user()?->can('manageRateCards', $this->resource),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];
+    }
+
+    private function money(float $value): string
+    {
+        return number_format($value, 2, '.', '');
     }
 }
