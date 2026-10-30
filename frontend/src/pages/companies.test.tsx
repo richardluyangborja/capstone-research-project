@@ -851,6 +851,38 @@ describe('Company detail', () => {
     expect(screen.getByText(/From deal/)).toBeInTheDocument()
   })
 
+  it('opens a contract renewal prefilled from the contract page deep link', async () => {
+    render(
+      <MemoryRouter
+        initialEntries={['/accounts/company-1?tab=contracts&renew_contract_id=contract-1']}
+      >
+        <Routes>
+          <Route
+            path="/accounts/:id"
+            element={
+              <>
+                <CompanyDetail />
+                <LocationProbe />
+              </>
+            }
+          />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    await screen.findByRole('heading', { name: 'Sunrise Foods Inc' })
+
+    await waitFor(() => {
+      expect(screen.getByTestId('company-location')).toHaveTextContent('tab=commercial')
+      expect(screen.getByTestId('company-location')).toHaveTextContent('section=contracts')
+      expect(screen.getByTestId('company-location')).not.toHaveTextContent('renew_contract_id')
+    })
+
+    expect(screen.getByRole('heading', { name: 'Renew contract' })).toBeInTheDocument()
+    expect(screen.getByText(/Renewal of/)).toHaveTextContent('CON-2026-0001')
+    expect(screen.getByLabelText('Title')).toHaveValue('Warehouse staffing agreement (renewal)')
+  })
+
   it('reassigns the account through the delegation endpoint', async () => {
     renderDetail()
 

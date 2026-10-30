@@ -10,6 +10,24 @@ use Illuminate\Http\Resources\Json\JsonResource;
 class ContractResource extends JsonResource
 {
     /**
+     * Relations the full contract payload reads. Shared by the detail read and every
+     * single-contract write so a refreshed page never loses the renewal chain.
+     *
+     * @return array<int, string>
+     */
+    public static function detailRelations(): array
+    {
+        return [
+            'company',
+            'opportunity',
+            'renewalOf:id,reference,title,status,start_date,end_date',
+            'renewals:id,renewal_of_contract_id,reference,title,status,start_date,end_date',
+            'owner:id,name',
+            'rateCards.site',
+        ];
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function toArray(Request $request): array
@@ -34,8 +52,19 @@ class ContractResource extends JsonResource
             'renewal_of' => $this->whenLoaded('renewalOf', fn () => $this->renewalOf === null ? null : [
                 'id' => $this->renewalOf->id,
                 'reference' => $this->renewalOf->reference,
+                'title' => $this->renewalOf->title,
+                'status' => $this->renewalOf->status,
+                'start_date' => $this->renewalOf->start_date?->toDateString(),
                 'end_date' => $this->renewalOf->end_date?->toDateString(),
             ]),
+            'renewals' => $this->whenLoaded('renewals', fn () => $this->renewals->map(fn (Contract $renewal) => [
+                'id' => $renewal->id,
+                'reference' => $renewal->reference,
+                'title' => $renewal->title,
+                'status' => $renewal->status,
+                'start_date' => $renewal->start_date?->toDateString(),
+                'end_date' => $renewal->end_date?->toDateString(),
+            ])),
             'title' => $this->title,
             'status' => $this->status,
             'start_date' => $this->start_date?->toDateString(),
@@ -55,6 +84,7 @@ class ContractResource extends JsonResource
             // The structured commercial lines and their read-time totals (spec 16
             // §Contract commercial model, ADR-0024).
             'rate_cards' => ContractRateCardResource::collection($this->whenLoaded('rateCards')),
+            'rate_cards_count' => $this->rate_cards_count ?? ($this->relationLoaded('rateCards') ? $this->rateCards->count() : 0),
             'commercial' => $this->whenLoaded('rateCards', function () use ($request): array {
                 $summary = $this->commercialSummary();
                 $canViewMargin = (bool) $request->user()?->can('viewMargin', $this->resource);

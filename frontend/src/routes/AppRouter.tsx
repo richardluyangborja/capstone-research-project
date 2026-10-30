@@ -12,6 +12,8 @@ import CommunicationThreads from '../pages/CommunicationThreads'
 import CommunicationTemplateForm from '../pages/CommunicationTemplateForm'
 import CommunicationTemplates from '../pages/CommunicationTemplates'
 import Contacts from '../pages/Contacts'
+import ContractDetail from '../pages/ContractDetail'
+import Contracts from '../pages/Contracts'
 import DashboardHome from '../pages/DashboardHome'
 import FollowUpForm from '../pages/FollowUpForm'
 import FollowUps from '../pages/FollowUps'
@@ -79,6 +81,8 @@ export default function AppRouter() {
           <Route path="/accounts" element={<Companies />} />
           <Route path="/accounts/new" element={<NewCompany />} />
           <Route path="/accounts/:id" element={<CompanyDetail />} />
+          <Route path="/contracts" element={<Contracts />} />
+          <Route path="/contracts/:id" element={<ContractDetail />} />
           <Route path="/contacts" element={<Contacts />} />
           <Route path="/pipeline" element={<Pipeline />} />
           <Route path="/opportunities" element={<Opportunities />} />

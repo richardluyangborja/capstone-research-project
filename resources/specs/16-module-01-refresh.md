@@ -19,8 +19,10 @@ sign-in), plus 0004, 0005, 0007, 0010, 0013, 0014, 0016.
 > the upload/edit form, the resource payload, renewal prefill and the account-timeline edit record.
 > S7 added the `contract_rate_cards` set, its replace endpoint, the read-time run-rate/cost/margin
 > totals, the manager-only editor and the renewal clone (a salesrep renewing still carries the
-> previous internal rates they cannot see).
-> S8–S19
+> previous internal rates they cannot see). S8 added the scoped global contract book and its detail
+> page, with status/expiry/renewal/account/owner filters, the commercial rate summary, the document
+> and the renewal chain.
+> S9–S19
 > each ship on their own `feature/module-01-*` branch and merge to `main` only after review. The
 > branch is deleted after merge, and the next slice starts from the updated `main`.
 
@@ -509,7 +511,7 @@ names are suggestions; the `feature/module-01-*` prefix is required.
 | **S5** | `feature/module-01-account-delegation` | Account assign/bulk-assign, activity, notification, target rules | Salesrep self only; manager team; admin all; new owner notified |
 | **S6** | `feature/module-01-contract-header` | Commercial fields, validation, form, resource, edit activity, seeds | New fields persist; only account update right edits; timeline records the edit |
 | **S7** | `feature/module-01-rate-cards` (built) | Rate-card table/model/API/UI, computed values, renewal clone, manager gate | Hourly/monthly/placement totals compute; null margin stays null; salesrep cannot see pay/margin |
-| **S8** | `feature/module-01-contracts-book` | `/contracts`, `/contracts/:id`, filters, rate summary | Scoped list; renewal/expiry/status filters; detail shows document + rates |
+| **S8** | `feature/module-01-contracts-book` (built) | `/contracts`, `/contracts/:id`, filters, rate summary | Scoped list; renewal/expiry/status filters; detail shows document + rates |
 | **S9** | `feature/module-01-delivery-feed` | Recruitment/deployment/timekeeping interfaces, DTOs, mocks, Delivery tab, source labels | Read-only UI; no write routes; seeded scenarios; manager/salesrep scoping |
 | **S10** | `feature/module-01-deployments-book` | `/deployments` read-only book, fill rate and timesheet summary | Filters/search; source label; no mutation actions |
 | **S11** | `feature/module-01-finance-feed` | Expanded AR/invoice feed, Billing section, owner risk flag | Manager sees full feed; owner sees only risk flag; source/as_of present |

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, CalendarClock, Plus, SquareKanban } from 'lucide-react'
 import PageHeader from '../components/common/PageHeader'
@@ -412,6 +412,7 @@ export default function CompanyDetail() {
   const tab: TabKey = requestedTab ? (tabAliases[requestedTab] ?? 'overview') : 'overview'
   const section = searchParams.get('section') ?? ''
   const linkedOpportunityId = searchParams.get('opportunity_id') ?? ''
+  const linkedRenewalId = searchParams.get('renew_contract_id') ?? ''
   const duplicates =
     (location.state as { duplicates?: DuplicateCompany[] } | null)?.duplicates ?? []
   const notice = (location.state as { notice?: string } | null)?.notice ?? ''
@@ -441,6 +442,7 @@ export default function CompanyDetail() {
   const [contactRole, setContactRole] = useState('')
   const [contactStatus, setContactStatus] = useState('')
   const [activityForm, setActivityForm] = useState({ type: 'call', subject: '', body: '' })
+  const renewalStarted = useRef<string | null>(null)
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -885,6 +887,29 @@ export default function CompanyDetail() {
       terms: contract.terms ?? '',
     })
   }
+
+  // The global contract page links here with `renew_contract_id`; open the renewal form
+  // once the account's contracts are in, then drop the one-shot query value.
+  useEffect(() => {
+    if (!linkedRenewalId || loading || renewalStarted.current === linkedRenewalId) {
+      return
+    }
+
+    const contract = contracts.find((item) => item.id === linkedRenewalId)
+
+    if (!contract) {
+      return
+    }
+
+    renewalStarted.current = linkedRenewalId
+    onStartRenewal(contract)
+
+    const nextParams = new URLSearchParams(searchParams)
+    nextParams.delete('renew_contract_id')
+    nextParams.set('tab', 'commercial')
+    nextParams.set('section', 'contracts')
+    setSearchParams(nextParams, { replace: true })
+  }, [linkedRenewalId, loading, contracts, searchParams, setSearchParams])
 
   const onEditContract = (contract: Contract) => {
     setTab('commercial', 'contracts')

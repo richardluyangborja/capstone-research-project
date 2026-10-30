@@ -551,6 +551,18 @@ export interface ContractFileRef {
 export interface ContractRenewalRef {
   id: string
   reference: string
+  title?: string
+  status?: ContractStatus
+  start_date?: string | null
+  end_date: string | null
+}
+
+export interface ContractRef {
+  id: string
+  reference: string
+  title: string
+  status: ContractStatus
+  start_date: string | null
   end_date: string | null
 }
 
@@ -617,6 +629,7 @@ export interface Contract {
   opportunity?: ContractOpportunityRef | null
   renewal_of_contract_id: string | null
   renewal_of?: ContractRenewalRef | null
+  renewals?: ContractRef[]
   title: string
   status: ContractStatus
   start_date: string | null
@@ -634,6 +647,7 @@ export interface Contract {
   notes: string | null
   /** Structured commercial lines and their read-time totals (ADR-0024). */
   rate_cards: ContractRateCard[]
+  rate_cards_count?: number
   commercial: ContractCommercial
   file: ContractFileRef
   days_until_expiry: number | null
@@ -656,6 +670,43 @@ export interface Contract {
 export interface CompanyContracts {
   data: Contract[]
   meta: { total: number; active: number }
+}
+
+export interface PaginationMeta {
+  current_page: number
+  from: number | null
+  last_page: number
+  path: string
+  per_page: number
+  to: number | null
+  total: number
+}
+
+export interface ContractSummary {
+  all: number
+  active: number
+  draft: number
+  sent: number
+  expiring: number
+  renewals: number
+}
+
+export interface ContractBookFilters {
+  search?: string
+  status?: string
+  expiring?: boolean
+  renewal?: boolean
+  owner?: string
+  company?: string
+  page?: number
+  per_page?: number
+}
+
+export interface ContractsResponse {
+  data: Contract[]
+  meta: PaginationMeta
+  links?: Record<string, string | null>
+  summary: ContractSummary
 }
 
 export interface ContractInput {

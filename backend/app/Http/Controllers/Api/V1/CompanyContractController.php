@@ -30,7 +30,7 @@ class CompanyContractController extends Controller
         $filters = (array) $request->input('filter', []);
 
         $contracts = $company->contracts()
-            ->with(['owner:id,name', 'renewalOf:id,reference,end_date', 'rateCards.site'])
+            ->with(['owner:id,name', 'renewalOf:id,reference,title,status,start_date,end_date', 'rateCards.site'])
             ->visibleTo($request->user())
             ->when($filters['status'] ?? null, fn ($query, $status) => $query->whereIn('status', explode(',', (string) $status)))
             ->when($filters['expiring'] ?? null, fn ($query) => $query

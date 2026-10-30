@@ -42,6 +42,11 @@ class ContractRateCardFactory extends Factory
         ];
     }
 
+    public function forContract(Contract $contract): static
+    {
+        return $this->state(fn (): array => ['contract_id' => $contract->id]);
+    }
+
     public function hourly(): static
     {
         return $this->state(fn (): array => [

@@ -147,7 +147,7 @@ Route::prefix('v1')->group(function (): void {
         Route::post('contracts/{contract}/mark-signed', [ContractController::class, 'markSigned']);
         Route::post('contracts/{id}/restore', [ContractController::class, 'restore']);
         Route::apiResource('contracts', ContractController::class)
-            ->only(['show', 'update', 'destroy']);
+            ->only(['index', 'show', 'update', 'destroy']);
 
         // Module 02 — opportunity pipeline. Static paths must precede the resource route.
         Route::get('pipeline', [PipelineController::class, 'index']);
