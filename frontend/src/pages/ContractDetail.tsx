@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   ArrowLeft,
   CheckCircle,
@@ -9,7 +9,6 @@ import {
   FileText,
   Handshake,
   Layers,
-  Plus,
   RefreshCw,
   ShieldAlert,
   Trash2,
@@ -17,55 +16,46 @@ import {
 } from 'lucide-react'
 import StatusBadge from '../components/common/StatusBadge'
 import StatCard from '../components/common/StatCard'
-import DataTable, { type DataTableColumn } from '../components/common/DataTable'
+import RateCardEditor from '../components/common/RateCardEditor'
+import RateCardTable from '../components/common/RateCardTable'
+import { useAuth } from '../lib/auth-context'
+import { listCompanySites } from '../lib/companies'
 import {
+  deleteContract,
   downloadContractFile,
   getContract,
   markContractSigned,
   replaceContractRateCards,
   updateContract,
 } from '../lib/contracts'
-import { billingUnitLabels, contractStatusMeta, formatExpiry } from '../lib/contractMeta'
+import { contractStatusMeta, formatExpiry } from '../lib/contractMeta'
 import { formatCurrency, formatDate } from '../lib/format'
-import type { BillingUnit, Contract, ContractRateCard } from '../types'
-
-interface RateCardFormRow {
-  key: string
-  site_id: string
-  role_title: string
-  headcount: string
-  billing_unit: BillingUnit
-  bill_rate: string
-  pay_rate: string
-  units_per_period: string
-  notes: string
-}
-
-let keyCounter = 0
-const newRateCardRow = (): RateCardFormRow => ({
-  key: `rc-form-${(keyCounter += 1)}`,
-  site_id: '',
-  role_title: '',
-  headcount: '1',
-  billing_unit: 'hourly',
-  bill_rate: '',
-  pay_rate: '',
-  units_per_period: '176',
-  notes: '',
-})
+import {
+  formFromRateCard,
+  newRateCardRow,
+  rateCardsToPayload,
+  type RateCardForm,
+} from '../lib/rateCards'
+import type { CompanySite, Contract, ContractStatus } from '../types'
 
 export default function ContractDetail() {
   const { id } = useParams<{ id: string }>()
+  const navigate = useNavigate()
+  const { user } = useAuth()
+  const isManagerOrAbove = user?.role !== 'salesrep'
 
   const [contract, setContract] = useState<Contract | null>(null)
+  const [sites, setSites] = useState<CompanySite[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [actionMessage, setActionMessage] = useState('')
+  const [retiring, setRetiring] = useState(false)
 
   // Edit Commercial Header modal
   const [isEditingHeader, setIsEditingHeader] = useState(false)
   const [headerForm, setHeaderForm] = useState({
     title: '',
+    status: 'draft' as ContractStatus,
     start_date: '',
     end_date: '',
     value: '',
@@ -83,7 +73,7 @@ export default function ContractDetail() {
 
   // Edit Rate Cards modal
   const [isEditingRateCards, setIsEditingRateCards] = useState(false)
-  const [rateCardRows, setRateCardRows] = useState<RateCardFormRow[]>([])
+  const [rateCardRows, setRateCardRows] = useState<RateCardForm[]>([])
   const [rateCardsSaving, setRateCardsSaving] = useState(false)
   const [rateCardsError, setRateCardsError] = useState('')
 
@@ -94,6 +84,14 @@ export default function ContractDetail() {
     try {
       const data = await getContract(id)
       setContract(data)
+
+      // The editor's site picker needs the account's sites; a failed read must not block
+      // the contract itself (the picker simply offers "No site").
+      try {
+        setSites(await listCompanySites(data.company_id))
+      } catch {
+        setSites([])
+      }
     } catch (err) {
       console.error(err)
       setError('Could not load contract details.')
@@ -141,6 +139,7 @@ export default function ContractDetail() {
     if (!contract) return
     setHeaderForm({
       title: contract.title,
+      status: contract.status,
       start_date: contract.start_date ?? '',
       end_date: contract.end_date ?? '',
       value: contract.value ? String(contract.value) : '',
@@ -166,6 +165,7 @@ export default function ContractDetail() {
     try {
       const updated = await updateContract(contract.id, {
         title: headerForm.title,
+        status: headerForm.status,
         start_date: headerForm.start_date || null,
         end_date: headerForm.end_date || null,
         value: headerForm.value ? Number(headerForm.value) : null,
@@ -192,19 +192,7 @@ export default function ContractDetail() {
   // --- Rate Card modal controls ---
   const openEditRateCards = () => {
     if (!contract) return
-    setRateCardRows(
-      contract.rate_cards.map((card) => ({
-        key: `rc-edit-${card.id}`,
-        site_id: card.site_id ?? '',
-        role_title: card.role_title,
-        headcount: String(card.headcount),
-        billing_unit: card.billing_unit,
-        bill_rate: card.bill_rate,
-        pay_rate: card.pay_rate ?? '',
-        units_per_period: card.units_per_period ?? (card.billing_unit === 'hourly' ? '176' : '1'),
-        notes: card.notes ?? '',
-      })),
-    )
+    setRateCardRows(contract.rate_cards.map(formFromRateCard))
     setRateCardsError('')
     setIsEditingRateCards(true)
   }
@@ -215,19 +203,8 @@ export default function ContractDetail() {
     setRateCardsSaving(true)
     setRateCardsError('')
 
-    const payload = rateCardRows.map((row) => ({
-      site_id: row.site_id || null,
-      role_title: row.role_title.trim(),
-      headcount: Math.max(1, Number(row.headcount) || 1),
-      billing_unit: row.billing_unit,
-      bill_rate: Number(row.bill_rate) || 0,
-      pay_rate: row.pay_rate ? Number(row.pay_rate) : null,
-      units_per_period: row.billing_unit === 'hourly' ? Number(row.units_per_period) || 176 : 1,
-      notes: row.notes.trim() || null,
-    }))
-
     try {
-      const updated = await replaceContractRateCards(contract.id, payload)
+      const updated = await replaceContractRateCards(contract.id, rateCardsToPayload(rateCardRows))
       setContract(updated)
       setIsEditingRateCards(false)
       setActionMessage('Rate cards updated successfully.')
@@ -236,6 +213,28 @@ export default function ContractDetail() {
       setRateCardsError('Could not save rate cards. Ensure all roles and bill rates are set.')
     } finally {
       setRateCardsSaving(false)
+    }
+  }
+
+  const handleRetire = async () => {
+    if (!contract) return
+    if (
+      !window.confirm(
+        `Retire ${contract.reference}? The contract is removed from the active book but its history is kept.`,
+      )
+    ) {
+      return
+    }
+
+    setRetiring(true)
+    try {
+      await deleteContract(contract.id)
+      navigate('/contracts')
+    } catch (err) {
+      console.error(err)
+      setError('Could not retire the contract.')
+    } finally {
+      setRetiring(false)
     }
   }
 
@@ -267,76 +266,10 @@ export default function ContractDetail() {
   if (!contract) return null
 
   const canViewMargin = Boolean(contract.commercial?.can_view_margin)
-
-  const rateCardColumns: DataTableColumn<ContractRateCard>[] = [
-    {
-      key: 'role',
-      header: 'Role Title',
-      render: (card) => (
-        <div className="flex flex-col">
-          <span className="font-medium text-foreground">{card.role_title}</span>
-          {card.notes && <span className="text-xs text-muted-foreground">{card.notes}</span>}
-        </div>
-      ),
-    },
-    {
-      key: 'site',
-      header: 'Site',
-      className: 'text-muted-foreground',
-      render: (card) => card.site?.label ?? '—',
-    },
-    {
-      key: 'unit',
-      header: 'Billing Unit',
-      render: (card) => billingUnitLabels[card.billing_unit],
-    },
-    {
-      key: 'headcount',
-      header: 'Headcount',
-      className: 'text-center',
-      render: (card) => card.headcount,
-    },
-    {
-      key: 'bill_rate',
-      header: 'Bill Rate',
-      className: 'text-right',
-      render: (card) => formatCurrency(card.bill_rate),
-    },
-    {
-      key: 'units',
-      header: 'Units / Period',
-      className: 'text-center',
-      render: (card) =>
-        card.billing_unit === 'hourly' ? `${card.units_per_period ?? 176} hrs` : '1',
-    },
-    {
-      key: 'client_monthly',
-      header: 'Client Monthly',
-      className: 'text-right font-medium text-cost',
-      render: (card) =>
-        card.billing_unit === 'placement'
-          ? `${formatCurrency(card.line_placement_fee)} (fee)`
-          : formatCurrency(card.line_client_monthly),
-    },
-    ...(canViewMargin
-      ? [
-          {
-            key: 'pay_rate',
-            header: 'Pay Rate',
-            className: 'text-right text-muted-foreground',
-            render: (card: ContractRateCard) =>
-              card.pay_rate ? formatCurrency(card.pay_rate) : '—',
-          },
-          {
-            key: 'internal_monthly',
-            header: 'Internal Cost',
-            className: 'text-right text-muted-foreground',
-            render: (card: ContractRateCard) =>
-              card.line_internal_monthly ? formatCurrency(card.line_internal_monthly) : '—',
-          },
-        ]
-      : []),
-  ]
+  // Termination is manager+; the API rejects it for a salesrep, so never offer it here.
+  const statusOptions = contract.allowed_transitions.filter(
+    (status) => isManagerOrAbove || status !== 'terminated',
+  )
 
   return (
     <div className="space-y-6">
@@ -362,6 +295,12 @@ export default function ContractDetail() {
       {actionMessage && (
         <div className="rounded-md border border-people/30 bg-people/10 p-3 text-sm text-people">
           {actionMessage}
+        </div>
+      )}
+
+      {error && (
+        <div className="rounded-md border border-danger/30 bg-danger/10 p-3 text-sm text-danger">
+          {error}
         </div>
       )}
 
@@ -454,6 +393,18 @@ export default function ContractDetail() {
               Renew Contract
             </Link>
           )}
+
+          {contract.can_delete && (
+            <button
+              type="button"
+              onClick={handleRetire}
+              disabled={retiring}
+              className="inline-flex items-center gap-1.5 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm font-medium text-destructive hover:bg-destructive/20 disabled:opacity-50"
+            >
+              <Trash2 className="h-4 w-4" />
+              {retiring ? 'Retiring…' : 'Retire Contract'}
+            </button>
+          )}
         </div>
       </div>
 
@@ -530,10 +481,9 @@ export default function ContractDetail() {
               )}
             </div>
 
-            <DataTable
-              columns={rateCardColumns}
-              rows={contract.rate_cards}
-              rowKey={(card) => card.id}
+            <RateCardTable
+              rateCards={contract.rate_cards}
+              canViewMargin={canViewMargin}
               empty={
                 <div className="py-6 text-center text-sm text-muted-foreground">
                   No rate cards added to this contract yet.
@@ -737,6 +687,37 @@ export default function ContractDetail() {
                 />
               </div>
 
+              {statusOptions.length > 0 && (
+                <div>
+                  <label
+                    htmlFor="contract-status"
+                    className="block text-xs font-semibold text-foreground mb-1"
+                  >
+                    Status
+                  </label>
+                  <select
+                    id="contract-status"
+                    value={headerForm.status}
+                    onChange={(e) =>
+                      setHeaderForm({ ...headerForm, status: e.target.value as ContractStatus })
+                    }
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                  >
+                    <option value={contract.status}>
+                      {contractStatusMeta[contract.status].label} (current)
+                    </option>
+                    {statusOptions.map((status) => (
+                      <option key={status} value={status}>
+                        {contractStatusMeta[status].label}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Signing keeps its own action — it activates the client and notifies Service.
+                  </p>
+                </div>
+              )}
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-foreground mb-1">
@@ -921,188 +902,23 @@ export default function ContractDetail() {
               </div>
             )}
 
-            <form onSubmit={saveRateCards} className="space-y-4">
-              {rateCardRows.map((row, idx) => (
-                <div
-                  key={row.key}
-                  className="space-y-3 rounded-lg border border-border bg-background p-4 relative"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-foreground">Role #{idx + 1}</span>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setRateCardRows((prev) => prev.filter((r) => r.key !== row.key))
-                      }
-                      className="text-danger hover:text-danger/80"
-                      title="Remove role"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                    <div>
-                      <label className="block text-xs font-semibold text-foreground mb-1">
-                        Role Title
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        placeholder="e.g. Warehouse Associate"
-                        value={row.role_title}
-                        onChange={(e) => {
-                          const val = e.target.value
-                          setRateCardRows((prev) =>
-                            prev.map((r) => (r.key === row.key ? { ...r, role_title: val } : r)),
-                          )
-                        }}
-                        className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-foreground mb-1">
-                        Billing Unit
-                      </label>
-                      <select
-                        value={row.billing_unit}
-                        onChange={(e) => {
-                          const val = e.target.value as BillingUnit
-                          setRateCardRows((prev) =>
-                            prev.map((r) =>
-                              r.key === row.key
-                                ? {
-                                    ...r,
-                                    billing_unit: val,
-                                    units_per_period: val === 'hourly' ? '176' : '1',
-                                  }
-                                : r,
-                            ),
-                          )
-                        }}
-                        className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                      >
-                        <option value="hourly">Hourly</option>
-                        <option value="monthly">Monthly</option>
-                        <option value="placement">Placement (One-time)</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-semibold text-foreground mb-1">
-                        Headcount
-                      </label>
-                      <input
-                        type="number"
-                        min="1"
-                        required
-                        value={row.headcount}
-                        onChange={(e) => {
-                          const val = e.target.value
-                          setRateCardRows((prev) =>
-                            prev.map((r) => (r.key === row.key ? { ...r, headcount: val } : r)),
-                          )
-                        }}
-                        className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                    <div>
-                      <label className="block text-xs font-semibold text-foreground mb-1">
-                        Bill Rate (₱)
-                      </label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        required
-                        value={row.bill_rate}
-                        onChange={(e) => {
-                          const val = e.target.value
-                          setRateCardRows((prev) =>
-                            prev.map((r) => (r.key === row.key ? { ...r, bill_rate: val } : r)),
-                          )
-                        }}
-                        className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                      />
-                    </div>
-
-                    {canViewMargin && (
-                      <div>
-                        <label className="block text-xs font-semibold text-foreground mb-1">
-                          Pay Rate / Cost (₱)
-                        </label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          placeholder="Optional"
-                          value={row.pay_rate}
-                          onChange={(e) => {
-                            const val = e.target.value
-                            setRateCardRows((prev) =>
-                              prev.map((r) => (r.key === row.key ? { ...r, pay_rate: val } : r)),
-                            )
-                          }}
-                          className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                        />
-                      </div>
-                    )}
-
-                    {row.billing_unit === 'hourly' && (
-                      <div>
-                        <label className="block text-xs font-semibold text-foreground mb-1">
-                          Hours / Month
-                        </label>
-                        <input
-                          type="number"
-                          step="0.5"
-                          value={row.units_per_period}
-                          onChange={(e) => {
-                            const val = e.target.value
-                            setRateCardRows((prev) =>
-                              prev.map((r) =>
-                                r.key === row.key ? { ...r, units_per_period: val } : r,
-                              ),
-                            )
-                          }}
-                          className="w-full rounded-md border border-input bg-background px-3 py-1.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-                        />
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ))}
-
-              <button
-                type="button"
-                onClick={() => setRateCardRows((prev) => [...prev, newRateCardRow()])}
-                className="inline-flex items-center gap-1.5 rounded-md border border-dashed border-border px-3 py-2 text-sm font-medium text-primary hover:bg-accent w-full justify-center"
-              >
-                <Plus className="h-4 w-4" />
-                Add Rate Card Line
-              </button>
-
-              <div className="flex justify-end gap-2 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setIsEditingRateCards(false)}
-                  className="rounded-md border border-input bg-background px-3 py-2 text-sm font-medium hover:bg-accent"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={rateCardsSaving}
-                  className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-                >
-                  {rateCardsSaving ? 'Saving…' : 'Save Rate Cards'}
-                </button>
-              </div>
-            </form>
+            <RateCardEditor
+              rows={rateCardRows}
+              sites={sites}
+              canViewMargin={canViewMargin}
+              saving={rateCardsSaving}
+              onChange={(key, patch) =>
+                setRateCardRows((previous) =>
+                  previous.map((row) => (row.key === key ? { ...row, ...patch } : row)),
+                )
+              }
+              onAdd={() => setRateCardRows((previous) => [...previous, newRateCardRow()])}
+              onRemove={(key) =>
+                setRateCardRows((previous) => previous.filter((row) => row.key !== key))
+              }
+              onSubmit={saveRateCards}
+              onCancel={() => setIsEditingRateCards(false)}
+            />
           </div>
         </div>
       )}

@@ -1,6 +1,6 @@
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import ContractDetail from './ContractDetail'
 import * as contractApi from '../lib/contracts'
 import type { Contract } from '../types'
@@ -48,7 +48,8 @@ const { mockContract } = vi.hoisted(() => {
       {
         id: 'rc-1',
         contract_id: 'contract-1',
-        site_id: null,
+        site_id: 'site-1',
+        site: { id: 'site-1', label: 'Manila HQ' },
         role_title: 'Forklift Operator',
         headcount: 5,
         billing_unit: 'hourly',
@@ -101,7 +102,15 @@ vi.mock('../lib/contracts', () => ({
   updateContract: vi.fn().mockResolvedValue(mockContract),
   replaceContractRateCards: vi.fn().mockResolvedValue(mockContract),
   markContractSigned: vi.fn().mockResolvedValue(mockContract),
+  deleteContract: vi.fn().mockResolvedValue(undefined),
   downloadContractFile: vi.fn().mockResolvedValue(undefined),
+}))
+
+vi.mock('../lib/companies', () => ({
+  listCompanySites: vi.fn().mockResolvedValue([
+    { id: 'site-1', label: 'Manila HQ' },
+    { id: 'site-2', label: 'Cebu Hub' },
+  ]),
 }))
 
 vi.mock('../lib/auth-context', () => ({
@@ -109,6 +118,10 @@ vi.mock('../lib/auth-context', () => ({
     user: { id: 1, name: 'Manager User', role: 'manager' },
   }),
 }))
+
+afterEach(() => {
+  vi.restoreAllMocks()
+})
 
 describe('Contract Detail (/contracts/:id)', () => {
   it('renders contract header, rate cards, and renewal history', async () => {
@@ -124,6 +137,8 @@ describe('Contract Detail (/contracts/:id)', () => {
     expect(screen.getByText('CON-2026-0001')).toBeInTheDocument()
     expect(screen.getByText('Harbor Logistics Corp')).toBeInTheDocument()
     expect(screen.getByText('Forklift Operator')).toBeInTheDocument()
+    expect(screen.getByText('Manila HQ')).toBeInTheDocument()
+    expect(screen.getByText('Shift A operators')).toBeInTheDocument()
     expect(screen.getByText('PO-9981')).toBeInTheDocument()
     expect(screen.getByText('John Doe (VP Operations)')).toBeInTheDocument()
     expect(screen.getByText('Net 30')).toBeInTheDocument()
@@ -147,6 +162,75 @@ describe('Contract Detail (/contracts/:id)', () => {
     expect(
       screen.getByText('Add, edit, or remove commercial staffing rate lines for CON-2026-0001.'),
     ).toBeInTheDocument()
+  })
+
+  it('renders the shared site and notes fields in the rate-card editor and saves them', async () => {
+    render(
+      <MemoryRouter initialEntries={['/contracts/contract-1']}>
+        <Routes>
+          <Route path="/contracts/:id" element={<ContractDetail />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    await screen.findByText('Warehouse associate staffing agreement')
+    fireEvent.click(screen.getByRole('button', { name: /manage rate cards/i }))
+
+    const site = await screen.findByLabelText('Site 1')
+    expect(site).toHaveValue('site-1')
+    expect(await screen.findByRole('option', { name: 'Cebu Hub' })).toBeInTheDocument()
+
+    fireEvent.change(site, { target: { value: 'site-2' } })
+    fireEvent.change(screen.getByLabelText('Notes 1'), { target: { value: 'Night shift' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save rate cards' }))
+
+    await waitFor(() =>
+      expect(contractApi.replaceContractRateCards).toHaveBeenCalledWith('contract-1', [
+        expect.objectContaining({ site_id: 'site-2', notes: 'Night shift' }),
+      ]),
+    )
+  })
+
+  it('exposes the legal status transitions in the edit-terms dialog', async () => {
+    render(
+      <MemoryRouter initialEntries={['/contracts/contract-1']}>
+        <Routes>
+          <Route path="/contracts/:id" element={<ContractDetail />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    await screen.findByText('Warehouse associate staffing agreement')
+    fireEvent.click(screen.getByRole('button', { name: /edit terms/i }))
+
+    fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'expired' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }))
+
+    await waitFor(() =>
+      expect(contractApi.updateContract).toHaveBeenCalledWith(
+        'contract-1',
+        expect.objectContaining({ status: 'expired' }),
+      ),
+    )
+  })
+
+  it('retires the contract and returns to the contract book', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+
+    render(
+      <MemoryRouter initialEntries={['/contracts/contract-1']}>
+        <Routes>
+          <Route path="/contracts/:id" element={<ContractDetail />} />
+          <Route path="/contracts" element={<div>Contract book</div>} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    await screen.findByText('Warehouse associate staffing agreement')
+    fireEvent.click(screen.getByRole('button', { name: /retire contract/i }))
+
+    await waitFor(() => expect(contractApi.deleteContract).toHaveBeenCalledWith('contract-1'))
+    expect(await screen.findByText('Contract book')).toBeInTheDocument()
   })
 
   it('downloads file when download button is clicked', async () => {

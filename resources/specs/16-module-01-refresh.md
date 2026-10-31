@@ -249,7 +249,11 @@ for backward compatibility. A `site_id` must belong to the contract's company (4
 
 `GET /contracts` is the scoped cross-account book: filters `status`, `expiring`, `owner`, `company`,
 `renewal`, `search`; columns reference, account, title, status, term/expiry, value, rate-card count,
-owner. `/contracts/:id` shows the header, rate cards, document, renewal chain and allowed actions.
+owner. `/contracts/:id` shows the header, rate cards, document, renewal chain and allowed actions;
+the rate-card table and editor are shared with Account 360, so the site/notes fields and computed
+preview are identical on both surfaces. The detail also exposes the legal `PATCH` status moves
+(signing keeps its own action) and a manager+ **Retire** action. The book's summary cards stay
+scope-wide while the table filters narrow the rows.
 
 ## Read-only external feeds
 
