@@ -747,6 +747,82 @@ export interface CompanyBilling {
   meta: { source: string; read_only: boolean; as_of: string }
 }
 
+// --- Module 01 refresh S9: read-only delivery feeds -------------------------
+
+export type JobOrderStatus = 'open' | 'partially_filled' | 'filled' | 'closed' | 'cancelled'
+
+export type DeliveryPriority = 'low' | 'medium' | 'high'
+
+export type DeploymentStatus = 'pending' | 'active' | 'ended'
+
+export type TimesheetStatus = 'current' | 'pending' | 'missing'
+
+export interface DeliveryHandoff {
+  status: HandoffStatus | null
+  reference: string | null
+  error: string | null
+  requested_at: string | null
+  can_retry: boolean
+}
+
+/** One Recruitment job order — read-only (ADR-0025). */
+export interface DeliveryJobOrder {
+  reference: string
+  role: string
+  requested: number
+  filled: number
+  status: JobOrderStatus
+  priority: DeliveryPriority
+  target_start_date: string | null
+  recruiter: string | null
+  last_updated_at: string | null
+}
+
+/** Timekeeping's period read for one deployment. */
+export interface DeliveryTimesheet {
+  period_start: string
+  period_end: string
+  approved_hours: number
+  pending_hours: number
+  last_submitted_at: string | null
+  status: TimesheetStatus
+}
+
+/** One Deployment assignment, with its current Timekeeping read attached. */
+export interface DeliveryDeployment {
+  reference: string
+  contract_reference: string
+  role: string
+  site: string
+  status: DeploymentStatus
+  active_headcount: number
+  requested_headcount: number
+  start_date: string | null
+  end_date: string | null
+  fill_rate: number
+  timesheet: DeliveryTimesheet | null
+  operations_owner: string | null
+  last_updated_at: string | null
+}
+
+export interface DeliveryTimesheetTotals {
+  approved_hours: number
+  pending_hours: number
+  deployments_pending: number
+}
+
+export interface DeliveryFeed {
+  handoff: DeliveryHandoff
+  job_orders: DeliveryJobOrder[]
+  deployments: DeliveryDeployment[]
+  timesheets: DeliveryTimesheetTotals
+}
+
+export interface CompanyDelivery {
+  data: DeliveryFeed
+  meta: { source: string; read_only: boolean; as_of: string }
+}
+
 // --- Module 03: communication history ---------------------------------------
 
 export type CommunicationChannel =

@@ -31,6 +31,8 @@ check this list first:
   refresh, Account 360 + contract detail) — **done**
 - `RateCardEditor` — replace-the-set rate-card form with site, notes and computed preview totals
   (module 01 refresh, Account 360 + contract detail) — **done**
+- `CompanyDeliveryPanel` — read-only Recruitment / Deployment / Timekeeping feed for Account 360's
+  Delivery tab, with source/as-of provenance and no mutation actions (module 01 refresh S9) — **done**
 
 Rules: tokens/utilities only (no hardcoded hex or arbitrary px); icons from `lucide-react`; render
 dashboards inside `DashboardShell`.

@@ -8,6 +8,7 @@ import AlertItem from '../components/common/AlertItem'
 import EmptyState from '../components/common/EmptyState'
 import DataTable, { type DataTableColumn } from '../components/common/DataTable'
 import CommunicationList from '../components/common/CommunicationList'
+import CompanyDeliveryPanel from '../components/common/CompanyDeliveryPanel'
 import CompanySatisfactionPanel from '../components/common/CompanySatisfactionPanel'
 import JourneyStepper, { type JourneyStep } from '../components/common/JourneyStepper'
 import RateCardEditor from '../components/common/RateCardEditor'
@@ -3036,70 +3037,10 @@ export default function CompanyDetail() {
       )}
 
       {tab === 'delivery' && (
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <div className="lg:col-span-2">
-            <FormCard
-              title="Service handoff"
-              description="Read-only status of the mocked handoff to the Service department."
-            >
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">State</span>
-                <StatusBadge
-                  tone={
-                    company.handoff.status === 'sent'
-                      ? 'success'
-                      : company.handoff.status === 'failed'
-                        ? 'danger'
-                        : 'neutral'
-                  }
-                >
-                  {company.handoff.status === 'sent'
-                    ? 'Accepted'
-                    : company.handoff.status === 'failed'
-                      ? 'Failed'
-                      : 'Not requested'}
-                </StatusBadge>
-              </div>
-
-              <div className="mt-3 flex items-center justify-between gap-3 text-sm">
-                <span className="text-muted-foreground">Reference</span>
-                <span className="text-right font-mono text-xs text-foreground">
-                  {company.handoff.reference ?? '—'}
-                </span>
-              </div>
-
-              <div className="mt-3 flex items-center justify-between gap-3 text-sm">
-                <span className="text-muted-foreground">Requested</span>
-                <span className="text-right text-foreground">
-                  {company.handoff.requested_at
-                    ? formatDateTime(company.handoff.requested_at)
-                    : '—'}
-                </span>
-              </div>
-
-              {company.handoff.status === 'failed' && (
-                <p className="mt-4 border-t border-border pt-4 text-xs text-destructive">
-                  {company.handoff.error ?? 'The Service desk did not acknowledge the request.'}{' '}
-                  Retry it from the banner above.
-                </p>
-              )}
-
-              <p className="mt-4 border-t border-border pt-4 text-xs text-muted-foreground">
-                Signing a contract activates the client and asks Service to take over delivery. A
-                failed request leaves the client in onboarding until it is retried.
-              </p>
-            </FormCard>
-          </div>
-
-          <div className="flex flex-col gap-6">
-            <FormCard title="Delivery feeds" description="Read-only from Service and HR.">
-              <EmptyState
-                title="Feeds not connected yet"
-                description="Job orders, deployments and timesheet summaries will appear here. The CRM never writes those records."
-              />
-            </FormCard>
-          </div>
-        </div>
+        <CompanyDeliveryPanel
+          companyId={company.id}
+          refreshKey={`${company.handoff.status ?? 'none'}:${company.handoff.requested_at ?? ''}`}
+        />
       )}
 
       {tab === 'engagement' && (

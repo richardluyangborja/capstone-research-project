@@ -13,7 +13,7 @@ vi.mock('../lib/auth-context', () => ({
 
 // `vi.mock` factories are hoisted above the imports, so the fixtures they close over
 // must be created with `vi.hoisted`.
-const { company, site, contact, deal, contract, billing, paginated } = vi.hoisted(() => {
+const { company, site, contact, deal, contract, billing, delivery, paginated } = vi.hoisted(() => {
   const company: Company = {
     id: 'company-1',
     reference: 'CO-2026-0001',
@@ -234,6 +234,25 @@ const { company, site, contact, deal, contract, billing, paginated } = vi.hoiste
       currency: 'PHP',
       aging: { current: '250000.00', '1_30': '0.00', '31_60': '0.00', '60_plus': '0.00' },
     } satisfies BillingSummary,
+    delivery: {
+      data: {
+        handoff: {
+          status: null,
+          reference: null,
+          error: null,
+          requested_at: null,
+          can_retry: false,
+        },
+        job_orders: [],
+        deployments: [],
+        timesheets: { approved_hours: 0, pending_hours: 0, deployments_pending: 0 },
+      },
+      meta: {
+        source: 'Recruitment / Deployment / Timekeeping (mocked, read-only)',
+        read_only: true,
+        as_of: '2026-10-17T00:00:00+00:00',
+      },
+    },
     paginated: {
       data: [company],
       meta: { current_page: 1, per_page: 25, total: 1, last_page: 1 },
@@ -260,6 +279,10 @@ vi.mock('../lib/contracts', () => ({
   deleteContract: vi.fn(),
   restoreContract: vi.fn(),
   downloadContractFile: vi.fn(),
+}))
+
+vi.mock('../lib/deliveries', () => ({
+  getCompanyDelivery: vi.fn().mockResolvedValue(delivery),
 }))
 
 vi.mock('../lib/companies', () => ({
@@ -815,13 +838,15 @@ describe('Company detail', () => {
     expect(screen.getByText('Activities')).toBeInTheDocument()
   })
 
-  it('shows the Service handoff and the read-only feed state on Delivery', async () => {
+  it('shows the Service handoff and the read-only delivery feed on Delivery', async () => {
     renderDetail('/accounts/company-1?tab=delivery')
 
     await screen.findByRole('heading', { name: 'Sunrise Foods Inc' })
-    expect(screen.getByText('Service handoff')).toBeInTheDocument()
+    expect(await screen.findByText('Service handoff')).toBeInTheDocument()
     expect(screen.getByText('Not requested')).toBeInTheDocument()
-    expect(screen.getByText('Feeds not connected yet')).toBeInTheDocument()
+    expect(screen.getByText('Read-only feed')).toBeInTheDocument()
+    expect(screen.getByText('No job orders yet')).toBeInTheDocument()
+    expect(screen.getByText('No deployments yet')).toBeInTheDocument()
   })
 
   it('opens a deal-linked contract upload on Commercial', async () => {

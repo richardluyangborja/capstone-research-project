@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\V1\CompanyBillingController;
 use App\Http\Controllers\Api\V1\CompanyContactController;
 use App\Http\Controllers\Api\V1\CompanyContractController;
 use App\Http\Controllers\Api\V1\CompanyController;
+use App\Http\Controllers\Api\V1\CompanyDeliveryController;
 use App\Http\Controllers\Api\V1\CompanyLifecycleController;
 use App\Http\Controllers\Api\V1\CompanyOpportunityController;
 use App\Http\Controllers\Api\V1\CompanySiteController;
@@ -139,6 +140,8 @@ Route::prefix('v1')->group(function (): void {
         Route::post('companies/{company}/reactivate', [CompanyLifecycleController::class, 'reactivate']);
         Route::post('companies/{company}/handoff/retry', [CompanyLifecycleController::class, 'retryHandoff']);
         Route::get('companies/{company}/billing', [CompanyBillingController::class, 'show']);
+        // Module 01 refresh S9 — read-only Recruitment / Deployment / Timekeeping feed.
+        Route::get('companies/{company}/delivery', [CompanyDeliveryController::class, 'show']);
         Route::get('companies/{company}/contracts', [CompanyContractController::class, 'index']);
         Route::post('companies/{company}/contracts', [CompanyContractController::class, 'store']);
         Route::get('contracts/{contract}/file', [ContractController::class, 'download']);

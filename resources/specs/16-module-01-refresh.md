@@ -7,7 +7,8 @@ sign-in), plus 0004, 0005, 0007, 0010, 0013, 0014, 0016.
 
 > **S0 — planning contract (merged). S1 — shell & routes (built). S2 — Lead Workspace (built).
 > S3 — Account Book (built). S4 — Account 360 (built). S5 — account delegation (built).
-> S6 — contract commercial header (built). S7 — contract rate cards (built).** S0 is this
+> S6 — contract commercial header (built). S7 — contract rate cards (built). S8 — contract book &
+> detail (built). S9 — delivery feed (built).** S0 is this
 > contract plus its ADRs; S1
 > shipped the grouped sidebar, canonical routes, redirects and canonical dashboard/AI hrefs; S2
 > shipped the saved views, manager workload panel and duplicate links; S3 shipped the scoped
@@ -21,8 +22,10 @@ sign-in), plus 0004, 0005, 0007, 0010, 0013, 0014, 0016.
 > totals, the manager-only editor and the renewal clone (a salesrep renewing still carries the
 > previous internal rates they cannot see). S8 added the scoped global contract book and its detail
 > page, with status/expiry/renewal/account/owner filters, the commercial rate summary, the document
-> and the renewal chain.
-> S9–S19
+> and the renewal chain. S9 replaced the Delivery feed placeholder with the read-only Recruitment,
+> Deployment and Timekeeping feed (`GET /companies/{id}/delivery`), its source/as-of labels and the
+> deterministic active/onboarding/prospect/churned scenarios.
+> S10–S19
 > each ship on their own `feature/module-01-*` branch and merge to `main` only after review. The
 > branch is deleted after merge, and the next slice starts from the updated `main`.
 
@@ -516,7 +519,7 @@ names are suggestions; the `feature/module-01-*` prefix is required.
 | **S6** | `feature/module-01-contract-header` | Commercial fields, validation, form, resource, edit activity, seeds | New fields persist; only account update right edits; timeline records the edit |
 | **S7** | `feature/module-01-rate-cards` (built) | Rate-card table/model/API/UI, computed values, renewal clone, manager gate | Hourly/monthly/placement totals compute; null margin stays null; salesrep cannot see pay/margin |
 | **S8** | `feature/module-01-contracts-book` (built) | `/contracts`, `/contracts/:id`, filters, rate summary | Scoped list; renewal/expiry/status filters; detail shows document + rates |
-| **S9** | `feature/module-01-delivery-feed` | Recruitment/deployment/timekeeping interfaces, DTOs, mocks, Delivery tab, source labels | Read-only UI; no write routes; seeded scenarios; manager/salesrep scoping |
+| **S9** | `feature/module-01-delivery-feed` (built) | Recruitment/deployment/timekeeping interfaces, DTOs, mocks, Delivery tab, source labels | Read-only UI; no write routes; seeded scenarios; manager/salesrep scoping |
 | **S10** | `feature/module-01-deployments-book` | `/deployments` read-only book, fill rate and timesheet summary | Filters/search; source label; no mutation actions |
 | **S11** | `feature/module-01-finance-feed` | Expanded AR/invoice feed, Billing section, owner risk flag | Manager sees full feed; owner sees only risk flag; source/as_of present |
 | **S12** | `feature/module-01-billing-book` | `/billing` manager+ AR book | Salesrep 403/nav hidden; aging, overdue, filters; read-only |
