@@ -2,14 +2,20 @@
 
 namespace App\Providers;
 
+use App\Integrations\DeploymentFeed;
 use App\Integrations\EmailGateway;
 use App\Integrations\FinanceBilling;
 use App\Integrations\HrGateway;
+use App\Integrations\MockDeploymentFeed;
 use App\Integrations\MockEmailGateway;
 use App\Integrations\MockFinanceBilling;
 use App\Integrations\MockHrGateway;
+use App\Integrations\MockRecruitmentFeed;
 use App\Integrations\MockServiceHandoff;
+use App\Integrations\MockTimekeepingFeed;
+use App\Integrations\RecruitmentFeed;
 use App\Integrations\ServiceHandoff;
+use App\Integrations\TimekeepingFeed;
 use App\Models\Activity;
 use App\Policies\TaskPolicy;
 use Illuminate\Support\Facades\Gate;
@@ -28,6 +34,10 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(FinanceBilling::class, MockFinanceBilling::class);
         $this->app->bind(EmailGateway::class, MockEmailGateway::class);
         $this->app->bind(HrGateway::class, MockHrGateway::class);
+        // Module 01 refresh S9 — read-only Recruitment / Deployment / Timekeeping feeds.
+        $this->app->bind(RecruitmentFeed::class, MockRecruitmentFeed::class);
+        $this->app->bind(DeploymentFeed::class, MockDeploymentFeed::class);
+        $this->app->bind(TimekeepingFeed::class, MockTimekeepingFeed::class);
     }
 
     /**
