@@ -93,8 +93,8 @@ export default function DataTable<T>({
         </div>
       )}
 
-      <div className="overflow-hidden rounded-lg border border-border bg-card">
-        <table className="w-full text-left text-sm">
+      <div className="overflow-x-auto rounded-lg border border-border bg-card">
+        <table className="w-full min-w-max text-left text-sm">
           {caption && <caption className="sr-only">{caption}</caption>}
           <thead className="border-b border-border text-xs uppercase text-muted-foreground">
             <tr>

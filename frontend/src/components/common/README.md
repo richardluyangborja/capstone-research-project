@@ -27,6 +27,10 @@ check this list first:
 - `ReportBody` — headline, narrative, three insight cards and four action links (module 06 dashboard
   summary + module 07 `/reports`) — **done** (spec 15)
 - `JourneyStepper` — read-only, derived account journey (module 01 refresh, Account 360) — **done**
+- `RateCardTable` — read-only contract rate-card table with manager-only pay/margin columns (module 01
+  refresh, Account 360 + contract detail) — **done**
+- `RateCardEditor` — replace-the-set rate-card form with site, notes and computed preview totals
+  (module 01 refresh, Account 360 + contract detail) — **done**
 
 Rules: tokens/utilities only (no hardcoded hex or arbitrary px); icons from `lucide-react`; render
 dashboards inside `DashboardShell`.

@@ -63,6 +63,20 @@ class ContractFactory extends Factory
         return $this->state(fn (array $attributes): array => ['status' => $status]);
     }
 
+    public function draft(): static
+    {
+        return $this->state(fn (array $attributes): array => [
+            'status' => ContractStatus::Draft,
+        ]);
+    }
+
+    public function sent(): static
+    {
+        return $this->state(fn (array $attributes): array => [
+            'status' => ContractStatus::Sent,
+        ]);
+    }
+
     /**
      * A signed contract — the state that activates a client.
      */

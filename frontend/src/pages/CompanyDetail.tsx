@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { ArrowLeft, CalendarClock, Plus, SquareKanban } from 'lucide-react'
 import PageHeader from '../components/common/PageHeader'
@@ -10,6 +10,8 @@ import DataTable, { type DataTableColumn } from '../components/common/DataTable'
 import CommunicationList from '../components/common/CommunicationList'
 import CompanySatisfactionPanel from '../components/common/CompanySatisfactionPanel'
 import JourneyStepper, { type JourneyStep } from '../components/common/JourneyStepper'
+import RateCardEditor from '../components/common/RateCardEditor'
+import RateCardTable from '../components/common/RateCardTable'
 import {
   assignCompany,
   createCompanySite,
@@ -51,21 +53,20 @@ import { listCompanyOpportunities } from '../lib/opportunities'
 import { activityTypeMeta } from '../lib/leadMeta'
 import { followUpDueMeta } from '../lib/followUpMeta'
 import { companySizeLabels, companyStatusMeta, companyTierLabels } from '../lib/companyMeta'
-import {
-  billingUnitLabels,
-  billingUnitOptions,
-  contractStatusMeta,
-  contractStatusOptions,
-  formatExpiry,
-} from '../lib/contractMeta'
+import { contractStatusMeta, contractStatusOptions, formatExpiry } from '../lib/contractMeta'
 import { contactRoleMeta, contactStatusMeta } from '../lib/contactMeta'
 import { opportunityStageMeta } from '../lib/opportunityMeta'
 import { formatCurrency, formatDate, formatDateTime } from '../lib/format'
+import {
+  formFromRateCard,
+  newRateCardRow,
+  rateCardsToPayload,
+  type RateCardForm,
+} from '../lib/rateCards'
 import type {
   Activity,
   AssignmentTarget,
   BillingSummary,
-  BillingUnit,
   Company,
   CompanySite,
   CompanySize,
@@ -75,7 +76,6 @@ import type {
   ContactRoleType,
   ContactStatus,
   Contract,
-  ContractRateCard,
   ContractStatus,
   Opportunity,
 } from '../types'
@@ -229,140 +229,6 @@ const formFromContract = (contract: Contract): ContractForm => ({
   opportunity_id: contract.opportunity_id ?? '',
 })
 
-/** One editable row in the replace-the-set rate-card editor (module 01 refresh S7). */
-interface RateCardForm {
-  key: string
-  site_id: string
-  role_title: string
-  headcount: string
-  billing_unit: BillingUnit
-  bill_rate: string
-  pay_rate: string
-  units_per_period: string
-  notes: string
-}
-
-let rateCardKey = 0
-
-const newRateCardRow = (): RateCardForm => ({
-  key: `rate-card-${(rateCardKey += 1)}`,
-  site_id: '',
-  role_title: '',
-  headcount: '1',
-  billing_unit: 'hourly',
-  bill_rate: '',
-  pay_rate: '',
-  units_per_period: '176',
-  notes: '',
-})
-
-const formFromRateCard = (card: ContractRateCard): RateCardForm => ({
-  key: `rate-card-${card.id}`,
-  site_id: card.site_id ?? '',
-  role_title: card.role_title,
-  headcount: String(card.headcount),
-  billing_unit: card.billing_unit,
-  bill_rate: card.bill_rate,
-  pay_rate: card.pay_rate ?? '',
-  units_per_period: card.units_per_period ?? (card.billing_unit === 'hourly' ? '176' : '1'),
-  notes: card.notes ?? '',
-})
-
-/** The client-facing monthly preview for one editor row (placement is one-time). */
-const rateCardPreview = (row: RateCardForm): number => {
-  const headcount = Number(row.headcount) || 0
-  const rate = Number(row.bill_rate) || 0
-
-  if (row.billing_unit === 'placement') {
-    return headcount * rate
-  }
-
-  const units = row.billing_unit === 'hourly' ? Number(row.units_per_period) || 0 : 1
-
-  return headcount * rate * units
-}
-
-/** The read-only rate-card table; pay and internal columns exist only for manager+. */
-const rateCardColumns = (canViewMargin: boolean): DataTableColumn<ContractRateCard>[] => {
-  const columns: DataTableColumn<ContractRateCard>[] = [
-    {
-      key: 'role',
-      header: 'Role',
-      render: (card) => (
-        <div className="flex flex-col">
-          <span className="font-medium text-foreground">{card.role_title}</span>
-          {card.notes && <span className="text-xs text-muted-foreground">{card.notes}</span>}
-        </div>
-      ),
-    },
-    {
-      key: 'site',
-      header: 'Site',
-      className: 'text-muted-foreground',
-      render: (card) => card.site?.label ?? '—',
-    },
-    {
-      key: 'unit',
-      header: 'Unit',
-      className: 'text-muted-foreground',
-      render: (card) => billingUnitLabels[card.billing_unit],
-    },
-    {
-      key: 'headcount',
-      header: 'Heads',
-      className: 'text-right text-muted-foreground',
-      headerClassName: 'text-right',
-      render: (card) => card.headcount,
-    },
-    {
-      key: 'bill_rate',
-      header: 'Bill rate',
-      className: 'text-right',
-      headerClassName: 'text-right',
-      render: (card) => formatCurrency(card.bill_rate),
-    },
-    {
-      key: 'client_monthly',
-      header: 'Client / mo',
-      className: 'text-right',
-      headerClassName: 'text-right',
-      render: (card) =>
-        card.billing_unit === 'placement' ? (
-          <div className="flex flex-col items-end">
-            <span>—</span>
-            <span className="text-xs text-muted-foreground">
-              {formatCurrency(card.line_placement_fee)} once
-            </span>
-          </div>
-        ) : (
-          formatCurrency(card.line_client_monthly)
-        ),
-    },
-  ]
-
-  if (canViewMargin) {
-    columns.push(
-      {
-        key: 'pay_rate',
-        header: 'Pay rate',
-        className: 'text-right text-muted-foreground',
-        headerClassName: 'text-right',
-        render: (card) => (card.pay_rate === null ? '—' : formatCurrency(card.pay_rate)),
-      },
-      {
-        key: 'internal_monthly',
-        header: 'Internal / mo',
-        className: 'text-right text-muted-foreground',
-        headerClassName: 'text-right',
-        render: (card) =>
-          card.line_internal_monthly === null ? '—' : formatCurrency(card.line_internal_monthly),
-      },
-    )
-  }
-
-  return columns
-}
-
 const formFromContact = (contact: Contact): ContactForm => ({
   id: contact.id,
   name: contact.name,
@@ -412,6 +278,7 @@ export default function CompanyDetail() {
   const tab: TabKey = requestedTab ? (tabAliases[requestedTab] ?? 'overview') : 'overview'
   const section = searchParams.get('section') ?? ''
   const linkedOpportunityId = searchParams.get('opportunity_id') ?? ''
+  const linkedRenewalId = searchParams.get('renew_contract_id') ?? ''
   const duplicates =
     (location.state as { duplicates?: DuplicateCompany[] } | null)?.duplicates ?? []
   const notice = (location.state as { notice?: string } | null)?.notice ?? ''
@@ -441,6 +308,7 @@ export default function CompanyDetail() {
   const [contactRole, setContactRole] = useState('')
   const [contactStatus, setContactStatus] = useState('')
   const [activityForm, setActivityForm] = useState({ type: 'call', subject: '', body: '' })
+  const renewalStarted = useRef<string | null>(null)
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -886,6 +754,29 @@ export default function CompanyDetail() {
     })
   }
 
+  // The global contract page links here with `renew_contract_id`; open the renewal form
+  // once the account's contracts are in, then drop the one-shot query value.
+  useEffect(() => {
+    if (!linkedRenewalId || loading || renewalStarted.current === linkedRenewalId) {
+      return
+    }
+
+    const contract = contracts.find((item) => item.id === linkedRenewalId)
+
+    if (!contract) {
+      return
+    }
+
+    renewalStarted.current = linkedRenewalId
+    onStartRenewal(contract)
+
+    const nextParams = new URLSearchParams(searchParams)
+    nextParams.delete('renew_contract_id')
+    nextParams.set('tab', 'commercial')
+    nextParams.set('section', 'contracts')
+    setSearchParams(nextParams, { replace: true })
+  }, [linkedRenewalId, loading, contracts, searchParams, setSearchParams])
+
   const onEditContract = (contract: Contract) => {
     setTab('commercial', 'contracts')
     setContractForm(formFromContract(contract))
@@ -937,24 +828,7 @@ export default function CompanyDetail() {
 
     setSaving(true)
     try {
-      await replaceContractRateCards(
-        rateCardEditContract.id,
-        rateCardRows.map((row) => ({
-          site_id: blankToNull(row.site_id),
-          role_title: row.role_title.trim(),
-          headcount: Number(row.headcount),
-          billing_unit: row.billing_unit,
-          bill_rate: Number(row.bill_rate),
-          pay_rate: row.pay_rate.trim() === '' ? null : Number(row.pay_rate),
-          units_per_period:
-            row.billing_unit === 'hourly'
-              ? row.units_per_period.trim() === ''
-                ? 176
-                : Number(row.units_per_period)
-              : 1,
-          notes: blankToNull(row.notes),
-        })),
-      )
+      await replaceContractRateCards(rateCardEditContract.id, rateCardsToPayload(rateCardRows))
 
       setRateCardEditId(null)
       setRateCardViewId(rateCardEditContract.id)
@@ -1212,14 +1086,6 @@ export default function CompanyDetail() {
 
   const rateCardViewContract = contracts.find((contract) => contract.id === rateCardViewId) ?? null
   const rateCardEditContract = contracts.find((contract) => contract.id === rateCardEditId) ?? null
-  const rateCardPreviewTotal = rateCardRows.reduce(
-    (total, row) => total + (row.billing_unit === 'placement' ? 0 : rateCardPreview(row)),
-    0,
-  )
-  const rateCardPlacementTotal = rateCardRows.reduce(
-    (total, row) => total + (row.billing_unit === 'placement' ? rateCardPreview(row) : 0),
-    0,
-  )
 
   const contractColumns: DataTableColumn<Contract>[] = [
     {
@@ -2599,9 +2465,104 @@ export default function CompanyDetail() {
       )}
 
       {tab === 'commercial' && (
-        <div id="account-opportunities" className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <div className="flex flex-col gap-6 lg:col-span-2">
-            <div className="flex items-center justify-end">
+        <div className="space-y-6">
+          <div
+            className={`grid grid-cols-1 gap-4 md:grid-cols-2 ${
+              company.can_view_billing ? 'xl:grid-cols-3' : 'xl:grid-cols-2'
+            }`}
+          >
+            <FormCard title="Deals" description="Every deal on this account, open or closed.">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Deals</span>
+                <span className="text-foreground">{company.counts.opportunities}</span>
+              </div>
+              <div className="mt-3 flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Open</span>
+                <span className="text-foreground">
+                  {opportunities.filter((deal) => deal.is_open).length}
+                </span>
+              </div>
+              <div className="mt-3 flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Open value</span>
+                <span className="text-cost">
+                  {formatCurrency(
+                    opportunities
+                      .filter((deal) => deal.is_open)
+                      .reduce((total, deal) => total + Number(deal.amount ?? 0), 0),
+                  )}
+                </span>
+              </div>
+              <Link
+                to="/pipeline"
+                className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline"
+              >
+                <SquareKanban className="h-4 w-4" aria-hidden="true" />
+                View the pipeline board
+              </Link>
+            </FormCard>
+
+            <FormCard title="Contract summary">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Contracts</span>
+                <span className="text-foreground">{company.counts.contracts}</span>
+              </div>
+              <div className="mt-3 flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Active</span>
+                <span className="text-foreground">
+                  {contracts.filter((contract) => contract.is_active).length}
+                </span>
+              </div>
+              <div className="mt-3 flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Renewal due</span>
+                <span className="text-foreground">
+                  {contracts.filter((contract) => contract.is_expiring_soon).length}
+                </span>
+              </div>
+            </FormCard>
+
+            {company.can_view_billing && (
+              <FormCard
+                title="Billing"
+                description="Read-only snapshot from the Finance department (mocked)."
+              >
+                {billing === null ? (
+                  <p className="text-sm text-muted-foreground">Loading…</p>
+                ) : (
+                  <dl className="flex flex-col gap-3 text-sm">
+                    <Detail
+                      label="Account"
+                      value={
+                        billing.account_status === 'current'
+                          ? 'Current'
+                          : billing.account_status === 'overdue'
+                            ? 'Overdue'
+                            : 'Closed'
+                      }
+                    />
+                    <Detail label="Outstanding" value={formatCurrency(billing.outstanding)} />
+                    <Detail
+                      label="Overdue"
+                      value={Number(billing.overdue) > 0 ? formatCurrency(billing.overdue) : '—'}
+                    />
+                    <Detail label="Terms" value={billing.credit_terms} />
+                    <Detail
+                      label="Next due"
+                      value={billing.next_due_date ? formatDate(billing.next_due_date) : '—'}
+                    />
+                  </dl>
+                )}
+              </FormCard>
+            )}
+          </div>
+
+          <section id="account-opportunities">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold text-foreground">Deals</h2>
+                <p className="text-sm text-muted-foreground">
+                  Every deal on this account, open or closed.
+                </p>
+              </div>
               <Link
                 to={`/opportunities/new?company_id=${id}`}
                 className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground"
@@ -2633,80 +2594,46 @@ export default function CompanyDetail() {
                 />
               }
             />
-          </div>
+          </section>
 
-          <div className="flex flex-col gap-6">
-            <FormCard title="Deals" description="Every deal on this account, open or closed.">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Deals</span>
-                <span className="text-foreground">{company.counts.opportunities}</span>
+          <section id="account-contracts">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold text-foreground">Contracts</h2>
+                <p className="text-sm text-muted-foreground">
+                  Signed agreements, renewals and the commercial header behind each one.
+                </p>
               </div>
-              <div className="mt-3 flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Open</span>
-                <span className="text-foreground">
-                  {opportunities.filter((deal) => deal.is_open).length}
-                </span>
+              <div className="flex flex-wrap items-center gap-2">
+                <label className="text-xs font-medium text-muted-foreground">
+                  Status
+                  <select
+                    value={contractStatus}
+                    onChange={(event) => onFilterContracts(event.target.value)}
+                    className="ml-2 rounded-md border border-input bg-card px-2 py-1 text-xs text-foreground outline-none focus:ring-2 focus:ring-ring"
+                  >
+                    <option value="">All</option>
+                    {(Object.keys(contractStatusMeta) as ContractStatus[]).map((status) => (
+                      <option key={status} value={status}>
+                        {contractStatusMeta[status].label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                {!contractForm && company.can_upload_contract && (
+                  <button
+                    type="button"
+                    onClick={() => setContractForm({ ...emptyContract })}
+                    className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground"
+                  >
+                    <Plus className="h-4 w-4" aria-hidden="true" />
+                    Upload a contract
+                  </button>
+                )}
               </div>
-              <div className="mt-3 flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Open value</span>
-                <span className="text-cost">
-                  {formatCurrency(
-                    opportunities
-                      .filter((deal) => deal.is_open)
-                      .reduce((total, deal) => total + Number(deal.amount ?? 0), 0),
-                  )}
-                </span>
-              </div>
-              <Link
-                to="/pipeline"
-                className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline"
-              >
-                <SquareKanban className="h-4 w-4" aria-hidden="true" />
-                View the pipeline board
-              </Link>
-            </FormCard>
-          </div>
-        </div>
-      )}
-
-      {tab === 'commercial' && (
-        <div id="account-contracts" className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
-          <div className="flex flex-col gap-6 lg:col-span-2">
-            <div className="flex items-center justify-end">
-              <label className="text-xs font-medium text-muted-foreground">
-                Status
-                <select
-                  value={contractStatus}
-                  onChange={(event) => onFilterContracts(event.target.value)}
-                  className="ml-2 rounded-md border border-input bg-card px-2 py-1 text-xs text-foreground outline-none focus:ring-2 focus:ring-ring"
-                >
-                  <option value="">All</option>
-                  {(Object.keys(contractStatusMeta) as ContractStatus[]).map((status) => (
-                    <option key={status} value={status}>
-                      {contractStatusMeta[status].label}
-                    </option>
-                  ))}
-                </select>
-              </label>
             </div>
 
-            <DataTable
-              columns={contractColumns}
-              rows={contracts}
-              rowKey={(contract) => contract.id}
-              loading={loading}
-              loadingLabel="Loading contracts…"
-              empty={
-                <EmptyState
-                  title="No contracts yet"
-                  description="Upload the signed agreement to bind the client — signing activates the account."
-                />
-              }
-            />
-          </div>
-
-          <div className="flex flex-col gap-6">
-            {contractForm ? (
+            {contractForm && (
               <FormCard
                 title={
                   contractForm.id
@@ -2967,78 +2894,30 @@ export default function CompanyDetail() {
                   </div>
                 </form>
               </FormCard>
-            ) : company.can_upload_contract ? (
-              <button
-                type="button"
-                onClick={() => setContractForm({ ...emptyContract })}
-                className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
-              >
-                Upload a contract
-              </button>
-            ) : (
-              <FormCard title="Contracts">
-                <p className="text-sm text-muted-foreground">
-                  You need to own this account (or be its manager) to upload a contract.
-                </p>
-              </FormCard>
             )}
 
-            <FormCard title="Contract summary">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Contracts</span>
-                <span className="text-foreground">{company.counts.contracts}</span>
-              </div>
-              <div className="mt-3 flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Active</span>
-                <span className="text-foreground">
-                  {contracts.filter((contract) => contract.is_active).length}
-                </span>
-              </div>
-              <div className="mt-3 flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Renewal due</span>
-                <span className="text-foreground">
-                  {contracts.filter((contract) => contract.is_expiring_soon).length}
-                </span>
-              </div>
-            </FormCard>
-
-            {company.can_view_billing && (
-              <FormCard
-                title="Billing"
-                description="Read-only snapshot from the Finance department (mocked)."
-              >
-                {billing === null ? (
-                  <p className="text-sm text-muted-foreground">Loading…</p>
-                ) : (
-                  <dl className="flex flex-col gap-3 text-sm">
-                    <Detail
-                      label="Account"
-                      value={
-                        billing.account_status === 'current'
-                          ? 'Current'
-                          : billing.account_status === 'overdue'
-                            ? 'Overdue'
-                            : 'Closed'
-                      }
-                    />
-                    <Detail label="Outstanding" value={formatCurrency(billing.outstanding)} />
-                    <Detail
-                      label="Overdue"
-                      value={Number(billing.overdue) > 0 ? formatCurrency(billing.overdue) : '—'}
-                    />
-                    <Detail label="Terms" value={billing.credit_terms} />
-                    <Detail
-                      label="Next due"
-                      value={billing.next_due_date ? formatDate(billing.next_due_date) : '—'}
-                    />
-                  </dl>
-                )}
-              </FormCard>
+            {!contractForm && !company.can_upload_contract && (
+              <p className="mb-3 text-sm text-muted-foreground">
+                You need to own this account (or be its manager) to upload a contract.
+              </p>
             )}
-          </div>
+
+            <DataTable
+              columns={contractColumns}
+              rows={contracts}
+              rowKey={(contract) => contract.id}
+              loading={loading}
+              loadingLabel="Loading contracts…"
+              empty={
+                <EmptyState
+                  title="No contracts yet"
+                  description="Upload the signed agreement to bind the client — signing activates the account."
+                />
+              }
+            />
+          </section>
         </div>
       )}
-
       {tab === 'commercial' && rateCardViewContract && (
         <div id="account-rate-cards" className="mt-6">
           <FormCard
@@ -3067,10 +2946,9 @@ export default function CompanyDetail() {
               </>
             }
           >
-            <DataTable
-              columns={rateCardColumns(rateCardViewContract.commercial.can_view_margin)}
-              rows={rateCardViewContract.rate_cards}
-              rowKey={(card) => card.id}
+            <RateCardTable
+              rateCards={rateCardViewContract.rate_cards}
+              canViewMargin={rateCardViewContract.commercial.can_view_margin}
               empty={
                 <p className="text-sm text-muted-foreground">
                   No rate cards on this contract yet.
@@ -3138,221 +3016,21 @@ export default function CompanyDetail() {
             title={`${rateCardEditContract.reference} rate cards`}
             description="Replace the set. The order here is the order on the contract; hourly lines bill the expected hours per month."
           >
-            <form onSubmit={onSaveRateCards} className="flex flex-col gap-4">
-              {rateCardRows.length === 0 && (
-                <p className="text-sm text-muted-foreground">
-                  No lines yet. Add the roles, headcount and rates behind this agreement, or save an
-                  empty set to clear it.
-                </p>
-              )}
-
-              {rateCardRows.map((row, index) => (
-                <div key={row.key} className="rounded-lg border border-border p-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium text-foreground">Line {index + 1}</span>
-                    <button
-                      type="button"
-                      onClick={() => onRemoveRateCard(row.key)}
-                      className="text-xs font-medium text-destructive"
-                    >
-                      Remove
-                    </button>
-                  </div>
-
-                  <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
-                    <Field
-                      label={`Role ${index + 1}`}
-                      error={errors[`rate_cards.${index}.role_title`]}
-                    >
-                      <input
-                        value={row.role_title}
-                        placeholder="Warehouse associate"
-                        onChange={(event) =>
-                          onRateCardChange(row.key, { role_title: event.target.value })
-                        }
-                        className={inputClass}
-                      />
-                    </Field>
-
-                    <Field
-                      label={`Site ${index + 1}`}
-                      error={errors[`rate_cards.${index}.site_id`]}
-                    >
-                      <select
-                        value={row.site_id}
-                        onChange={(event) =>
-                          onRateCardChange(row.key, { site_id: event.target.value })
-                        }
-                        className={inputClass}
-                      >
-                        <option value="">No site</option>
-                        {sites.map((site) => (
-                          <option key={site.id} value={site.id}>
-                            {site.label}
-                          </option>
-                        ))}
-                      </select>
-                    </Field>
-
-                    <Field
-                      label={`Billing unit ${index + 1}`}
-                      error={errors[`rate_cards.${index}.billing_unit`]}
-                    >
-                      <select
-                        value={row.billing_unit}
-                        onChange={(event) => {
-                          const unit = event.target.value as BillingUnit
-                          onRateCardChange(row.key, {
-                            billing_unit: unit,
-                            units_per_period: unit === 'hourly' ? '176' : '1',
-                          })
-                        }}
-                        className={inputClass}
-                      >
-                        {billingUnitOptions.map((unit) => (
-                          <option key={unit} value={unit}>
-                            {billingUnitLabels[unit]}
-                          </option>
-                        ))}
-                      </select>
-                    </Field>
-
-                    <Field
-                      label={`Headcount ${index + 1}`}
-                      error={errors[`rate_cards.${index}.headcount`]}
-                    >
-                      <input
-                        type="number"
-                        min="1"
-                        value={row.headcount}
-                        onChange={(event) =>
-                          onRateCardChange(row.key, { headcount: event.target.value })
-                        }
-                        className={inputClass}
-                      />
-                    </Field>
-
-                    <Field
-                      label={`Bill rate ${index + 1}`}
-                      error={errors[`rate_cards.${index}.bill_rate`]}
-                    >
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={row.bill_rate}
-                        onChange={(event) =>
-                          onRateCardChange(row.key, { bill_rate: event.target.value })
-                        }
-                        className={inputClass}
-                      />
-                    </Field>
-
-                    <Field
-                      label={`Pay rate ${index + 1}`}
-                      error={errors[`rate_cards.${index}.pay_rate`]}
-                    >
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={row.pay_rate}
-                        placeholder="Manager+ only"
-                        onChange={(event) =>
-                          onRateCardChange(row.key, { pay_rate: event.target.value })
-                        }
-                        className={inputClass}
-                      />
-                    </Field>
-
-                    {row.billing_unit === 'hourly' && (
-                      <Field
-                        label={`Units / month ${index + 1}`}
-                        error={errors[`rate_cards.${index}.units_per_period`]}
-                      >
-                        <input
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={row.units_per_period}
-                          onChange={(event) =>
-                            onRateCardChange(row.key, { units_per_period: event.target.value })
-                          }
-                          className={inputClass}
-                        />
-                      </Field>
-                    )}
-
-                    <Field
-                      label={`Notes ${index + 1}`}
-                      error={errors[`rate_cards.${index}.notes`]}
-                      className="lg:col-span-2"
-                    >
-                      <input
-                        value={row.notes}
-                        onChange={(event) =>
-                          onRateCardChange(row.key, { notes: event.target.value })
-                        }
-                        className={inputClass}
-                      />
-                    </Field>
-                  </div>
-
-                  <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
-                    <span>
-                      {row.billing_unit === 'placement' ? 'Placement fee' : 'Client monthly'}
-                    </span>
-                    <span className="text-foreground">{formatCurrency(rateCardPreview(row))}</span>
-                  </div>
-                </div>
-              ))}
-
-              <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-3 text-sm">
-                <button
-                  type="button"
-                  onClick={onAddRateCard}
-                  className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted"
-                >
-                  Add rate card
-                </button>
-                <div className="text-right text-muted-foreground">
-                  <div>
-                    Client monthly (preview){' '}
-                    <span className="font-medium text-foreground">
-                      {formatCurrency(rateCardPreviewTotal)}
-                    </span>
-                  </div>
-                  {rateCardPlacementTotal > 0 && (
-                    <div className="text-xs">
-                      Placement fees{' '}
-                      <span className="text-foreground">
-                        {formatCurrency(rateCardPlacementTotal)}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  type="submit"
-                  disabled={saving}
-                  className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60"
-                >
-                  {saving ? 'Saving…' : 'Save rate cards'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setRateCardEditId(null)
-                    setRateCardViewId(rateCardEditContract.id)
-                  }}
-                  className="rounded-md border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
+            <RateCardEditor
+              rows={rateCardRows}
+              sites={sites}
+              errors={errors}
+              canViewMargin={rateCardEditContract.commercial.can_view_margin}
+              saving={saving}
+              onChange={onRateCardChange}
+              onAdd={onAddRateCard}
+              onRemove={onRemoveRateCard}
+              onSubmit={onSaveRateCards}
+              onCancel={() => {
+                setRateCardEditId(null)
+                setRateCardViewId(rateCardEditContract.id)
+              }}
+            />
           </FormCard>
         </div>
       )}

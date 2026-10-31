@@ -67,7 +67,7 @@ class ContractRateCardController extends Controller
         });
 
         return new ContractResource(
-            $contract->fresh()->load(['company', 'owner:id,name', 'rateCards.site']),
+            $contract->fresh()->load(ContractResource::detailRelations()),
         );
     }
 

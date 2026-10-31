@@ -5,6 +5,7 @@ import {
   CalendarClock,
   ChevronDown,
   ClipboardList,
+  FileCheck,
   FileText,
   Gauge,
   Inbox,
@@ -60,7 +61,10 @@ const groups: NavGroup[] = [
       },
       {
         label: 'Accounts',
-        items: [{ to: '/accounts', label: 'Account Book', icon: Building2, end: true }],
+        items: [
+          { to: '/accounts', label: 'Account Book', icon: Building2, end: true },
+          { to: '/contracts', label: 'Contracts', icon: FileCheck },
+        ],
       },
       {
         label: 'Contacts',
