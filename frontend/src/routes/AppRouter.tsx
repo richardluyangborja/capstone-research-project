@@ -3,6 +3,7 @@ import DashboardShell from '../components/layout/DashboardShell'
 import PublicLayout from '../components/layout/PublicLayout'
 import ProtectedRoute from '../components/ProtectedRoute'
 import { useAuth } from '../lib/auth-context'
+import Billing from '../pages/Billing'
 import Companies from '../pages/Companies'
 import CompanyDetail from '../pages/CompanyDetail'
 import CommunicationDetail from '../pages/CommunicationDetail'
@@ -85,6 +86,7 @@ export default function AppRouter() {
           <Route path="/contracts" element={<Contracts />} />
           <Route path="/contracts/:id" element={<ContractDetail />} />
           <Route path="/deployments" element={<Deployments />} />
+          <Route path="/billing" element={<Billing />} />
           <Route path="/contacts" element={<Contacts />} />
           <Route path="/pipeline" element={<Pipeline />} />
           <Route path="/opportunities" element={<Opportunities />} />

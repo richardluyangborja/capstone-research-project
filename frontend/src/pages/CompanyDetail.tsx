@@ -2532,7 +2532,11 @@ export default function CompanyDetail() {
             </AlertItem>
           )}
 
-          {company.can_view_billing && <CompanyBillingPanel billing={billing} meta={billingMeta} />}
+          {company.can_view_billing && (
+            <div id="account-billing">
+              <CompanyBillingPanel billing={billing} meta={billingMeta} />
+            </div>
+          )}
 
           <section id="account-opportunities">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-3">

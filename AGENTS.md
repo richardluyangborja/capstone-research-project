@@ -450,7 +450,9 @@ and `/contracts/:id` (the contract detail: header, commercial terms and totals, 
 document, renewal chain, sign/edit/rate-card/renew actions), `/deployments` (the read-only
 cross-account deployment book: summary cards, search, status/account/contract/owner filters, fill rate,
 timesheet state and approved/pending hours, source/as-of line, rows linking back to Account 360),
-`/contacts` (global contact
+`/billing` (the manager+ cross-account AR book: summary cards, search, AR status/aging/account/owner
+filters, an overdue-only toggle, per-account aging and invoice totals, source/as-of line and rows
+linking to the account's Commercial > Billing section; hidden for salesreps), `/contacts` (global contact
 book: search + role/status/
 company filters, rows link back
 to their account). The old `/companies`, `/companies/new`, `/companies/:id` and `/clients` paths
@@ -619,6 +621,8 @@ Sunrise one as unresolved work through the real path — its answer raises the o
   deleted. Module 01's original submodules predate this (one file and one PR each); its refresh follows
   the slice rule (`specs/16`, S0–S19). After the user reviews and approves a slice PR, **the agent
   merges it, deletes the branch, and starts the next slice from updated `main`** — never before.
+  **After each slice lands, add a 1–2 sentence note to this file and the spec's status block saying
+  what was built and where it lives** (the PR description carries the same short summary).
 - **Seeds:** do **not** use faker. Data is seeded for a production/demo proposal, not real business.
 - **Other-department integrations are read-only feeds mocked in `backend/app/Integrations/`**
   (ADR-0005, ADR-0013 §4, ADR-0025): an interface + a `Mock*` driver (bound in `AppServiceProvider`) +
@@ -716,7 +720,7 @@ Dedup/merge and advanced/stored tier scoring are module-01 deferrals
 (ADR-0006), and automatic client aging stays one too (ADR-0018 §6). Other departments are consumed via
 **read-only mocked feeds** (ADR-0005, ADR-0025), not built here.
 
-**Module 01 refresh (S0–S11 built — `specs/16`, ADR-0023–0026).** S0 is the planning contract and
+**Module 01 refresh (S0–S12 built — `specs/16`, ADR-0023–0026).** S0 is the planning contract and
 S1 is the shell: the sidebar is grouped by module, `/accounts` (plus `/accounts/new` and
 `/accounts/:id`) is the canonical account surface, and `/companies*`, `/clients`, `/qualification`,
 `/assignment`, `/lifecycle` and `/conversion` redirect with their query strings preserved. Dashboard
@@ -782,6 +786,11 @@ amount, balance, `paid|open|overdue`) beside the summary and aging, the Account 
 shows a dedicated manager+ Billing panel with the source/as-of label, and a salesrep sees only the
 redacted `billing_risk` overdue flag on the account detail (no amounts; the billing endpoint stays
 403). A prospect has no live AR and a churned account keeps settled invoices at zero outstanding.
+S12 adds the manager+ `/billing` cross-account AR book: `GET /api/v1/billing` (in
+`BillingBookController`) flattens the mocked Finance feed over each visible account with invoices into
+one row per account, with status/overdue/aging/account/owner/search filters, a scope-wide summary and
+read-only source/as-of metadata, while the manager+ page in `frontend/src/pages/Billing.tsx` hides the
+nav item from salesreps and the endpoint returns 403.
 The later slices add computed account health, the public landing
 refresh with embedded intake and modal sign-in, and all-role CSV import with ownership rules. Read
 `resources/specs/16-module-01-refresh.md` before changing Module 01; the old `01`, `06` and `09` files

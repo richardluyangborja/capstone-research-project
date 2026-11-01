@@ -770,6 +770,66 @@ export interface CompanyBilling {
   meta: { source: string; read_only: boolean; as_of: string }
 }
 
+export type BillingAgingBucket = 'current' | '1_30' | '31_60' | '60_plus'
+
+/** One account's AR row in the cross-account book (module 01 refresh S12). */
+export interface BillingBookRow {
+  company: {
+    id: string
+    reference: string
+    name: string
+  }
+  owner: {
+    id: number
+    name: string
+  } | null
+  account_status: 'current' | 'overdue' | 'closed'
+  outstanding: string
+  overdue: string
+  overdue_invoices: number
+  invoice_count: number
+  open_invoices: number
+  last_invoice_date: string | null
+  next_due_date: string | null
+  credit_terms: string
+  currency: string
+  aging: Record<BillingAgingBucket, string>
+}
+
+export interface BillingBookSummary {
+  accounts: number
+  outstanding: string
+  overdue: string
+  overdue_accounts: number
+  open_invoices: number
+  aging: Record<BillingAgingBucket, string>
+}
+
+export interface BillingBookFilters {
+  search?: string
+  status?: string
+  overdue?: boolean
+  aging?: string
+  company?: string
+  owner?: string
+  page?: number
+  per_page?: number
+}
+
+export interface BillingBook {
+  data: BillingBookRow[]
+  meta: {
+    current_page: number
+    per_page: number
+    total: number
+    last_page: number
+    source: string
+    read_only: boolean
+    as_of: string
+  }
+  summary: BillingBookSummary
+}
+
 // --- Module 01 refresh S9: read-only delivery feeds -------------------------
 
 export type JobOrderStatus = 'open' | 'partially_filled' | 'filled' | 'closed' | 'cancelled'

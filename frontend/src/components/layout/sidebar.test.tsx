@@ -17,10 +17,10 @@ vi.mock('../../lib/auth-context', () => ({
   }),
 }))
 
-const renderSidebar = () =>
+const renderSidebar = (role: 'manager' | 'salesrep' = 'manager') =>
   render(
     <MemoryRouter initialEntries={['/dashboard']}>
-      <Sidebar role="manager" />
+      <Sidebar role={role} />
     </MemoryRouter>,
   )
 
@@ -48,6 +48,7 @@ describe('Sidebar', () => {
       ['Deal Book', '/opportunities'],
       ['Contracts', '/contracts'],
       ['Deployments', '/deployments'],
+      ['Billing', '/billing'],
       ['Log & History', '/communications'],
       ['Conversations', '/communications/threads'],
       ['Template Library', '/communications/templates'],
@@ -72,6 +73,14 @@ describe('Sidebar', () => {
     expect(screen.getByRole('button', { name: 'Follow-up Reminder System' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Client Satisfaction & Survey' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'AI Reports' })).toBeInTheDocument()
+  })
+
+  it('hides the manager-only AR book from salesreps', () => {
+    renderSidebar('salesrep')
+
+    expect(screen.queryByRole('link', { name: 'Billing' })).not.toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Contracts' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Deployments' })).toBeInTheDocument()
   })
 
   it('brands the sidebar and leaves the account block free of a role badge', () => {

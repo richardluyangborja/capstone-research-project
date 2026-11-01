@@ -20,6 +20,7 @@ import {
   Truck,
   UserPlus,
   Users,
+  Wallet,
   type LucideIcon,
 } from 'lucide-react'
 import logo from '../../assets/logo.png'
@@ -32,6 +33,8 @@ interface NavItem {
   icon: LucideIcon
   /** Match the path exactly, for an entry that would otherwise stay lit on its own child. */
   end?: boolean
+  /** Only these roles see the entry; omitted means everyone with dashboard access. */
+  roles?: Role[]
 }
 
 interface NavSection {
@@ -66,6 +69,12 @@ const groups: NavGroup[] = [
           { to: '/accounts', label: 'Account Book', icon: Building2, end: true },
           { to: '/contracts', label: 'Contracts', icon: FileCheck },
           { to: '/deployments', label: 'Deployments', icon: Truck },
+          {
+            to: '/billing',
+            label: 'Billing',
+            icon: Wallet,
+            roles: ['manager', 'admin', 'superadmin'],
+          },
         ],
       },
       {
@@ -171,7 +180,7 @@ export default function Sidebar({ role }: { role: Role }) {
         </ul>
 
         {groups.map((group) => (
-          <NavGroupSection key={group.label} group={group} />
+          <NavGroupSection key={group.label} group={group} role={role} />
         ))}
       </nav>
 
@@ -201,8 +210,14 @@ export default function Sidebar({ role }: { role: Role }) {
   )
 }
 
-function NavGroupSection({ group }: { group: NavGroup }) {
+function NavGroupSection({ group, role }: { group: NavGroup; role: Role }) {
   const [open, setOpen] = useState(true)
+  const sections = group.sections
+    .map((section) => ({
+      ...section,
+      items: section.items.filter((item) => !item.roles || item.roles.includes(role)),
+    }))
+    .filter((section) => section.items.length > 0)
 
   return (
     <div className="mt-5">
@@ -221,7 +236,7 @@ function NavGroupSection({ group }: { group: NavGroup }) {
 
       {open && (
         <div className="mt-1 flex flex-col">
-          {group.sections.map((section, index) => (
+          {sections.map((section, index) => (
             <div key={section.label ?? index} className={index > 0 ? 'mt-2' : ''}>
               {section.label && (
                 <p className="px-2 pb-1 pt-1 text-xs font-medium text-primary">{section.label}</p>
