@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\V1\AttachmentController;
 use App\Http\Controllers\Api\V1\AuthController;
+use App\Http\Controllers\Api\V1\BillingBookController;
 use App\Http\Controllers\Api\V1\CommunicationController;
 use App\Http\Controllers\Api\V1\CommunicationTemplateController;
 use App\Http\Controllers\Api\V1\CompanyActivityController;
@@ -148,6 +149,8 @@ Route::prefix('v1')->group(function (): void {
         Route::get('contracts/{contract}/file', [ContractController::class, 'download']);
         // Module 01 refresh S10 — read-only cross-account deployment book.
         Route::get('deployments', [DeploymentBookController::class, 'index']);
+        // Module 01 refresh S12 — read-only cross-account AR book (manager+).
+        Route::get('billing', [BillingBookController::class, 'index']);
         Route::get('contracts/{contract}/rate-cards', [ContractRateCardController::class, 'index']);
         Route::put('contracts/{contract}/rate-cards', [ContractRateCardController::class, 'update']);
         Route::post('contracts/{contract}/mark-signed', [ContractController::class, 'markSigned']);

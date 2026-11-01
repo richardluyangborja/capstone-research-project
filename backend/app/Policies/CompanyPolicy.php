@@ -82,6 +82,15 @@ class CompanyPolicy
     }
 
     /**
+     * The cross-account AR book is manager+ (spec 16 S12). Team/admin scoping still comes
+     * from `Company::visibleTo()` in the query, so this is the role gate only.
+     */
+    public function viewBillingBook(User $user): bool
+    {
+        return $user->role !== Role::Salesrep;
+    }
+
+    /**
      * Contract upload and handoff retry are routine work on an account you maintain
      * (own/team/all — spec 09 permissions).
      */

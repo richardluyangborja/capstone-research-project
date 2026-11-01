@@ -9,7 +9,7 @@ sign-in), plus 0004, 0005, 0007, 0010, 0013, 0014, 0016.
 > S3 — Account Book (built). S4 — Account 360 (built). S5 — account delegation (built).
 > S6 — contract commercial header (built). S7 — contract rate cards (built). S8 — contract book &
 > detail (built). S9 — delivery feed (built). S10 — deployment book (built). S11 — finance feed
-> (built).** S0 is this
+> (built). S12 — billing book (built).** S0 is this
 > contract plus its ADRs; S1
 > shipped the grouped sidebar, canonical routes, redirects and canonical dashboard/AI hrefs; S2
 > shipped the saved views, manager workload panel and duplicate links; S3 shipped the scoped
@@ -30,8 +30,11 @@ sign-in), plus 0004, 0005, 0007, 0010, 0013, 0014, 0016.
 > owner filters, search, scope-wide fill and timesheet summary cards and no mutation action. S11
 > expanded the Finance/AR feed with deterministic invoices, moved the Account 360 Billing section to
 > a dedicated read-only panel with aging and source/as-of labels, and added the redacted overdue flag
-> a salesrep sees instead of amounts.
-> S12–S19
+> a salesrep sees instead of amounts. S12 added the manager+ `/billing` cross-account AR book:
+> `GET /api/v1/billing` flattens the mocked Finance feed over each visible account with invoices into
+> one row per account, with status/overdue/aging/account/owner/search filters, a scope-wide summary and
+> read-only source/as-of metadata; `/billing` is the manager+ page (salesrep nav hidden, endpoint 403).
+> S13–S19
 > each ship on their own `feature/module-01-*` branch and merge to `main` only after review. The
 > branch is deleted after merge, and the next slice starts from the updated `main`.
 
@@ -555,7 +558,7 @@ names are suggestions; the `feature/module-01-*` prefix is required.
 | **S9** | `feature/module-01-delivery-feed` (built) | Recruitment/deployment/timekeeping interfaces, DTOs, mocks, Delivery tab, source labels | Read-only UI; no write routes; seeded scenarios; manager/salesrep scoping |
 | **S10** | `feature/module-01-deployments-book` (built) | `/deployments` read-only book, fill rate and timesheet summary | Filters/search; source label; no mutation actions |
 | **S11** | `feature/module-01-finance-feed` (built) | Expanded AR/invoice feed, Billing section, owner risk flag | Manager sees full feed; owner sees only risk flag; source/as_of present |
-| **S12** | `feature/module-01-billing-book` | `/billing` manager+ AR book | Salesrep 403/nav hidden; aging, overdue, filters; read-only |
+| **S12** | `feature/module-01-billing-book` (built) | `/billing` manager+ AR book | Salesrep 403/nav hidden; aging, overdue, filters; read-only |
 | **S13** | `feature/module-01-account-health` | Health service/block, flags, account filter, redaction | Flags explain themselves; no auto status change; financial detail redacted |
 | **S14** | `feature/module-01-manager-dashboard` | Commercial strip, account risks, team workload | Manager+ blocks; salesrep view unchanged; all links resolve |
 | **S15** | `feature/module-01-public-landing` | Landing refresh, animated background, feature cards, HTML product previews | Responsive; reduced-motion; no new UI library; no broken images |
