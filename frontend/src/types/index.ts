@@ -791,6 +791,7 @@ export interface DeliveryTimesheet {
 /** One Deployment assignment, with its current Timekeeping read attached. */
 export interface DeliveryDeployment {
   reference: string
+  contract_id: string
   contract_reference: string
   role: string
   site: string
@@ -803,6 +804,54 @@ export interface DeliveryDeployment {
   timesheet: DeliveryTimesheet | null
   operations_owner: string | null
   last_updated_at: string | null
+}
+
+/** A deployment book row (module 01 refresh S10): the feed row joined to its CRM account. */
+export interface DeploymentBookRow extends DeliveryDeployment {
+  company: {
+    id: string
+    reference: string
+    name: string
+  }
+  owner: {
+    id: number
+    name: string
+  } | null
+}
+
+export interface DeploymentBookSummary {
+  total: number
+  active: number
+  pending: number
+  ended: number
+  fill_rate: number
+  deployments_pending: number
+  approved_hours: number
+  pending_hours: number
+}
+
+export interface DeploymentBookFilters {
+  search?: string
+  status?: string
+  company?: string
+  contract?: string
+  owner?: string
+  page?: number
+  per_page?: number
+}
+
+export interface DeploymentBook {
+  data: DeploymentBookRow[]
+  meta: {
+    current_page: number
+    per_page: number
+    total: number
+    last_page: number
+    source: string
+    read_only: boolean
+    as_of: string
+  }
+  summary: DeploymentBookSummary
 }
 
 export interface DeliveryTimesheetTotals {

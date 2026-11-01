@@ -18,6 +18,7 @@ use App\Http\Controllers\Api\V1\ContactController;
 use App\Http\Controllers\Api\V1\ContractController;
 use App\Http\Controllers\Api\V1\ContractRateCardController;
 use App\Http\Controllers\Api\V1\DashboardController;
+use App\Http\Controllers\Api\V1\DeploymentBookController;
 use App\Http\Controllers\Api\V1\FollowUpController;
 use App\Http\Controllers\Api\V1\LeadAssignmentController;
 use App\Http\Controllers\Api\V1\LeadController;
@@ -145,6 +146,8 @@ Route::prefix('v1')->group(function (): void {
         Route::get('companies/{company}/contracts', [CompanyContractController::class, 'index']);
         Route::post('companies/{company}/contracts', [CompanyContractController::class, 'store']);
         Route::get('contracts/{contract}/file', [ContractController::class, 'download']);
+        // Module 01 refresh S10 — read-only cross-account deployment book.
+        Route::get('deployments', [DeploymentBookController::class, 'index']);
         Route::get('contracts/{contract}/rate-cards', [ContractRateCardController::class, 'index']);
         Route::put('contracts/{contract}/rate-cards', [ContractRateCardController::class, 'update']);
         Route::post('contracts/{contract}/mark-signed', [ContractController::class, 'markSigned']);

@@ -30,6 +30,7 @@ const { activeDelivery, emptyDelivery } = vi.hoisted(() => {
       deployments: [
         {
           reference: 'DEP-2026-0021',
+          contract_id: 'contract-1',
           contract_reference: 'CON-2026-0001',
           role: 'Warehouse associate',
           site: 'Manila South Harbor office',

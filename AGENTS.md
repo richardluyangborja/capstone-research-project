@@ -447,7 +447,10 @@ contacts are editable by whoever owns the account, and the failed-handoff retry 
 `/contracts` (the cross-account contract book: summary cards, search, status/account/renewal/owner/
 expiring filters, term/expiry, commercial value, rate-card count, document download and detail links)
 and `/contracts/:id` (the contract detail: header, commercial terms and totals, rate-card table,
-document, renewal chain, sign/edit/rate-card/renew actions), `/contacts` (global contact
+document, renewal chain, sign/edit/rate-card/renew actions), `/deployments` (the read-only
+cross-account deployment book: summary cards, search, status/account/contract/owner filters, fill rate,
+timesheet state and approved/pending hours, source/as-of line, rows linking back to Account 360),
+`/contacts` (global contact
 book: search + role/status/
 company filters, rows link back
 to their account). The old `/companies`, `/companies/new`, `/companies/:id` and `/clients` paths
@@ -713,7 +716,7 @@ Dedup/merge and advanced/stored tier scoring are module-01 deferrals
 (ADR-0006), and automatic client aging stays one too (ADR-0018 §6). Other departments are consumed via
 **read-only mocked feeds** (ADR-0005, ADR-0025), not built here.
 
-**Module 01 refresh (S0–S9 built — `specs/16`, ADR-0023–0026).** S0 is the planning contract and
+**Module 01 refresh (S0–S10 built — `specs/16`, ADR-0023–0026).** S0 is the planning contract and
 S1 is the shell: the sidebar is grouped by module, `/accounts` (plus `/accounts/new` and
 `/accounts/:id`) is the canonical account surface, and `/companies*`, `/clients`, `/qualification`,
 `/assignment`, `/lifecycle` and `/conversion` redirect with their query strings preserved. Dashboard
@@ -768,7 +771,13 @@ a failed handoff leaves open demand and a pending crew with a missing timesheet,
 signed contract has none, and a churned/terminated account has closed demand and ended deployments.
 Postings/employees/hours are never stored, there are no write routes, account visibility applies
 (salesrep own, manager team, admin all), and the Delivery tab prints the source/as-of line with no
-mutation action. The later slices add the Finance feed, computed account health, the public landing
+mutation action. S10 adds the scoped, read-only `/deployments` book: `GET /api/v1/deployments` flattens
+the same Deployment/Timekeeping feeds over every account the caller may see, joins each row to its
+account and owner, and supports `filter[status|company|contract|owner]` + `search` with a scope-wide
+summary (total/active/pending/ended, overall fill rate, pending timesheets and approved/pending hours).
+The page has status/account/contract/owner filters, links back to Account 360 and prints the source/
+as-of line; there is no create, edit, complete or approve action. The later slices add the Finance feed,
+computed account health, the public landing
 refresh with embedded intake and modal sign-in, and all-role CSV import with ownership rules. Read
 `resources/specs/16-module-01-refresh.md` before changing Module 01; the old `01`, `06` and `09` files
 remain the baseline for behavior the refresh does not replace.

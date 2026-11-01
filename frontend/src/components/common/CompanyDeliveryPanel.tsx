@@ -6,15 +6,14 @@ import FormCard from './FormCard'
 import StatCard from './StatCard'
 import StatusBadge, { type Tone } from './StatusBadge'
 import { getCompanyDelivery } from '../../lib/deliveries'
+import { deploymentMeta, formatHours, timesheetMeta } from '../../lib/deliveryMeta'
 import { formatDate, formatDateTime } from '../../lib/format'
 import type {
   CompanyDelivery,
   DeliveryDeployment,
   DeliveryJobOrder,
   DeliveryPriority,
-  DeploymentStatus,
   JobOrderStatus,
-  TimesheetStatus,
 } from '../../types'
 
 interface CompanyDeliveryPanelProps {
@@ -42,21 +41,6 @@ const priorityMeta: Record<DeliveryPriority, { label: string; tone: Tone }> = {
   medium: { label: 'Medium', tone: 'warm' },
   low: { label: 'Low', tone: 'cold' },
 }
-
-const deploymentMeta: Record<DeploymentStatus, { label: string; tone: Tone }> = {
-  pending: { label: 'Pending', tone: 'warm' },
-  active: { label: 'Active', tone: 'success' },
-  ended: { label: 'Ended', tone: 'neutral' },
-}
-
-const timesheetMeta: Record<TimesheetStatus, { label: string; tone: Tone }> = {
-  current: { label: 'Current', tone: 'success' },
-  pending: { label: 'Pending', tone: 'warm' },
-  missing: { label: 'Missing', tone: 'danger' },
-}
-
-const formatHours = (hours: number): string =>
-  `${new Intl.NumberFormat('en-PH', { maximumFractionDigits: 2 }).format(hours)} hrs`
 
 const jobOrderColumns: DataTableColumn<DeliveryJobOrder>[] = [
   {

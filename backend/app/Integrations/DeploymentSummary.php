@@ -12,6 +12,7 @@ final readonly class DeploymentSummary
 {
     public function __construct(
         public string $reference,
+        public string $contractId,
         public string $contractReference,
         public string $role,
         public string $site,
@@ -35,6 +36,7 @@ final readonly class DeploymentSummary
     {
         return new self(
             reference: $this->reference,
+            contractId: $this->contractId,
             contractReference: $this->contractReference,
             role: $this->role,
             site: $this->site,
@@ -59,6 +61,7 @@ final readonly class DeploymentSummary
     {
         return [
             'reference' => $this->reference,
+            'contract_id' => $this->contractId,
             'contract_reference' => $this->contractReference,
             'role' => $this->role,
             'site' => $this->site,

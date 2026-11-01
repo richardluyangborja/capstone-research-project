@@ -43,6 +43,7 @@ final class MockDeploymentFeed implements DeploymentFeed
 
             $deployments[] = new DeploymentSummary(
                 reference: $this->reference($contract, $index),
+                contractId: $contract->id,
                 contractReference: $contract->reference,
                 role: $card->role_title,
                 site: $card->site?->label ?? $this->fallbackSite($company),

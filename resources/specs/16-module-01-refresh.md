@@ -8,7 +8,7 @@ sign-in), plus 0004, 0005, 0007, 0010, 0013, 0014, 0016.
 > **S0 — planning contract (merged). S1 — shell & routes (built). S2 — Lead Workspace (built).
 > S3 — Account Book (built). S4 — Account 360 (built). S5 — account delegation (built).
 > S6 — contract commercial header (built). S7 — contract rate cards (built). S8 — contract book &
-> detail (built). S9 — delivery feed (built).** S0 is this
+> detail (built). S9 — delivery feed (built). S10 — deployment book (built).** S0 is this
 > contract plus its ADRs; S1
 > shipped the grouped sidebar, canonical routes, redirects and canonical dashboard/AI hrefs; S2
 > shipped the saved views, manager workload panel and duplicate links; S3 shipped the scoped
@@ -24,8 +24,10 @@ sign-in), plus 0004, 0005, 0007, 0010, 0013, 0014, 0016.
 > page, with status/expiry/renewal/account/owner filters, the commercial rate summary, the document
 > and the renewal chain. S9 replaced the Delivery feed placeholder with the read-only Recruitment,
 > Deployment and Timekeeping feed (`GET /companies/{id}/delivery`), its source/as-of labels and the
-> deterministic active/onboarding/prospect/churned scenarios.
-> S10–S19
+> deterministic active/onboarding/prospect/churned scenarios. S10 added the scoped, read-only
+> `/deployments` book, joining each feed row to its account and owner with status/account/contract/
+> owner filters, search, scope-wide fill and timesheet summary cards and no mutation action.
+> S11–S19
 > each ship on their own `feature/module-01-*` branch and merge to `main` only after review. The
 > branch is deleted after merge, and the next slice starts from the updated `main`.
 
@@ -297,7 +299,7 @@ the Commercial tab; the full feed is manager+. The manager endpoint is not relax
         "recruiter": "Recruitment (mocked)", "last_updated_at": "…" }
     ],
     "deployments": [
-      { "reference": "DEP-2026-0021", "contract_reference": "CON-2026-0001",
+      { "reference": "DEP-2026-0021", "contract_id": "01j…", "contract_reference": "CON-2026-0001",
         "role": "Warehouse associate", "site": "Harbor Logistics — Manila",
         "status": "active", "active_headcount": 12, "requested_headcount": 12,
         "start_date": "2026-11-03", "end_date": "2027-11-02", "fill_rate": 100,
@@ -314,6 +316,33 @@ the Commercial tab; the full feed is manager+. The manager endpoint is not relax
 The mock derives values deterministically from the contract, rate cards, company status and dates. It
 never produces worker names or employee-level rows. A churned client's deployments are `ended` and its
 AR is `closed`; a prospect with no signed contract has no job order/deployment.
+
+### Deployment book payload sketch
+
+`GET /deployments` flattens the same Deployment/Timekeeping feeds over every account the caller may
+see. It is paginated and read-only; the feed row carries its account and owner so the table can link
+back to Account 360 without another lookup.
+
+```json
+{
+  "data": [
+    { "reference": "DEP-2026-0021", "contract_id": "01j…", "contract_reference": "CON-2026-0001",
+      "role": "Warehouse associate", "site": "Harbor Logistics — Manila", "status": "active",
+      "active_headcount": 12, "requested_headcount": 12, "fill_rate": 100,
+      "timesheet": { "approved_hours": 2112, "pending_hours": 0, "status": "current" },
+      "company": { "id": "01j…", "reference": "CO-2026-0001", "name": "Harbor Logistics" },
+      "owner": { "id": 2, "name": "Sam Salesrep" } }
+  ],
+  "meta": { "current_page": 1, "per_page": 25, "total": 1, "last_page": 1,
+    "source": "Deployment / Timekeeping (mocked, read-only)", "read_only": true, "as_of": "…" },
+  "summary": { "total": 1, "active": 1, "pending": 0, "ended": 0, "fill_rate": 100,
+    "deployments_pending": 0, "approved_hours": 2112, "pending_hours": 0 }
+}
+```
+
+The four summary cards are scope-wide, like the contract book: filters narrow the table, not the
+portfolio snapshot. The page prints the source/as-of line and offers no create, edit, complete or
+approve action.
 
 ## Account health
 
@@ -520,7 +549,7 @@ names are suggestions; the `feature/module-01-*` prefix is required.
 | **S7** | `feature/module-01-rate-cards` (built) | Rate-card table/model/API/UI, computed values, renewal clone, manager gate | Hourly/monthly/placement totals compute; null margin stays null; salesrep cannot see pay/margin |
 | **S8** | `feature/module-01-contracts-book` (built) | `/contracts`, `/contracts/:id`, filters, rate summary | Scoped list; renewal/expiry/status filters; detail shows document + rates |
 | **S9** | `feature/module-01-delivery-feed` (built) | Recruitment/deployment/timekeeping interfaces, DTOs, mocks, Delivery tab, source labels | Read-only UI; no write routes; seeded scenarios; manager/salesrep scoping |
-| **S10** | `feature/module-01-deployments-book` | `/deployments` read-only book, fill rate and timesheet summary | Filters/search; source label; no mutation actions |
+| **S10** | `feature/module-01-deployments-book` (built) | `/deployments` read-only book, fill rate and timesheet summary | Filters/search; source label; no mutation actions |
 | **S11** | `feature/module-01-finance-feed` | Expanded AR/invoice feed, Billing section, owner risk flag | Manager sees full feed; owner sees only risk flag; source/as_of present |
 | **S12** | `feature/module-01-billing-book` | `/billing` manager+ AR book | Salesrep 403/nav hidden; aging, overdue, filters; read-only |
 | **S13** | `feature/module-01-account-health` | Health service/block, flags, account filter, redaction | Flags explain themselves; no auto status change; financial detail redacted |

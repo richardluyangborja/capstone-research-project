@@ -46,6 +46,8 @@ describe('Sidebar', () => {
       ['Dashboard', '/dashboard'],
       ['Pipeline Board', '/pipeline'],
       ['Deal Book', '/opportunities'],
+      ['Contracts', '/contracts'],
+      ['Deployments', '/deployments'],
       ['Log & History', '/communications'],
       ['Conversations', '/communications/threads'],
       ['Template Library', '/communications/templates'],
