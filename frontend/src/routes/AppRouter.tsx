@@ -15,6 +15,7 @@ import Contacts from '../pages/Contacts'
 import ContractDetail from '../pages/ContractDetail'
 import Contracts from '../pages/Contracts'
 import DashboardHome from '../pages/DashboardHome'
+import Deployments from '../pages/Deployments'
 import FollowUpForm from '../pages/FollowUpForm'
 import FollowUps from '../pages/FollowUps'
 import LeadConvert from '../pages/LeadConvert'
@@ -83,6 +84,7 @@ export default function AppRouter() {
           <Route path="/accounts/:id" element={<CompanyDetail />} />
           <Route path="/contracts" element={<Contracts />} />
           <Route path="/contracts/:id" element={<ContractDetail />} />
+          <Route path="/deployments" element={<Deployments />} />
           <Route path="/contacts" element={<Contacts />} />
           <Route path="/pipeline" element={<Pipeline />} />
           <Route path="/opportunities" element={<Opportunities />} />

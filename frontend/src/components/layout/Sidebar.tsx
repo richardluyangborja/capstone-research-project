@@ -17,6 +17,7 @@ import {
   Sparkles,
   SquareKanban,
   Target,
+  Truck,
   UserPlus,
   Users,
   type LucideIcon,
@@ -64,6 +65,7 @@ const groups: NavGroup[] = [
         items: [
           { to: '/accounts', label: 'Account Book', icon: Building2, end: true },
           { to: '/contracts', label: 'Contracts', icon: FileCheck },
+          { to: '/deployments', label: 'Deployments', icon: Truck },
         ],
       },
       {
