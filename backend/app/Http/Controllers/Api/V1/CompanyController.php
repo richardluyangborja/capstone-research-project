@@ -9,6 +9,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreCompanyRequest;
 use App\Http\Requests\UpdateCompanyRequest;
 use App\Http\Resources\CompanyResource;
+use App\Integrations\FinanceBilling;
 use App\Models\Company;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
@@ -20,6 +21,8 @@ use Illuminate\Validation\ValidationException;
 
 class CompanyController extends Controller
 {
+    public function __construct(private readonly FinanceBilling $billing) {}
+
     public function index(Request $request): AnonymousResourceCollection
     {
         $this->authorize('viewAny', Company::class);
@@ -85,7 +88,10 @@ class CompanyController extends Controller
     {
         $this->authorize('view', $company);
 
-        return new CompanyResource($this->withRelations($company));
+        $company = $this->withRelations($company);
+        $this->attachBillingRisk($company, request()->user());
+
+        return new CompanyResource($company);
     }
 
     public function update(UpdateCompanyRequest $request, Company $company): CompanyResource
@@ -159,5 +165,26 @@ class CompanyController extends Controller
     private function withRelations(Company $company): Company
     {
         return CompanyPayload::load($company);
+    }
+
+    /**
+     * The owner-visible half of the Finance feed (spec 16 S11): a redacted overdue flag on
+     * the account detail, never an amount. Managers get the full snapshot from the billing
+     * endpoint instead.
+     */
+    private function attachBillingRisk(Company $company, ?User $user): void
+    {
+        if ($user === null || $user->can('viewBilling', $company)) {
+            return;
+        }
+
+        $summary = $this->billing->summary($company);
+
+        $company->setAttribute('billing_risk', [
+            'has_overdue' => $summary->overdueInvoices > 0,
+            'message' => $summary->overdueInvoices > 0
+                ? 'Finance reports an overdue balance on this account. Follow up with Finance.'
+                : null,
+        ]);
     }
 }

@@ -221,6 +221,9 @@ class CompanyLifecycleTest extends TestCase
                     'credit_terms',
                     'currency',
                     'aging' => ['current', '1_30', '31_60', '60_plus'],
+                    'invoices' => [
+                        ['reference', 'period_start', 'period_end', 'issued_at', 'due_at', 'amount', 'balance', 'status'],
+                    ],
                 ],
             ]);
 

@@ -96,6 +96,11 @@ class CompanyResource extends JsonResource
             'can_delete' => (bool) $request->user()?->can('delete', $this->resource),
             'can_manage_lifecycle' => (bool) $request->user()?->can('manageLifecycle', $this->resource),
             'can_view_billing' => (bool) $request->user()?->can('viewBilling', $this->resource),
+            // Salesrep-safe Finance signal (spec 16 S11): a flag, never an amount.
+            'billing_risk' => $this->when(
+                $this->resource->getAttribute('billing_risk') !== null,
+                fn (): mixed => $this->resource->getAttribute('billing_risk'),
+            ),
             'can_upload_contract' => (bool) $request->user()?->can('uploadContract', $this->resource),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,

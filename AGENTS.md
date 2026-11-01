@@ -716,7 +716,7 @@ Dedup/merge and advanced/stored tier scoring are module-01 deferrals
 (ADR-0006), and automatic client aging stays one too (ADR-0018 §6). Other departments are consumed via
 **read-only mocked feeds** (ADR-0005, ADR-0025), not built here.
 
-**Module 01 refresh (S0–S10 built — `specs/16`, ADR-0023–0026).** S0 is the planning contract and
+**Module 01 refresh (S0–S11 built — `specs/16`, ADR-0023–0026).** S0 is the planning contract and
 S1 is the shell: the sidebar is grouped by module, `/accounts` (plus `/accounts/new` and
 `/accounts/:id`) is the canonical account surface, and `/companies*`, `/clients`, `/qualification`,
 `/assignment`, `/lifecycle` and `/conversion` redirect with their query strings preserved. Dashboard
@@ -776,8 +776,13 @@ the same Deployment/Timekeeping feeds over every account the caller may see, joi
 account and owner, and supports `filter[status|company|contract|owner]` + `search` with a scope-wide
 summary (total/active/pending/ended, overall fill rate, pending timesheets and approved/pending hours).
 The page has status/account/contract/owner filters, links back to Account 360 and prints the source/
-as-of line; there is no create, edit, complete or approve action. The later slices add the Finance feed,
-computed account health, the public landing
+as-of line; there is no create, edit, complete or approve action. S11 expands the Finance/AR feed:
+`GET /companies/{id}/billing` now carries deterministic invoices (reference, period, issued/due,
+amount, balance, `paid|open|overdue`) beside the summary and aging, the Account 360 Commercial tab
+shows a dedicated manager+ Billing panel with the source/as-of label, and a salesrep sees only the
+redacted `billing_risk` overdue flag on the account detail (no amounts; the billing endpoint stays
+403). A prospect has no live AR and a churned account keeps settled invoices at zero outstanding.
+The later slices add computed account health, the public landing
 refresh with embedded intake and modal sign-in, and all-role CSV import with ownership rules. Read
 `resources/specs/16-module-01-refresh.md` before changing Module 01; the old `01`, `06` and `09` files
 remain the baseline for behavior the refresh does not replace.

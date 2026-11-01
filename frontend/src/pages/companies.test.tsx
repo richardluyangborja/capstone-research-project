@@ -233,6 +233,38 @@ const { company, site, contact, deal, contract, billing, delivery, paginated } =
       credit_terms: 'Net 30',
       currency: 'PHP',
       aging: { current: '250000.00', '1_30': '0.00', '31_60': '0.00', '60_plus': '0.00' },
+      invoices: [
+        {
+          reference: 'INV-2026-0102',
+          period_start: '2026-10-01',
+          period_end: '2026-10-31',
+          issued_at: '2026-10-03',
+          due_at: '2026-11-02',
+          amount: '250000.00',
+          balance: '250000.00',
+          status: 'open',
+        },
+        {
+          reference: 'INV-2026-0101',
+          period_start: '2026-09-01',
+          period_end: '2026-09-30',
+          issued_at: '2026-09-03',
+          due_at: '2026-10-03',
+          amount: '250000.00',
+          balance: '0.00',
+          status: 'paid',
+        },
+        {
+          reference: 'INV-2026-0100',
+          period_start: '2026-08-01',
+          period_end: '2026-08-31',
+          issued_at: '2026-08-03',
+          due_at: '2026-09-02',
+          amount: '250000.00',
+          balance: '0.00',
+          status: 'paid',
+        },
+      ],
     } satisfies BillingSummary,
     delivery: {
       data: {
@@ -529,8 +561,13 @@ describe('Company detail', () => {
     expect(within(contractRow as HTMLElement).getByText('Draft')).toBeInTheDocument()
 
     expect(screen.getByText('Billing')).toBeInTheDocument()
-    expect(await screen.findByText('₱250,000.00')).toBeInTheDocument()
-    expect(screen.getByText('Net 30')).toBeInTheDocument()
+    expect((await screen.findAllByText('₱250,000.00')).length).toBeGreaterThan(0)
+    expect(screen.getByText(/Net 30/)).toBeInTheDocument()
+    expect(screen.getByText('INV-2026-0102')).toBeInTheDocument()
+    const invoiceRow = screen.getByText('INV-2026-0102').closest('tr')
+    expect(invoiceRow).not.toBeNull()
+    expect(within(invoiceRow as HTMLElement).getByText('Open')).toBeInTheDocument()
+    expect(screen.getByText('Invoices')).toBeInTheDocument()
   })
 
   it('offers the legal lifecycle moves on Overview', async () => {
@@ -555,6 +592,33 @@ describe('Company detail', () => {
     fireEvent.click(screen.getByRole('button', { name: /^Commercial/ }))
     await screen.findByText('Sunrise Foods Inc — Warehouse staffing')
     expect(screen.queryByText('Billing')).not.toBeInTheDocument()
+  })
+
+  it('shows the salesrep only the redacted Finance risk flag', async () => {
+    Object.assign(company, {
+      can_view_billing: false,
+      billing_risk: {
+        has_overdue: true,
+        message: 'Finance reports an overdue balance on this account. Follow up with Finance.',
+      },
+    })
+
+    renderDetail()
+
+    await screen.findByRole('heading', { name: 'Sunrise Foods Inc' })
+    fireEvent.click(screen.getByRole('button', { name: /^Commercial/ }))
+
+    expect(await screen.findByText('Finance follow-up needed')).toBeInTheDocument()
+    expect(
+      screen.getByText(
+        'Finance reports an overdue balance on this account. Follow up with Finance.',
+      ),
+    ).toBeInTheDocument()
+    expect(screen.queryByText('Billing')).not.toBeInTheDocument()
+    expect(screen.queryByText('INV-2026-0102')).not.toBeInTheDocument()
+    expect(screen.queryByText('₱250,000.00')).not.toBeInTheDocument()
+
+    delete company.billing_risk
   })
 
   it('churns a client through the inline reason form', async () => {

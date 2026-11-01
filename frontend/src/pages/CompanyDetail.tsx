@@ -8,6 +8,7 @@ import AlertItem from '../components/common/AlertItem'
 import EmptyState from '../components/common/EmptyState'
 import DataTable, { type DataTableColumn } from '../components/common/DataTable'
 import CommunicationList from '../components/common/CommunicationList'
+import CompanyBillingPanel from '../components/common/CompanyBillingPanel'
 import CompanyDeliveryPanel from '../components/common/CompanyDeliveryPanel'
 import CompanySatisfactionPanel from '../components/common/CompanySatisfactionPanel'
 import JourneyStepper, { type JourneyStep } from '../components/common/JourneyStepper'
@@ -69,6 +70,7 @@ import type {
   AssignmentTarget,
   BillingSummary,
   Company,
+  CompanyBilling,
   CompanySite,
   CompanySize,
   CompanyStatus,
@@ -290,6 +292,7 @@ export default function CompanyDetail() {
   const [opportunities, setOpportunities] = useState<Opportunity[]>([])
   const [contracts, setContracts] = useState<Contract[]>([])
   const [billing, setBilling] = useState<BillingSummary | null>(null)
+  const [billingMeta, setBillingMeta] = useState<CompanyBilling['meta'] | null>(null)
   const [branches, setBranches] = useState<Company[]>([])
   const [options, setOptions] = useState<Company[]>([])
   const [targets, setTargets] = useState<AssignmentTarget[]>([])
@@ -399,7 +402,9 @@ export default function CompanyDetail() {
 
       // Billing comes from the mocked Finance department and is manager+ only (spec 09 §7).
       if (detail.can_view_billing) {
-        setBilling((await getCompanyBilling(id)).data)
+        const billingResponse = await getCompanyBilling(id)
+        setBilling(billingResponse.data)
+        setBillingMeta(billingResponse.meta)
       }
     } catch {
       setCompany(null)
@@ -610,7 +615,9 @@ export default function CompanyDetail() {
     setActivities(history.data)
 
     if (detail.can_view_billing) {
-      setBilling((await getCompanyBilling(id)).data)
+      const billingResponse = await getCompanyBilling(id)
+      setBilling(billingResponse.data)
+      setBillingMeta(billingResponse.meta)
     }
   }
 
@@ -2467,11 +2474,7 @@ export default function CompanyDetail() {
 
       {tab === 'commercial' && (
         <div className="space-y-6">
-          <div
-            className={`grid grid-cols-1 gap-4 md:grid-cols-2 ${
-              company.can_view_billing ? 'xl:grid-cols-3' : 'xl:grid-cols-2'
-            }`}
-          >
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <FormCard title="Deals" description="Every deal on this account, open or closed.">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">Deals</span>
@@ -2520,41 +2523,16 @@ export default function CompanyDetail() {
                 </span>
               </div>
             </FormCard>
-
-            {company.can_view_billing && (
-              <FormCard
-                title="Billing"
-                description="Read-only snapshot from the Finance department (mocked)."
-              >
-                {billing === null ? (
-                  <p className="text-sm text-muted-foreground">Loading…</p>
-                ) : (
-                  <dl className="flex flex-col gap-3 text-sm">
-                    <Detail
-                      label="Account"
-                      value={
-                        billing.account_status === 'current'
-                          ? 'Current'
-                          : billing.account_status === 'overdue'
-                            ? 'Overdue'
-                            : 'Closed'
-                      }
-                    />
-                    <Detail label="Outstanding" value={formatCurrency(billing.outstanding)} />
-                    <Detail
-                      label="Overdue"
-                      value={Number(billing.overdue) > 0 ? formatCurrency(billing.overdue) : '—'}
-                    />
-                    <Detail label="Terms" value={billing.credit_terms} />
-                    <Detail
-                      label="Next due"
-                      value={billing.next_due_date ? formatDate(billing.next_due_date) : '—'}
-                    />
-                  </dl>
-                )}
-              </FormCard>
-            )}
           </div>
+
+          {!company.can_view_billing && company.billing_risk?.has_overdue && (
+            <AlertItem variant="warning" title="Finance follow-up needed">
+              {company.billing_risk.message ??
+                'Finance reports an overdue balance on this account. Follow up with Finance.'}
+            </AlertItem>
+          )}
+
+          {company.can_view_billing && <CompanyBillingPanel billing={billing} meta={billingMeta} />}
 
           <section id="account-opportunities">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
