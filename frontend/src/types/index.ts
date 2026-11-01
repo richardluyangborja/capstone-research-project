@@ -201,6 +201,8 @@ export interface Company {
   can_delete: boolean
   can_manage_lifecycle: boolean
   can_view_billing: boolean
+  /** Salesrep-safe Finance signal on the account detail (spec 16 S11); no amounts. */
+  billing_risk?: CompanyBillingRisk | null
   can_upload_contract: boolean
   created_at: string
   updated_at: string
@@ -730,6 +732,19 @@ export interface ContractInput {
 }
 
 /** Read-only AR snapshot consumed from the mocked Finance department (spec 09 §7). */
+export type InvoiceStatus = 'paid' | 'open' | 'overdue'
+
+export interface FinanceInvoice {
+  reference: string
+  period_start: string
+  period_end: string
+  issued_at: string
+  due_at: string
+  amount: string
+  balance: string
+  status: InvoiceStatus
+}
+
 export interface BillingSummary {
   account_status: 'current' | 'overdue' | 'closed'
   outstanding: string
@@ -740,6 +755,14 @@ export interface BillingSummary {
   credit_terms: string
   currency: string
   aging: Record<'current' | '1_30' | '31_60' | '60_plus', string>
+  /** Expanded Finance feed (spec 16 S11). */
+  invoices: FinanceInvoice[]
+}
+
+/** The redacted flag a salesrep sees instead of the Finance snapshot. */
+export interface CompanyBillingRisk {
+  has_overdue: boolean
+  message: string | null
 }
 
 export interface CompanyBilling {

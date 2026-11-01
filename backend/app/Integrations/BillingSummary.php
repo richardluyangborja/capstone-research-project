@@ -10,6 +10,7 @@ final readonly class BillingSummary
 {
     /**
      * @param  array<string, float>  $aging  Buckets keyed `current`, `1_30`, `31_60`, `60_plus`.
+     * @param  array<int, InvoiceSummary>  $invoices
      */
     public function __construct(
         public string $accountStatus,
@@ -21,6 +22,7 @@ final readonly class BillingSummary
         public string $creditTerms,
         public string $currency,
         public array $aging,
+        public array $invoices = [],
     ) {}
 
     /**
@@ -40,6 +42,10 @@ final readonly class BillingSummary
             'aging' => array_map(
                 static fn (float $amount): string => number_format($amount, 2, '.', ''),
                 $this->aging,
+            ),
+            'invoices' => array_map(
+                static fn (InvoiceSummary $invoice): array => $invoice->toArray(),
+                $this->invoices,
             ),
         ];
     }
