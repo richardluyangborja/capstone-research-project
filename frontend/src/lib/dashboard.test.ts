@@ -142,6 +142,48 @@ const summary = (overrides: Record<string, unknown> = {}) => ({
     generated_at: '2026-10-24T04:00:00Z',
     source: 'rules',
   },
+  commercial: {
+    outstanding: 2_475_000,
+    overdue: 935_000,
+    overdue_accounts: 1,
+    renewals: { days_30: 1, days_60: 1, days_90: 2 },
+    active_deployments: 3,
+    fill_rate: 82,
+    pending_timesheets: 2,
+    source: 'Finance / Deployment / Timekeeping (mocked)',
+    as_of: '2026-11-02T09:00:00Z',
+  },
+  account_risks: {
+    total: 1,
+    rows: [
+      {
+        id: 'bpo:ar_overdue',
+        severity: 'critical',
+        state: 'at_risk',
+        account: { id: 'bpo', reference: 'CO-2026-0002', name: 'BPO Solutions PH' },
+        flag: {
+          code: 'ar_overdue',
+          title: 'Overdue AR',
+          reason: 'Finance reports PHP 935,000.00 overdue across 1 invoice.',
+          source: 'Finance (mocked)',
+        },
+        owner: { id: 2, name: 'Sam Salesrep' },
+        action: { label: 'Review billing', href: '/accounts/bpo?tab=commercial' },
+      },
+    ],
+  },
+  team_workload: {
+    unassigned: 1,
+    reps: [
+      {
+        id: 2,
+        name: 'Sam Salesrep',
+        open_leads: 7,
+        overdue_follow_ups: 2,
+        accounts_owned: 4,
+      },
+    ],
+  },
   ...overrides,
 })
 
@@ -286,6 +328,35 @@ describe('getDashboard', () => {
     expect(data.ai.actions[0].to).toBe('/pipeline')
     expect(data.alerts[0].to).toBe('/satisfaction/responses?attention=true')
     expect(data.activity[0].when).toBe('2 hours ago')
+
+    expect(data.commercial).toMatchObject({
+      outstanding: '₱2,475,000.00',
+      overdue: '₱935,000.00',
+      overdue_accounts: 1,
+      active_deployments: 3,
+      fill_rate: '82%',
+      pending_timesheets: 2,
+    })
+    expect(data.commercial?.renewals).toEqual([
+      { label: '30 days', count: 1 },
+      { label: '60 days', count: 1 },
+      { label: '90 days', count: 2 },
+    ])
+    expect(data.account_risks?.rows[0]).toMatchObject({
+      severity: 'danger',
+      flag: 'Overdue AR',
+      account_to: '/accounts/bpo',
+      owner: 'Sam Salesrep',
+      action: 'Review billing',
+      to: '/accounts/bpo?tab=commercial',
+    })
+    expect(data.team_workload?.reps[0]).toMatchObject({
+      id: '2',
+      initials: 'SS',
+      open_leads: 7,
+      overdue_follow_ups: 2,
+      accounts_owned: 4,
+    })
   })
 
   it('shows an unavailable HR block as null figures, never zero', async () => {

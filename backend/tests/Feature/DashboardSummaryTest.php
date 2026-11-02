@@ -229,6 +229,9 @@ class DashboardSummaryTest extends TestCase
         $this->assertSame('personal', $data['scope']['tier']);
         $this->assertSame('Your book', $data['scope']['label']);
         $this->assertSame('salesrep', $data['scope']['role']);
+        $this->assertArrayNotHasKey('commercial', $data);
+        $this->assertArrayNotHasKey('account_risks', $data);
+        $this->assertArrayNotHasKey('team_workload', $data);
 
         $this->assertEquals(2, $this->kpi($data, 'new-leads')['value']);
         $this->assertEquals(1, $this->kpi($data, 'qualified')['value']);
@@ -329,6 +332,60 @@ class DashboardSummaryTest extends TestCase
         $this->assertEquals(4, $this->kpi($data, 'attention')['value']);
         $this->assertEquals(12_400_000, $data['donut']['total']);
         $this->assertCount(4, $data['alerts']);
+
+        $this->assertGreaterThanOrEqual(3, count($data['team_workload']['reps']));
+        $this->assertSame(1, $data['team_workload']['unassigned']);
+        $this->assertTrue(
+            collect($data['team_workload']['reps'])
+                ->contains(fn (array $row): bool => $row['name'] === $this->outsider->name),
+        );
+    }
+
+    public function test_manager_dashboard_adds_commercial_risks_and_workload(): void
+    {
+        $data = $this->dashboard($this->manager);
+
+        $commercial = $data['commercial'];
+        $this->assertIsNumeric($commercial['outstanding']);
+        $this->assertIsNumeric($commercial['overdue']);
+        $this->assertGreaterThanOrEqual(0, $commercial['overdue_accounts']);
+        $this->assertSame(['days_30' => 2, 'days_60' => 2, 'days_90' => 2], $commercial['renewals']);
+        $this->assertSame(0, $commercial['active_deployments']);
+        $this->assertSame(0, $commercial['fill_rate']);
+        $this->assertSame(0, $commercial['pending_timesheets']);
+        $this->assertSame('Finance / Deployment / Timekeeping (mocked)', $commercial['source']);
+
+        $risks = $data['account_risks'];
+        $this->assertGreaterThanOrEqual(2, $risks['total']);
+        $this->assertLessThanOrEqual(8, count($risks['rows']));
+
+        foreach ($risks['rows'] as $row) {
+            $this->assertContains($row['severity'], ['critical', 'warning']);
+            $this->assertArrayHasKey('name', $row['account']);
+            $this->assertArrayHasKey('title', $row['flag']);
+            $this->assertNotSame('', $row['flag']['reason']);
+            $this->assertArrayHasKey('href', $row['action']);
+            $this->assertStringStartsWith('/', $row['action']['href']);
+            $this->assertNotSame('Outsider Foods', $row['account']['name']);
+        }
+
+        $workload = $data['team_workload'];
+        $this->assertSame(1, $workload['unassigned']);
+        $this->assertCount(2, $workload['reps']);
+        $this->assertSame(
+            collect([$this->rep->name, $this->teammate->name])->sort()->values()->all(),
+            collect($workload['reps'])->pluck('name')->sort()->values()->all(),
+        );
+
+        $rep = collect($workload['reps'])->firstWhere('id', $this->rep->id);
+        $this->assertSame(1, $rep['open_leads']);
+        $this->assertSame(1, $rep['overdue_follow_ups']);
+        $this->assertSame(2, $rep['accounts_owned']);
+
+        $teammate = collect($workload['reps'])->firstWhere('id', $this->teammate->id);
+        $this->assertSame(1, $teammate['open_leads']);
+        $this->assertSame(0, $teammate['overdue_follow_ups']);
+        $this->assertSame(1, $teammate['accounts_owned']);
     }
 
     public function test_activity_feed_is_scoped_to_what_the_caller_may_see(): void

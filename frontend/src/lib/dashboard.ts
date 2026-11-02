@@ -164,6 +164,47 @@ export interface DashboardActivityRow {
   to: string
 }
 
+/** The manager+ commercial strip (module 01 refresh S14). */
+export interface DashboardCommercial {
+  outstanding: string
+  overdue: string
+  overdue_accounts: number
+  renewals: { label: string; count: number }[]
+  active_deployments: number
+  fill_rate: string
+  pending_timesheets: number
+  source: string
+  as_of: string
+}
+
+export interface DashboardAccountRisk {
+  id: string
+  severity: WorklistSeverity
+  state: 'healthy' | 'attention' | 'at_risk'
+  account: { id: string; reference: string; name: string }
+  account_to: string
+  flag: string
+  reason: string
+  source: string
+  owner: string
+  action: string
+  to: string
+}
+
+export interface DashboardTeamRep {
+  id: string
+  name: string
+  initials: string
+  open_leads: number
+  overdue_follow_ups: number
+  accounts_owned: number
+}
+
+export interface DashboardTeamWorkload {
+  unassigned: number
+  reps: DashboardTeamRep[]
+}
+
 export interface DashboardData {
   range: DashboardRange
   updated_at: string
@@ -178,6 +219,10 @@ export interface DashboardData {
   ai: DashboardAiReport
   alerts: DashboardAlert[]
   activity: DashboardActivityRow[]
+  /** Present for manager+ only; a salesrep's dashboard keeps its personal shape. */
+  commercial?: DashboardCommercial
+  account_risks?: { total: number; rows: DashboardAccountRisk[] }
+  team_workload?: DashboardTeamWorkload
 }
 
 /* ---------------------------------------------------------------------------------------------
@@ -270,6 +315,39 @@ interface WireAi {
   source: 'model' | 'rules'
 }
 
+interface WireCommercial {
+  outstanding: number
+  overdue: number
+  overdue_accounts: number
+  renewals: { days_30: number; days_60: number; days_90: number }
+  active_deployments: number
+  fill_rate: number
+  pending_timesheets: number
+  source: string
+  as_of: string
+}
+
+interface WireAccountRisk {
+  id: string
+  severity: 'critical' | 'warning' | 'info'
+  state: DashboardAccountRisk['state']
+  account: { id: string; reference: string; name: string }
+  flag: { code: string; title: string; reason: string; source: string }
+  owner: { id: number; name: string } | null
+  action: { label: string; href: string }
+}
+
+interface WireTeamWorkload {
+  unassigned: number
+  reps: {
+    id: number
+    name: string
+    open_leads: number
+    overdue_follow_ups: number
+    accounts_owned: number
+  }[]
+}
+
 interface WireSummary {
   range: DashboardRange
   updated_at: string
@@ -281,6 +359,9 @@ interface WireSummary {
   alerts: WireAlert[]
   activity: WireActivity[]
   ai: WireAi
+  commercial?: WireCommercial
+  account_risks?: { total: number; rows: WireAccountRisk[] }
+  team_workload?: WireTeamWorkload
 }
 
 interface WireWorklistRow {
@@ -442,6 +523,54 @@ const mapWorklist = (row: WireWorklistRow): DashboardWorklistRow => ({
   minTier: row.minTier,
 })
 
+const riskSeverity: Record<WireAccountRisk['severity'], WorklistSeverity> = {
+  critical: 'danger',
+  warning: 'warning',
+  info: 'info',
+}
+
+const mapCommercial = (commercial: WireCommercial): DashboardCommercial => ({
+  outstanding: formatCurrency(commercial.outstanding),
+  overdue: formatCurrency(commercial.overdue),
+  overdue_accounts: commercial.overdue_accounts,
+  renewals: [
+    { label: '30 days', count: commercial.renewals.days_30 },
+    { label: '60 days', count: commercial.renewals.days_60 },
+    { label: '90 days', count: commercial.renewals.days_90 },
+  ],
+  active_deployments: commercial.active_deployments,
+  fill_rate: `${formatNumber(commercial.fill_rate)}%`,
+  pending_timesheets: commercial.pending_timesheets,
+  source: commercial.source,
+  as_of: formatDateTime(commercial.as_of),
+})
+
+const mapAccountRisk = (row: WireAccountRisk): DashboardAccountRisk => ({
+  id: row.id,
+  severity: riskSeverity[row.severity],
+  state: row.state,
+  account: row.account,
+  account_to: `/accounts/${row.account.id}`,
+  flag: row.flag.title,
+  reason: row.flag.reason,
+  source: row.flag.source,
+  owner: row.owner?.name ?? 'Unassigned',
+  action: row.action.label,
+  to: row.action.href,
+})
+
+const mapTeamWorkload = (workload: WireTeamWorkload): DashboardTeamWorkload => ({
+  unassigned: workload.unassigned,
+  reps: workload.reps.map((rep) => ({
+    id: String(rep.id),
+    name: rep.name,
+    initials: initialsFor(rep.name),
+    open_leads: rep.open_leads,
+    overdue_follow_ups: rep.overdue_follow_ups,
+    accounts_owned: rep.accounts_owned,
+  })),
+})
+
 const initialsFor = (name: string): string => {
   const parts = name.trim().split(/\s+/).filter(Boolean)
 
@@ -539,5 +668,15 @@ export async function getDashboard(role: Role, range: DashboardRange): Promise<D
       when: formatRelativeTime(activity.occurred_at),
       to: activity.href,
     })),
+    ...(summary.commercial ? { commercial: mapCommercial(summary.commercial) } : {}),
+    ...(summary.account_risks
+      ? {
+          account_risks: {
+            total: summary.account_risks.total,
+            rows: summary.account_risks.rows.map(mapAccountRisk),
+          },
+        }
+      : {}),
+    ...(summary.team_workload ? { team_workload: mapTeamWorkload(summary.team_workload) } : {}),
   }
 }

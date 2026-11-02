@@ -325,6 +325,73 @@ const managerDashboard: DashboardData = {
       to: '/leads?view=qualification',
     },
   ],
+  commercial: {
+    outstanding: '₱2,475,000.00',
+    overdue: '₱935,000.00',
+    overdue_accounts: 1,
+    renewals: [
+      { label: '30 days', count: 1 },
+      { label: '60 days', count: 1 },
+      { label: '90 days', count: 1 },
+    ],
+    active_deployments: 3,
+    fill_rate: '82%',
+    pending_timesheets: 2,
+    source: 'Finance / Deployment / Timekeeping (mocked)',
+    as_of: '02 Nov 2026, 17:00',
+  },
+  account_risks: {
+    total: 2,
+    rows: [
+      {
+        id: 'bpo:ar_overdue',
+        severity: 'danger',
+        state: 'at_risk',
+        account: { id: 'bpo', reference: 'CO-2026-0002', name: 'BPO Solutions PH' },
+        account_to: '/accounts/bpo',
+        flag: 'Overdue AR',
+        reason: 'Finance reports PHP 935,000.00 overdue across 1 invoice.',
+        source: 'Finance (mocked)',
+        owner: 'Sam Salesrep',
+        action: 'Review billing',
+        to: '/accounts/bpo?tab=commercial',
+      },
+      {
+        id: 'sunrise:contract_expiring',
+        severity: 'warning',
+        state: 'attention',
+        account: { id: 'sunrise', reference: 'CO-2026-0001', name: 'Sunrise Foods Inc' },
+        account_to: '/accounts/sunrise',
+        flag: 'Contract expiring',
+        reason: 'The signed contract ends inside 30 days.',
+        source: 'Contracts',
+        owner: 'Sam Salesrep',
+        action: 'Open contracts',
+        to: '/accounts/sunrise?tab=commercial',
+      },
+    ],
+  },
+  team_workload: {
+    unassigned: 3,
+    reps: [
+      {
+        id: '2',
+        name: 'Sam Salesrep',
+        initials: 'SS',
+        open_leads: 7,
+        overdue_follow_ups: 2,
+        accounts_owned: 4,
+      },
+      {
+        id: '3',
+        name: 'Liza Lopez',
+        initials: 'LL',
+        open_leads: 5,
+        overdue_follow_ups: 0,
+        accounts_owned: 3,
+      },
+    ],
+  },
 }
 
 const renderDashboard = () =>
@@ -384,8 +451,12 @@ describe('dashboard home', () => {
   it('shows the worklist with clickable rows and the team alerts', async () => {
     renderDashboard()
 
-    const sunrise = await screen.findByRole('link', { name: 'Sunrise Foods Inc' })
-    expect(sunrise).toHaveAttribute('href', '/satisfaction/responses/response-1')
+    const sunriseLinks = await screen.findAllByRole('link', { name: 'Sunrise Foods Inc' })
+    expect(
+      sunriseLinks.some(
+        (link) => link.getAttribute('href') === '/satisfaction/responses/response-1',
+      ),
+    ).toBe(true)
 
     expect(screen.getByRole('link', { name: 'Metro Builders' })).toHaveAttribute(
       'href',
@@ -421,6 +492,37 @@ describe('dashboard home', () => {
       'href',
       '/reports',
     )
+  })
+
+  it('renders the manager commercial strip, account risks and team workload', async () => {
+    renderDashboard()
+
+    expect(await screen.findByText('Commercial & delivery')).toBeInTheDocument()
+    expect(screen.getByText('₱2,475,000.00')).toBeInTheDocument()
+    expect(screen.getByText('1 / 1 / 1')).toBeInTheDocument()
+    expect(screen.getByText('82%')).toBeInTheDocument()
+
+    expect(screen.getByText('Account risks')).toBeInTheDocument()
+    expect(screen.getByText('Overdue AR')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'BPO Solutions PH' })).toHaveAttribute(
+      'href',
+      '/accounts/bpo',
+    )
+    expect(screen.getByRole('link', { name: /Review billing/ })).toHaveAttribute(
+      'href',
+      '/accounts/bpo?tab=commercial',
+    )
+
+    const workload = screen.getByRole('heading', { name: 'Team workload' }).closest('section')
+    expect(workload).not.toBeNull()
+    expect(
+      within(workload as HTMLElement).getByText(/leads are waiting for an owner/),
+    ).toBeInTheDocument()
+    expect(within(workload as HTMLElement).getByText('Sam Salesrep')).toBeInTheDocument()
+    expect(within(workload as HTMLElement).getByText('Liza Lopez')).toBeInTheDocument()
+    expect(
+      within(workload as HTMLElement).getByRole('table', { name: 'Team workload by rep' }),
+    ).toBeInTheDocument()
   })
 
   it('switches the reporting period and re-reads the endpoints', async () => {
@@ -494,6 +596,9 @@ describe('dashboard home', () => {
     useAuth.mockReturnValue(session('salesrep', 'Sam Salesrep'))
     getDashboard.mockResolvedValue({
       ...managerDashboard,
+      commercial: undefined,
+      account_risks: undefined,
+      team_workload: undefined,
       scope: {
         role: 'salesrep',
         tier: 'personal',
@@ -507,6 +612,9 @@ describe('dashboard home', () => {
 
     expect(await screen.findByText(/Your book/)).toBeInTheDocument()
     expect(screen.getByText(/Your scorecard/)).toBeInTheDocument()
+    expect(screen.queryByText('Commercial & delivery')).not.toBeInTheDocument()
+    expect(screen.queryByText('Account risks')).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Team workload' })).not.toBeInTheDocument()
 
     const table = screen.getByRole('table', {
       name: /Staff performance: CRM output and core2 HR figures/,
