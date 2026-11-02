@@ -720,7 +720,7 @@ Dedup/merge and advanced/stored tier scoring are module-01 deferrals
 (ADR-0006), and automatic client aging stays one too (ADR-0018 §6). Other departments are consumed via
 **read-only mocked feeds** (ADR-0005, ADR-0025), not built here.
 
-**Module 01 refresh (S0–S12 built — `specs/16`, ADR-0023–0026).** S0 is the planning contract and
+**Module 01 refresh (S0–S13 built — `specs/16`, ADR-0023–0026).** S0 is the planning contract and
 S1 is the shell: the sidebar is grouped by module, `/accounts` (plus `/accounts/new` and
 `/accounts/:id`) is the canonical account surface, and `/companies*`, `/clients`, `/qualification`,
 `/assignment`, `/lifecycle` and `/conversion` redirect with their query strings preserved. Dashboard
@@ -790,8 +790,13 @@ S12 adds the manager+ `/billing` cross-account AR book: `GET /api/v1/billing` (i
 `BillingBookController`) flattens the mocked Finance feed over each visible account with invoices into
 one row per account, with status/overdue/aging/account/owner/search filters, a scope-wide summary and
 read-only source/as-of metadata, while the manager+ page in `frontend/src/pages/Billing.tsx` hides the
-nav item from salesreps and the endpoint returns 403.
-The later slices add computed account health, the public landing
+nav item from salesreps and the endpoint returns 403. S13 adds computed account health: one
+`Http/Companies/AccountHealth` service derives `healthy|attention|at_risk`, explainable flags and one
+suggested action from existing records and the read-only feeds, exposes them on `CompanyResource`, and
+powers `filter[health]` on `GET /companies`; the Account Book gains a health column/filter and Account
+360 Overview an **Account health** panel, while a salesrep sees the Finance flag with amounts redacted.
+The service never writes `Company.status` or triggers a lifecycle move.
+The later slices add the manager dashboard strip, the public landing
 refresh with embedded intake and modal sign-in, and all-role CSV import with ownership rules. Read
 `resources/specs/16-module-01-refresh.md` before changing Module 01; the old `01`, `06` and `09` files
 remain the baseline for behavior the refresh does not replace.

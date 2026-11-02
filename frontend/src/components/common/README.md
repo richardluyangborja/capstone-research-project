@@ -34,6 +34,8 @@ check this list first:
   (module 01 refresh, Account 360 + contract detail) — **done**
 - `CompanyDeliveryPanel` — read-only Recruitment / Deployment / Timekeeping feed for Account 360's
   Delivery tab, with source/as-of provenance and no mutation actions (module 01 refresh S9) — **done**
+- `AccountHealthPanel` — explainable account-health state, flags, source and suggested action
+  (module 01 refresh S13; reused by the manager dashboard) — **done**
 
 Rules: tokens/utilities only (no hardcoded hex or arbitrary px); icons from `lucide-react`; render
 dashboards inside `DashboardShell`.

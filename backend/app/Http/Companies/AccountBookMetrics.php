@@ -43,6 +43,17 @@ final class AccountBookMetrics
     }
 
     /**
+     * The newest logged activity or communication on one account and its people, deals and
+     * contracts. The Account 360 health read reuses the same clock as the book.
+     */
+    public static function lastActivityFor(Company $company): ?CarbonInterface
+    {
+        $subjects = self::subjectMap(collect([$company]));
+
+        return self::lastActivity($subjects)[$company->id] ?? null;
+    }
+
+    /**
      * Every subject id that belongs to each account — the company itself, its contacts,
      * opportunities and contracts — keyed by morph type, then subject id to company id.
      *

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Events\CompanyCreated;
 use App\Http\Companies\AccountBookMetrics;
+use App\Http\Companies\AccountHealth;
 use App\Http\Companies\CompanyPayload;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreCompanyRequest;
@@ -16,12 +17,16 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class CompanyController extends Controller
 {
-    public function __construct(private readonly FinanceBilling $billing) {}
+    public function __construct(
+        private readonly FinanceBilling $billing,
+        private readonly AccountHealth $health,
+    ) {}
 
     public function index(Request $request): AnonymousResourceCollection
     {
@@ -29,8 +34,9 @@ class CompanyController extends Controller
 
         /** @var array<string, mixed> $filters */
         $filters = (array) $request->input('filter', []);
+        $perPage = max(1, min((int) $request->integer('per_page', 25), 100));
 
-        $companies = Company::query()
+        $query = Company::query()
             ->with(['owner', 'parent'])
             ->withCount([
                 'sites',
@@ -53,13 +59,47 @@ class CompanyController extends Controller
             ))
             ->when($filters['owner_id'] ?? null, fn ($query, $owner) => $query->where('owner_id', $owner))
             ->when($filters['parent_company_id'] ?? null, fn ($query, $parent) => $query->where('parent_company_id', $parent))
-            ->orderByDesc('created_at')
-            ->paginate(min((int) $request->integer('per_page', 25), 100))
-            ->appends($request->query());
+            ->orderByDesc('created_at');
 
-        AccountBookMetrics::attach($companies->getCollection());
+        // Health is computed, not stored (spec 16 S13). A health filter therefore has to
+        // narrow the visible set before the page is cut, while the unfiltered book keeps the
+        // normal SQL pagination and computes health for that page only.
+        $health = trim((string) ($filters['health'] ?? ''));
 
-        return CompanyResource::collection($companies);
+        if ($health === '') {
+            $companies = $query
+                ->paginate($perPage)
+                ->appends($request->query());
+
+            AccountBookMetrics::attach($companies->getCollection());
+            $this->health->attach($companies->getCollection(), $request->user());
+
+            return CompanyResource::collection($companies);
+        }
+
+        $all = $query->get();
+        AccountBookMetrics::attach($all);
+        $this->health->attach($all, $request->user());
+
+        $states = array_values(array_filter(explode(',', $health)));
+        $filtered = $all
+            ->filter(fn (Company $company): bool => in_array(
+                $company->getAttribute('health')['state'] ?? '',
+                $states,
+                true,
+            ))
+            ->values();
+
+        $page = max(1, (int) $request->integer('page', 1));
+        $paginator = new LengthAwarePaginator(
+            $filtered->forPage($page, $perPage)->values(),
+            $filtered->count(),
+            $perPage,
+            $page,
+            ['path' => $request->url(), 'query' => $request->query()],
+        );
+
+        return CompanyResource::collection($paginator);
     }
 
     public function store(StoreCompanyRequest $request): JsonResponse

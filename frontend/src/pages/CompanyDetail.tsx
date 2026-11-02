@@ -5,6 +5,7 @@ import PageHeader from '../components/common/PageHeader'
 import FormCard from '../components/common/FormCard'
 import StatusBadge from '../components/common/StatusBadge'
 import AlertItem from '../components/common/AlertItem'
+import AccountHealthPanel from '../components/common/AccountHealthPanel'
 import EmptyState from '../components/common/EmptyState'
 import DataTable, { type DataTableColumn } from '../components/common/DataTable'
 import CommunicationList from '../components/common/CommunicationList'
@@ -1566,6 +1567,21 @@ export default function CompanyDetail() {
               description="Derived from the source lead, signed contracts and the mocked Service handoff. Nothing moves automatically."
             >
               <JourneyStepper steps={journeySteps} />
+            </FormCard>
+          </div>
+
+          <div className="lg:col-span-3">
+            <FormCard
+              title="Account health"
+              description="Computed on read from the account's records and the read-only department feeds. It never changes the lifecycle."
+            >
+              {company.health ? (
+                <AccountHealthPanel health={company.health} />
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Health is not available for this account.
+                </p>
+              )}
             </FormCard>
           </div>
 
