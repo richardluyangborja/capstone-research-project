@@ -9,6 +9,7 @@ import DataTable, { type DataTableColumn } from '../components/common/DataTable'
 import { bulkAssignCompanies, listCompanies } from '../lib/companies'
 import { getAssignableUsers } from '../lib/leads'
 import { companyStatusMeta, companyTierLabels } from '../lib/companyMeta'
+import { healthStateMeta } from '../lib/health'
 import { followUpDueMeta } from '../lib/followUpMeta'
 import { formatDate, formatDateTime } from '../lib/format'
 import { useAuth } from '../lib/auth-context'
@@ -23,6 +24,7 @@ const allClients = clientStatuses.join(',')
 interface AccountFilters {
   search: string
   status: string
+  health: string
   tier: string
   owner: string
   industry: string
@@ -70,6 +72,25 @@ const columns: DataTableColumn<Company>[] = [
         {companyStatusMeta[company.status].label}
       </StatusBadge>
     ),
+  },
+  {
+    key: 'health',
+    header: 'Health',
+    render: (company) =>
+      company.health ? (
+        <div className="flex flex-col items-start gap-1">
+          <StatusBadge tone={healthStateMeta[company.health.state].tone}>
+            {healthStateMeta[company.health.state].label}
+          </StatusBadge>
+          {company.health.flags.length > 0 && (
+            <span className="text-xs text-muted-foreground">
+              {company.health.flags.length} {company.health.flags.length === 1 ? 'flag' : 'flags'}
+            </span>
+          )}
+        </div>
+      ) : (
+        <span className="text-muted-foreground">—</span>
+      ),
   },
   {
     key: 'tier',
@@ -152,6 +173,7 @@ export default function Companies() {
   const [targets, setTargets] = useState<AssignmentTarget[]>([])
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('')
+  const [health, setHealth] = useState('')
   const [tier, setTier] = useState('')
   const [owner, setOwner] = useState('')
   const [industry, setIndustry] = useState('')
@@ -177,6 +199,7 @@ export default function Companies() {
         listCompanies({
           search: filters.search || undefined,
           status: statusForView(filters.view, filters.status),
+          health: filters.health || undefined,
           tier: filters.tier || undefined,
           industry: filters.industry.trim() || undefined,
           owner_id: filters.owner ? Number(filters.owner) : undefined,
@@ -200,6 +223,7 @@ export default function Companies() {
   useEffect(() => {
     setSearch('')
     setStatus('')
+    setHealth('')
     setTier('')
     setOwner('')
     setIndustry('')
@@ -207,6 +231,7 @@ export default function Companies() {
     void load(1, {
       search: '',
       status: '',
+      health: '',
       tier: '',
       owner: '',
       industry: '',
@@ -240,8 +265,8 @@ export default function Companies() {
     setSearchParams(params)
   }
 
-  const filters: AccountFilters = { search, status, tier, owner, industry, view }
-  const hasFilters = Boolean(search || status || tier || owner || industry)
+  const filters: AccountFilters = { search, status, health, tier, owner, industry, view }
+  const hasFilters = Boolean(search || status || health || tier || owner || industry)
   const ownerOptions: AssignmentTarget[] =
     user && !targets.some((target) => target.id === user.id)
       ? [...targets, { id: user.id, name: user.name, team_id: null }]
@@ -250,10 +275,11 @@ export default function Companies() {
   const resetFilters = () => {
     setSearch('')
     setStatus('')
+    setHealth('')
     setTier('')
     setOwner('')
     setIndustry('')
-    void load(1, { search: '', status: '', tier: '', owner: '', industry: '', view })
+    void load(1, { search: '', status: '', health: '', tier: '', owner: '', industry: '', view })
   }
 
   const onBulkAssign = async () => {
@@ -343,6 +369,18 @@ export default function Companies() {
               {option.label}
             </option>
           ))}
+        </select>
+
+        <select
+          value={health}
+          onChange={(event) => setHealth(event.target.value)}
+          aria-label="Health"
+          className="rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground outline-none focus:ring-2 focus:ring-ring"
+        >
+          <option value="">All health</option>
+          <option value="healthy">Healthy</option>
+          <option value="attention">Attention</option>
+          <option value="at_risk">At risk</option>
         </select>
 
         <select

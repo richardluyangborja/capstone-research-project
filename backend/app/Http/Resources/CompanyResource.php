@@ -5,6 +5,7 @@ namespace App\Http\Resources;
 use App\Enums\CompanyStatus;
 use App\Enums\FollowUpDueState;
 use App\Enums\HandoffStatus;
+use App\Http\Companies\AccountHealth;
 use App\Models\Company;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -83,6 +84,11 @@ class CompanyResource extends JsonResource
             'next_follow_up_at' => $this->next_follow_up_at,
             'next_follow_up' => FollowUpDueState::block($this->next_follow_up_at),
             'last_activity_at' => $this->last_activity_at,
+            // Computed on read from existing records and the read-only feeds (spec 16 S13).
+            // It never moves the lifecycle; a salesrep sees the same flags with Finance
+            // amounts redacted.
+            'health' => $this->resource->getAttribute('health')
+                ?? app(AccountHealth::class)->forCompany($this->resource, $request->user()),
             // The lifecycle stepper offers only legal moves (spec 09 §UI).
             'allowed_status_transitions' => array_map(
                 static fn (CompanyStatus $status): string => $status->value,

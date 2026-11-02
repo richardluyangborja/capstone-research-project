@@ -163,6 +163,33 @@ export interface CompanyPrimaryContact {
   mobile: string | null
 }
 
+/** Computed account health (module 01 refresh S13, spec 16 §Account health). */
+export type CompanyHealthState = 'healthy' | 'attention' | 'at_risk'
+
+export type CompanyHealthSeverity = 'critical' | 'warning' | 'info'
+
+export interface CompanyHealthAction {
+  label: string
+  url: string
+}
+
+export interface CompanyHealthFlag {
+  code: string
+  severity: CompanyHealthSeverity
+  title: string
+  reason: string
+  source: string
+  action: CompanyHealthAction
+}
+
+export interface CompanyHealth {
+  state: CompanyHealthState
+  flags: CompanyHealthFlag[]
+  suggested_action: (CompanyHealthAction & { code: string }) | null
+  /** False for salesreps: Finance flags carry a redacted reason with no amounts. */
+  can_view_financial_detail: boolean
+}
+
 export interface Company {
   id: string
   reference: string
@@ -193,6 +220,8 @@ export interface Company {
   next_follow_up: FollowUpDue | null
   /** The newest logged activity or communication on any part of the account. */
   last_activity_at: string | null
+  /** Computed on read; never moves the lifecycle (spec 16 S13). */
+  health?: CompanyHealth | null
   allowed_status_transitions: CompanyStatus[]
   can_update: boolean
   can_manage_sites: boolean

@@ -57,6 +57,25 @@ const { company, site, contact, deal, contract, billing, delivery, paginated } =
     next_follow_up_at: '2026-10-20T09:00:00.000000Z',
     next_follow_up: { state: 'upcoming', label: 'Upcoming', days: 3, overdue: false },
     last_activity_at: '2026-10-17T03:51:40.000000Z',
+    health: {
+      state: 'attention',
+      flags: [
+        {
+          code: 'contract_expiring',
+          severity: 'warning',
+          title: 'Contract expiring',
+          reason: 'Contract CON-2026-0001 ends on 30 Nov 2026 and is inside the renewal window.',
+          source: 'Contracts',
+          action: { label: 'Renew contract', url: '/contracts/company-1' },
+        },
+      ],
+      suggested_action: {
+        code: 'contract_expiring',
+        label: 'Renew contract',
+        url: '/contracts/company-1',
+      },
+      can_view_financial_detail: true,
+    },
     allowed_status_transitions: ['onboarding', 'active'],
     can_update: true,
     can_manage_sites: true,
@@ -408,11 +427,13 @@ describe('Companies list', () => {
     expect(row).not.toBeNull()
     expect(within(row as HTMLElement).getByText('CO-2026-0001')).toBeInTheDocument()
     expect(within(row as HTMLElement).getByText('Prospect')).toBeInTheDocument()
+    expect(within(row as HTMLElement).getByText('Attention')).toBeInTheDocument()
     expect(within(row as HTMLElement).getByText('Tier B')).toBeInTheDocument()
     expect(within(row as HTMLElement).getByText('Upcoming')).toBeInTheDocument()
     expect(within(row as HTMLElement).getByText(/Oct 17, 2026|17 Oct 2026/)).toBeInTheDocument()
     expect(screen.getByRole('columnheader', { name: 'Contracts' })).toBeInTheDocument()
     expect(screen.getByRole('columnheader', { name: 'Open deals' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'Health' })).toBeInTheDocument()
     expect(screen.getByRole('columnheader', { name: 'Next follow-up' })).toBeInTheDocument()
     expect(screen.getByRole('columnheader', { name: 'Last activity' })).toBeInTheDocument()
   })
@@ -437,7 +458,7 @@ describe('Companies list', () => {
     expect(screen.getByRole('option', { name: 'All clients' })).toBeInTheDocument()
   })
 
-  it('sends the owner and industry filters', async () => {
+  it('sends the owner, industry and health filters', async () => {
     render(
       <MemoryRouter>
         <Companies />
@@ -448,11 +469,12 @@ describe('Companies list', () => {
 
     fireEvent.change(screen.getByLabelText('Owner'), { target: { value: '1' } })
     fireEvent.change(screen.getByLabelText('Industry'), { target: { value: 'food' } })
+    fireEvent.change(screen.getByLabelText('Health'), { target: { value: 'at_risk' } })
     fireEvent.click(screen.getByRole('button', { name: 'Filter' }))
 
     await waitFor(() =>
       expect(companyApi.listCompanies).toHaveBeenLastCalledWith(
-        expect.objectContaining({ owner_id: 1, industry: 'food' }),
+        expect.objectContaining({ owner_id: 1, industry: 'food', health: 'at_risk' }),
       ),
     )
   })
@@ -515,6 +537,9 @@ describe('Company detail', () => {
     expect(screen.getByText('Journey')).toBeInTheDocument()
     expect(screen.getByText('Lead captured')).toBeInTheDocument()
     expect(screen.getAllByText('Created directly').length).toBeGreaterThan(0)
+    expect(screen.getByText('Account health')).toBeInTheDocument()
+    expect(screen.getByText('Contract expiring')).toBeInTheDocument()
+    expect(screen.getAllByText('Renew contract').length).toBeGreaterThan(0)
     expect(screen.getByRole('button', { name: /^People & Sites/ })).toHaveTextContent('2')
     expect(screen.getByRole('button', { name: /^Commercial/ })).toHaveTextContent('2')
     expect(screen.getByRole('button', { name: /^Engagement/ })).toHaveTextContent('3')
