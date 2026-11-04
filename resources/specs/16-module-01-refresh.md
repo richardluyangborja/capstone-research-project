@@ -11,7 +11,7 @@ sign-in), plus 0004, 0005, 0007, 0010, 0013, 0014, 0016.
 > detail (built). S9 — delivery feed (built). S10 — deployment book (built). S11 — finance feed
 > (built). S12 — billing book (built). S13 — account health (built). S14 — manager dashboard
 > (built). S15 — public landing (built). S16 — sign-in modal (built).
-> S17 — public intake (built).** S0 is this
+> S17 — public intake (built). S18 — CSV import (built).** S0 is this
 > contract plus its ADRs; S1
 > shipped the grouped sidebar, canonical routes, redirects and canonical dashboard/AI hrefs; S2
 > shipped the saved views, manager workload panel and duplicate links; S3 shipped the scoped
@@ -56,7 +56,11 @@ sign-in), plus 0004, 0005, 0007, 0010, 0013, 0014, 0016.
 > unauthenticated `POST /api/v1/public/leads`: validation, a honeypot and throttling guard the route,
 > the successful record is an unassigned `website` lead with `consent_at` stamped, and the form shows
 > field errors, a retryable failure state and a thank-you state without exposing ids or duplicates.
-> S18–S19 each ship on their own `feature/module-01-*` branch and merge to `main` only after review.
+> S18 adds the all-role `/leads/import` page and its three endpoints: a fixed template download, a
+> preview that maps rows and reports validation errors and advisory duplicates, and a commit that
+> writes only the valid rows. A salesrep's imports are self-owned; a manager/admin import defaults to
+> the unassigned queue or a selected salesrep in scope, and the 500-row cap is enforced before any
+> write. S19 ships on its own `feature/module-01-*` branch and merges to `main` only after review.
 > The branch is deleted after merge, and the next slice starts from the updated `main`.
 
 ## Purpose
@@ -141,8 +145,8 @@ AI Reports
   Management Reports
 ```
 
-Only destinations whose page exists are listed. **Import Leads** joins with S18; **Contracts**,
-**Deployments** and **Billing** join with S8, S10 and S12.
+Only destinations whose page exists are listed. **Import Leads** landed with S18; **Contracts**,
+**Deployments** and **Billing** joined with S8, S10 and S12.
 
 **Canonical routes:** `/leads`, `/leads/new`, `/leads/import`, `/leads/:id`, `/leads/:id/convert`,
 `/accounts`, `/accounts/new`, `/accounts/:id`, `/contracts`, `/contracts/:id`, `/deployments`,
@@ -585,7 +589,7 @@ names are suggestions; the `feature/module-01-*` prefix is required.
 | **S15** | `feature/module-01-public-landing` (built) | Landing refresh, animated background, feature cards, HTML product previews | Responsive; reduced-motion; no new UI library; no broken images |
 | **S16** | `feature/module-01-login-modal` (built) | Accessible modal, `/login` redirect, `next` handling, 401 flow | `/login` opens modal; deep-link return; keyboard/escape/focus; tests |
 | **S17** | `feature/module-01-public-intake` (built) | Embedded form + public endpoint | 201 unassigned website lead; validation/throttle/honeypot; thank-you state |
-| **S18** | `feature/module-01-csv-import` | Import page, template, preview/commit, all-role ownership | Salesrep self-owned; manager unassigned + selector; invalid rows skipped; 500 cap |
+| **S18** | `feature/module-01-csv-import` (built) | Import page, template, preview/commit, all-role ownership | Salesrep self-owned; manager unassigned + selector; invalid rows skipped; 500 cap |
 | **S19** | `feature/module-01-sidebar-pattern` | Grouped sidebar for Modules 02–05, docs/bookkeeping | All existing module pages reachable; no dead links; no behavior change |
 
 **Dependency order:** S0 → S1 → S2/S3 → S4 → S5/S6 → S7 → S8/S9 → S10 → S11 → S12 → S13 → S14.

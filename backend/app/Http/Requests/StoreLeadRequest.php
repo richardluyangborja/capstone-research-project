@@ -16,9 +16,12 @@ class StoreLeadRequest extends FormRequest
     }
 
     /**
+     * The lead's field rules, shared with the CSV import so a row is held to the same
+     * standard as a manually captured lead (spec 01 rule 1 and rule 6).
+     *
      * @return array<string, mixed>
      */
-    public function rules(): array
+    public static function fieldRules(): array
     {
         return [
             'company_name' => ['required', 'string', 'max:255'],
@@ -37,5 +40,13 @@ class StoreLeadRequest extends FormRequest
             'urgency' => ['nullable', Rule::enum(Urgency::class)],
             'notes' => ['nullable', 'string'],
         ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function rules(): array
+    {
+        return self::fieldRules();
     }
 }

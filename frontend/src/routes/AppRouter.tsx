@@ -19,6 +19,7 @@ import DashboardHome from '../pages/DashboardHome'
 import Deployments from '../pages/Deployments'
 import FollowUpForm from '../pages/FollowUpForm'
 import FollowUps from '../pages/FollowUps'
+import ImportLeads from '../pages/ImportLeads'
 import LeadConvert from '../pages/LeadConvert'
 import LeadDetail from '../pages/LeadDetail'
 import LeadsList from '../pages/LeadsList'
@@ -78,6 +79,7 @@ export default function AppRouter() {
           <Route path="/dashboard" element={<DashboardHome />} />
           <Route path="/leads" element={<LeadsList />} />
           <Route path="/leads/new" element={<NewLead />} />
+          <Route path="/leads/import" element={<ImportLeads />} />
           <Route path="/leads/:id" element={<LeadDetail />} />
           <Route path="/leads/:id/convert" element={<LeadConvert />} />
           <Route path="/accounts" element={<Companies />} />
