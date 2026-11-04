@@ -1,4 +1,5 @@
 import { Navigate, useLocation, useParams } from 'react-router-dom'
+import { loginPath } from '../lib/authRedirect'
 
 /**
  * Module 01 route cleanup (spec 16 §Navigation and routes).
@@ -23,6 +24,14 @@ const withQuery = (
   const query = params.toString()
 
   return query ? `${pathname}?${query}` : pathname
+}
+
+/** `/login` → the public sign-in modal, carrying a valid `next` (spec 16 §Sign-in modal). */
+export function RedirectToLogin() {
+  const { search } = useLocation()
+  const next = new URLSearchParams(search).get('next')
+
+  return <Navigate to={loginPath(next)} replace />
 }
 
 /** `/companies` → `/accounts` */

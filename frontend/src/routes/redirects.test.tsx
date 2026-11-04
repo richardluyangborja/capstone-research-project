@@ -7,6 +7,7 @@ import {
   RedirectToAccounts,
   RedirectToClientAccounts,
   RedirectToLeadView,
+  RedirectToLogin,
   RedirectToNewAccount,
 } from './redirects'
 
@@ -27,6 +28,20 @@ const renderRedirect = (entry: string, path: string, element: ReactNode) =>
   )
 
 describe('module 01 redirects', () => {
+  it('turns the standalone login page into the public modal link', async () => {
+    renderRedirect('/login?next=%2Fleads%3Fview%3Dmine', '/login', <RedirectToLogin />)
+
+    expect(await screen.findByTestId('location')).toHaveTextContent(
+      '/?login=1&next=%2Fleads%3Fview%3Dmine',
+    )
+  })
+
+  it('drops an unsafe login destination', async () => {
+    renderRedirect('/login?next=https%3A%2F%2Fevil.example', '/login', <RedirectToLogin />)
+
+    expect(await screen.findByTestId('location')).toHaveTextContent('/?login=1')
+  })
+
   it('sends the company book to the account book and keeps the query string', async () => {
     renderRedirect('/companies?filter=active', '/companies', <RedirectToAccounts />)
 

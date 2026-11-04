@@ -720,7 +720,7 @@ Dedup/merge and advanced/stored tier scoring are module-01 deferrals
 (ADR-0006), and automatic client aging stays one too (ADR-0018 §6). Other departments are consumed via
 **read-only mocked feeds** (ADR-0005, ADR-0025), not built here.
 
-**Module 01 refresh (S0–S15 built — `specs/16`, ADR-0023–0026).** S0 is the planning contract and
+**Module 01 refresh (S0–S16 built — `specs/16`, ADR-0023–0026).** S0 is the planning contract and
 S1 is the shell: the sidebar is grouped by module, `/accounts` (plus `/accounts/new` and
 `/accounts/:id`) is the canonical account surface, and `/companies*`, `/clients`, `/qualification`,
 `/assignment`, `/lifecycle` and `/conversion` redirect with their query strings preserved. Dashboard
@@ -807,7 +807,10 @@ dashboard payload and page keep their existing shape. S15 refreshes `/` as the p
 dashboard** action; `PublicHome` and `components/public/ProductPreview.tsx` add the hero with a
 token-coloured CSS-only animated background (honouring `prefers-reduced-motion`), six lucide feature
 cards, three real-HTML product-preview designs (the lead workspace is reused in the hero) and the
-request-staffing contact section. The later slices add the modal sign-in, public intake form and
-all-role CSV import with ownership rules. Read
+request-staffing contact section. S16 removes the standalone login page: `LoginModal` is opened by
+the public header and `?login=1`, `/login` redirects there, protected routes carry `next`, and a 401
+clears the session and reopens the modal; `lib/authRedirect.ts` validates return paths and
+`lib/authEvents.ts` carries the session-expiry signal. The later slices add the public intake form
+and all-role CSV import with ownership rules. Read
 `resources/specs/16-module-01-refresh.md` before changing Module 01; the old `01`, `06` and `09` files
 remain the baseline for behavior the refresh does not replace.

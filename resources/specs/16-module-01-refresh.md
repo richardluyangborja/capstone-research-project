@@ -10,7 +10,7 @@ sign-in), plus 0004, 0005, 0007, 0010, 0013, 0014, 0016.
 > S6 — contract commercial header (built). S7 — contract rate cards (built). S8 — contract book &
 > detail (built). S9 — delivery feed (built). S10 — deployment book (built). S11 — finance feed
 > (built). S12 — billing book (built). S13 — account health (built). S14 — manager dashboard
-> (built). S15 — public landing (built).** S0 is this
+> (built). S15 — public landing (built). S16 — sign-in modal (built).** S0 is this
 > contract plus its ADRs; S1
 > shipped the grouped sidebar, canonical routes, redirects and canonical dashboard/AI hrefs; S2
 > shipped the saved views, manager workload panel and duplicate links; S3 shipped the scoped
@@ -48,7 +48,10 @@ sign-in), plus 0004, 0005, 0007, 0010, 0013, 0014, 0016.
 > shape. S15 refreshes `/` as the public landing page: a branded header and footer, a hero with a
 > CSS-only animated background that honours `prefers-reduced-motion`, six feature cards, three
 > HTML/CSS product-preview designs (the lead workspace is reused in the hero) and a request-staffing
-> contact section; the header shows **Sign in** or **Open dashboard** from the session. S16–S19
+> contact section; the header shows **Sign in** or **Open dashboard** from the session. S16 removed
+> the standalone login page: `/login` redirects to `/?login=1`, protected routes add `next`, a 401
+> clears the local session and reopens the modal, and the accessible dialog focuses the email field,
+> traps focus and closes on Escape/backdrop. S17–S19
 > each ship on their own `feature/module-01-*` branch and merge to `main` only after review. The
 > branch is deleted after merge, and the next slice starts from the updated `main`.
 
@@ -576,7 +579,7 @@ names are suggestions; the `feature/module-01-*` prefix is required.
 | **S13** | `feature/module-01-account-health` (built) | Health service/block, flags, account filter, redaction | Flags explain themselves; no auto status change; financial detail redacted |
 | **S14** | `feature/module-01-manager-dashboard` (built) | Commercial strip, account risks, team workload | Manager+ blocks; salesrep view unchanged; all links resolve |
 | **S15** | `feature/module-01-public-landing` (built) | Landing refresh, animated background, feature cards, HTML product previews | Responsive; reduced-motion; no new UI library; no broken images |
-| **S16** | `feature/module-01-login-modal` | Accessible modal, `/login` redirect, `next` handling, 401 flow | `/login` opens modal; deep-link return; keyboard/escape/focus; tests |
+| **S16** | `feature/module-01-login-modal` (built) | Accessible modal, `/login` redirect, `next` handling, 401 flow | `/login` opens modal; deep-link return; keyboard/escape/focus; tests |
 | **S17** | `feature/module-01-public-intake` | Embedded form + public endpoint | 201 unassigned website lead; validation/throttle/honeypot; thank-you state |
 | **S18** | `feature/module-01-csv-import` | Import page, template, preview/commit, all-role ownership | Salesrep self-owned; manager unassigned + selector; invalid rows skipped; 500 cap |
 | **S19** | `feature/module-01-sidebar-pattern` | Grouped sidebar for Modules 02–05, docs/bookkeeping | All existing module pages reachable; no dead links; no behavior change |

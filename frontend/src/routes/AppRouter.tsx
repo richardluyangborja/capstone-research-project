@@ -22,7 +22,6 @@ import FollowUps from '../pages/FollowUps'
 import LeadConvert from '../pages/LeadConvert'
 import LeadDetail from '../pages/LeadDetail'
 import LeadsList from '../pages/LeadsList'
-import Login from '../pages/Login'
 import NewCommunication from '../pages/NewCommunication'
 import NewCompany from '../pages/NewCompany'
 import NewLead from '../pages/NewLead'
@@ -45,6 +44,7 @@ import {
   RedirectToAccounts,
   RedirectToClientAccounts,
   RedirectToLeadView,
+  RedirectToLogin,
   RedirectToNewAccount,
 } from './redirects'
 
@@ -56,7 +56,7 @@ export default function AppRouter() {
         <Route path="/" element={<PublicHome />} />
       </Route>
 
-      <Route path="/login" element={<Login />} />
+      <Route path="/login" element={<RedirectToLogin />} />
 
       {/* The client's survey page (module 05 slice S2): no session, no shell — the token in the
           link is the credential. */}
