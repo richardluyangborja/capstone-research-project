@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import PublicLayout from '../components/layout/PublicLayout'
@@ -48,6 +48,8 @@ describe('public landing', () => {
     expect(screen.getByRole('heading', { name: 'Capture every request' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Keep every conversation' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Tell us what you need.' })).toBeInTheDocument()
+    expect(screen.getByLabelText(/Company name/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Send request' })).toBeInTheDocument()
 
     expect(screen.getByRole('link', { name: /Email the team/ })).toHaveAttribute(
       'href',
@@ -92,13 +94,14 @@ describe('public landing', () => {
 
     expect(screen.getByRole('dialog', { name: 'Sign in' })).toBeInTheDocument()
 
-    fireEvent.change(screen.getByLabelText('Email'), {
+    const dialog = screen.getByRole('dialog', { name: 'Sign in' })
+    fireEvent.change(within(dialog).getByLabelText('Email'), {
       target: { value: 'manager@primepower.test' },
     })
-    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'password' } })
+    fireEvent.change(within(dialog).getByLabelText('Password'), { target: { value: 'password' } })
     fireEvent.click(screen.getByRole('button', { name: 'Sign in' }))
 
-    expect(await screen.findByText('Lead workspace')).toBeInTheDocument()
+    expect(await screen.findByText('Lead workspace', { selector: 'p' })).toBeInTheDocument()
     expect(login).toHaveBeenCalledWith('manager@primepower.test', 'password')
   })
 
@@ -119,6 +122,6 @@ describe('public landing', () => {
     })
     renderHome('/?login=1&next=%2Fleads')
 
-    expect(await screen.findByText('Lead workspace')).toBeInTheDocument()
+    expect(await screen.findByText('Lead workspace', { selector: 'p' })).toBeInTheDocument()
   })
 })
