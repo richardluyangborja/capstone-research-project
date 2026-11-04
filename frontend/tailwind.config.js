@@ -66,6 +66,20 @@ export default {
       fontFamily: {
         sans: ['Inter', 'system-ui', 'Segoe UI', 'Roboto', 'sans-serif'],
       },
+      keyframes: {
+        'public-float': {
+          '0%, 100%': { transform: 'translate3d(0, 0, 0) scale(1)' },
+          '50%': { transform: 'translate3d(0, -1.5rem, 0) scale(1.04)' },
+        },
+        'public-drift': {
+          '0%, 100%': { transform: 'translate3d(-2%, 0, 0)' },
+          '50%': { transform: 'translate3d(2%, -1rem, 0)' },
+        },
+      },
+      animation: {
+        'public-float': 'public-float 14s ease-in-out infinite',
+        'public-drift': 'public-drift 20s ease-in-out infinite',
+      },
     },
   },
   plugins: [],
