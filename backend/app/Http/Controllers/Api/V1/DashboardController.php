@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Enums\DashboardRange;
 use App\Http\Controllers\Controller;
+use App\Http\Dashboard\DashboardManager;
 use App\Http\Dashboard\DashboardPeriod;
 use App\Http\Dashboard\DashboardScope;
 use App\Http\Dashboard\DashboardStaffPerformance;
@@ -30,10 +31,17 @@ class DashboardController extends Controller
         $user = $request->user();
         $period = DashboardPeriod::for($range);
         $scope = DashboardScope::for($user);
+        $data = (new DashboardSummary($user, $period, $scope))->build();
 
-        return response()->json([
-            'data' => (new DashboardSummary($user, $period, $scope))->build(),
-        ]);
+        // The manager strip is additive and never changes the salesrep shape (spec 16 S14).
+        if ($scope->tier !== 'personal') {
+            $data = [
+                ...$data,
+                ...app(DashboardManager::class, ['user' => $user])->build(),
+            ];
+        }
+
+        return response()->json(['data' => $data]);
     }
 
     public function worklist(Request $request): JsonResponse

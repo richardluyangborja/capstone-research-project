@@ -9,7 +9,8 @@ sign-in), plus 0004, 0005, 0007, 0010, 0013, 0014, 0016.
 > S3 — Account Book (built). S4 — Account 360 (built). S5 — account delegation (built).
 > S6 — contract commercial header (built). S7 — contract rate cards (built). S8 — contract book &
 > detail (built). S9 — delivery feed (built). S10 — deployment book (built). S11 — finance feed
-> (built). S12 — billing book (built). S13 — account health (built).** S0 is this
+> (built). S12 — billing book (built). S13 — account health (built). S14 — manager dashboard
+> (built).** S0 is this
 > contract plus its ADRs; S1
 > shipped the grouped sidebar, canonical routes, redirects and canonical dashboard/AI hrefs; S2
 > shipped the saved views, manager workload panel and duplicate links; S3 shipped the scoped
@@ -38,7 +39,13 @@ sign-in), plus 0004, 0005, 0007, 0010, 0013, 0014, 0016.
 > `{ state, flags[], suggested_action, can_view_financial_detail }` from one service over existing
 > records and the read-only feeds, the Account Book filters `filter[health]` and shows the state, and
 > Account 360 Overview explains each flag with its source and action without moving the lifecycle;
-> a salesrep sees the Finance flag with the amount redacted. S14–S19
+> a salesrep sees the Finance flag with the amount redacted. S14 adds the manager+ dashboard strip:
+> `GET /dashboard` gains `commercial` (AR outstanding/overdue, renewals inside 30/60/90 days, active
+> deployments, overall fill rate and deployments with pending timesheets), `account_risks` (the
+> highest-severity health flags with account, reason, owner and action link) and `team_workload`
+> (the shared unassigned queue plus per-rep open leads, overdue follow-ups and accounts owned); the
+> dashboard renders them below the charts, while a salesrep's payload and page keep their existing
+> shape. S15–S19
 > each ship on their own `feature/module-01-*` branch and merge to `main` only after review. The
 > branch is deleted after merge, and the next slice starts from the updated `main`.
 
@@ -564,7 +571,7 @@ names are suggestions; the `feature/module-01-*` prefix is required.
 | **S11** | `feature/module-01-finance-feed` (built) | Expanded AR/invoice feed, Billing section, owner risk flag | Manager sees full feed; owner sees only risk flag; source/as_of present |
 | **S12** | `feature/module-01-billing-book` (built) | `/billing` manager+ AR book | Salesrep 403/nav hidden; aging, overdue, filters; read-only |
 | **S13** | `feature/module-01-account-health` (built) | Health service/block, flags, account filter, redaction | Flags explain themselves; no auto status change; financial detail redacted |
-| **S14** | `feature/module-01-manager-dashboard` | Commercial strip, account risks, team workload | Manager+ blocks; salesrep view unchanged; all links resolve |
+| **S14** | `feature/module-01-manager-dashboard` (built) | Commercial strip, account risks, team workload | Manager+ blocks; salesrep view unchanged; all links resolve |
 | **S15** | `feature/module-01-public-landing` | Landing refresh, animated background, feature cards, HTML product previews | Responsive; reduced-motion; no new UI library; no broken images |
 | **S16** | `feature/module-01-login-modal` | Accessible modal, `/login` redirect, `next` handling, 401 flow | `/login` opens modal; deep-link return; keyboard/escape/focus; tests |
 | **S17** | `feature/module-01-public-intake` | Embedded form + public endpoint | 201 unassigned website lead; validation/throttle/honeypot; thank-you state |

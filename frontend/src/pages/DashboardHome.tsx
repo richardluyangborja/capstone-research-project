@@ -22,6 +22,7 @@ import DataTable, { type DataTableColumn } from '../components/common/DataTable'
 import StatusBadge, { type Tone } from '../components/common/StatusBadge'
 import AlertItem from '../components/common/AlertItem'
 import AiReportPanel from '../components/dashboard/AiReportPanel'
+import ManagerDashboardBlocks from '../components/dashboard/ManagerDashboardBlocks'
 import StaffPerformanceTable from '../components/dashboard/StaffPerformanceTable'
 import { useAuth } from '../lib/auth-context'
 import {
@@ -318,6 +319,14 @@ export default function DashboardHome() {
               )}
             </ChartCard>
           </section>
+
+          {data.commercial && data.account_risks && data.team_workload ? (
+            <ManagerDashboardBlocks
+              commercial={data.commercial}
+              accountRisks={data.account_risks}
+              teamWorkload={data.team_workload}
+            />
+          ) : null}
 
           <AiReportPanel report={data.ai} />
 
