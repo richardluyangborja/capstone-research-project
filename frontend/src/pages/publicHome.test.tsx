@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import PublicLayout from '../components/layout/PublicLayout'
@@ -8,13 +8,15 @@ const { useAuth } = vi.hoisted(() => ({ useAuth: vi.fn() }))
 
 vi.mock('../lib/auth-context', () => ({ useAuth }))
 
-const renderHome = () =>
+const renderHome = (entry = '/') =>
   render(
-    <MemoryRouter initialEntries={['/']}>
+    <MemoryRouter initialEntries={[entry]}>
       <Routes>
         <Route element={<PublicLayout />}>
           <Route path="/" element={<PublicHome />} />
         </Route>
+        <Route path="/leads" element={<p>Lead workspace</p>} />
+        <Route path="/dashboard" element={<p>Dashboard</p>} />
       </Routes>
     </MemoryRouter>,
   )
@@ -41,7 +43,7 @@ describe('public landing', () => {
     expect(requestLinks.every((link) => link.getAttribute('href') === '#request-staffing')).toBe(
       true,
     )
-    expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/login')
+    expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/?login=1')
 
     expect(screen.getByRole('heading', { name: 'Capture every request' })).toBeInTheDocument()
     expect(screen.getByRole('heading', { name: 'Keep every conversation' })).toBeInTheDocument()
@@ -81,5 +83,42 @@ describe('public landing', () => {
       '/dashboard',
     )
     expect(screen.queryByRole('link', { name: 'Sign in' })).not.toBeInTheDocument()
+  })
+
+  it('opens the modal from the query string and returns to the requested path', async () => {
+    const login = vi.fn().mockResolvedValue(undefined)
+    useAuth.mockReturnValue({ user: null, login })
+    renderHome('/?login=1&next=%2Fleads%3Fview%3Dmine')
+
+    expect(screen.getByRole('dialog', { name: 'Sign in' })).toBeInTheDocument()
+
+    fireEvent.change(screen.getByLabelText('Email'), {
+      target: { value: 'manager@primepower.test' },
+    })
+    fireEvent.change(screen.getByLabelText('Password'), { target: { value: 'password' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Sign in' }))
+
+    expect(await screen.findByText('Lead workspace')).toBeInTheDocument()
+    expect(login).toHaveBeenCalledWith('manager@primepower.test', 'password')
+  })
+
+  it('closes the modal without leaving the public page', async () => {
+    useAuth.mockReturnValue({ user: null, login: vi.fn() })
+    renderHome('/?login=1')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close sign in' }))
+
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(screen.getByRole('link', { name: 'Sign in' })).toHaveAttribute('href', '/?login=1')
+  })
+
+  it('sends an authenticated visitor with a login link straight to the destination', async () => {
+    useAuth.mockReturnValue({
+      user: { id: 1, name: 'Sam Salesrep', email: 'sam@primepower.test', role: 'salesrep' },
+      login: vi.fn(),
+    })
+    renderHome('/?login=1&next=%2Fleads')
+
+    expect(await screen.findByText('Lead workspace')).toBeInTheDocument()
   })
 })

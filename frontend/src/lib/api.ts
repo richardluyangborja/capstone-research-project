@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { clearAuthSession } from './authEvents'
 
 // Single API client. Base URL is the versioned Laravel API (ADR-0007).
 export const api = axios.create({
@@ -14,3 +15,16 @@ api.interceptors.request.use((config) => {
   }
   return config
 })
+
+// An expired token must not leave the shell looking signed in (spec 16 §Sign-in modal). The
+// auth provider listens for the event and the protected route asks for a sign-in with `next`.
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      clearAuthSession()
+    }
+
+    return Promise.reject(error)
+  },
+)

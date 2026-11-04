@@ -1,6 +1,7 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { api } from './api'
 import { AuthContext, type AuthState } from './auth-context'
+import { AUTH_UNAUTHORIZED_EVENT } from './authEvents'
 import type { AuthUser } from '../types'
 
 function readStoredUser(): AuthUser | null {
@@ -11,6 +12,17 @@ function readStoredUser(): AuthUser | null {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(() => localStorage.getItem('token'))
   const [user, setUser] = useState<AuthUser | null>(readStoredUser)
+
+  useEffect(() => {
+    const clearSession = () => {
+      setToken(null)
+      setUser(null)
+    }
+
+    window.addEventListener(AUTH_UNAUTHORIZED_EVENT, clearSession)
+
+    return () => window.removeEventListener(AUTH_UNAUTHORIZED_EVENT, clearSession)
+  }, [])
 
   const login = async (email: string, password: string) => {
     const { data } = await api.post('/auth/login', { email, password })

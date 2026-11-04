@@ -1,9 +1,34 @@
-import { Link, Outlet } from 'react-router-dom'
+import { useCallback, useEffect } from 'react'
+import { Link, Outlet, useNavigate, useSearchParams } from 'react-router-dom'
 import logo from '../../assets/logo.png'
+import LoginModal from '../auth/LoginModal'
 import { useAuth } from '../../lib/auth-context'
+import { afterLoginPath, loginPath } from '../../lib/authRedirect'
 
 export default function PublicLayout() {
   const { user } = useAuth()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const navigate = useNavigate()
+  const loginOpen = searchParams.get('login') === '1'
+  const next = searchParams.get('next')
+
+  const closeLogin = useCallback(() => {
+    setSearchParams(
+      (current) => {
+        const params = new URLSearchParams(current)
+        params.delete('login')
+        params.delete('next')
+        return params
+      },
+      { replace: true },
+    )
+  }, [setSearchParams])
+
+  useEffect(() => {
+    if (user && loginOpen) {
+      navigate(afterLoginPath(next), { replace: true })
+    }
+  }, [loginOpen, navigate, next, user])
 
   return (
     <div className="flex min-h-full flex-col bg-background">
@@ -49,7 +74,7 @@ export default function PublicLayout() {
               </Link>
             ) : (
               <Link
-                to="/login"
+                to={loginPath()}
                 className="rounded-md border border-border bg-card px-3 py-2 text-sm font-medium text-foreground hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
               >
                 Sign in
@@ -109,6 +134,13 @@ export default function PublicLayout() {
           </div>
         </div>
       </footer>
+
+      <LoginModal
+        open={loginOpen && !user}
+        next={next}
+        onClose={closeLogin}
+        onSuccess={(destination) => navigate(destination, { replace: true })}
+      />
     </div>
   )
 }
