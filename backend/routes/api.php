@@ -32,6 +32,7 @@ use App\Http\Controllers\Api\V1\OpportunityActivityController;
 use App\Http\Controllers\Api\V1\OpportunityController;
 use App\Http\Controllers\Api\V1\OpportunityStageController;
 use App\Http\Controllers\Api\V1\PipelineController;
+use App\Http\Controllers\Api\V1\PublicLeadController;
 use App\Http\Controllers\Api\V1\PublicSurveyController;
 use App\Http\Controllers\Api\V1\SatisfactionController;
 use App\Http\Controllers\Api\V1\SurveyController;
@@ -58,6 +59,10 @@ Route::prefix('v1')->group(function (): void {
     // two live outside the JWT group and are throttled: an unknown token is 404, a dead one 410.
     Route::get('public/surveys/{token}', [PublicSurveyController::class, 'show'])->middleware('throttle:30,1');
     Route::post('public/surveys/{token}/responses', [PublicSurveyController::class, 'submit'])->middleware('throttle:10,1');
+
+    // Module 01 refresh S17 — the landing page's request-staffing form. Unauthenticated and
+    // narrow: a website lead, owned by nobody, with consent recorded and no internal detail back.
+    Route::post('public/leads', [PublicLeadController::class, 'store'])->middleware('throttle:5,1');
 
     Route::middleware('auth:api')->group(function (): void {
         Route::get('/auth/me', [AuthController::class, 'me']);

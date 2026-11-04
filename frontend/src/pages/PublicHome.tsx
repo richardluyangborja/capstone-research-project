@@ -14,6 +14,7 @@ import {
   LeadWorkspacePreview,
   PipelinePreview,
 } from '../components/public/ProductPreview'
+import PublicLeadForm from '../components/public/PublicLeadForm'
 
 interface Feature {
   icon: LucideIcon
@@ -244,57 +245,64 @@ export default function PublicHome() {
       </section>
 
       <section id="request-staffing" className="mx-auto max-w-6xl scroll-mt-20 px-4 pb-20">
-        <div className="grid gap-8 rounded-2xl border border-border bg-card p-8 lg:grid-cols-[1.2fr_0.8fr] lg:p-10">
-          <div>
+        <div className="rounded-2xl border border-border bg-card p-8 lg:p-10">
+          <div className="max-w-2xl">
             <p className="text-xs font-semibold uppercase tracking-wide text-primary">
               Request staffing
             </p>
             <h2 className="mt-2 text-3xl font-semibold tracking-tight text-foreground">
               Tell us what you need.
             </h2>
-            <p className="mt-3 max-w-xl text-muted-foreground">
+            <p className="mt-3 text-muted-foreground">
               Roles, headcount and a target start date are enough to begin. Our team will come back
               with a shortlist and a clear next step.
             </p>
-
-            <div className="mt-6 flex flex-wrap items-center gap-3">
-              <a
-                href="mailto:hello@primepower.com.ph?subject=Staffing%20request"
-                className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card"
-              >
-                Email the team
-                <ArrowRight className="h-4 w-4" aria-hidden="true" />
-              </a>
-              <a
-                href="tel:+63288881000"
-                className="inline-flex items-center gap-2 rounded-md border border-border bg-background px-4 py-2.5 text-sm font-medium text-foreground hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card"
-              >
-                Call +63 2 8888 1000
-              </a>
-            </div>
-
-            <p className="mt-4 text-xs text-muted-foreground">
-              We reply within one business day. Your details are used only to respond to this
-              request.
-            </p>
           </div>
 
-          <div className="rounded-xl bg-secondary/60 p-6">
-            <h3 className="text-sm font-semibold text-foreground">What happens next</h3>
-            <ol className="mt-4 flex flex-col gap-3 text-sm text-muted-foreground">
-              <li className="flex gap-2">
-                <span className="font-semibold text-people">1.</span>
-                We read the brief and check the roles against current demand.
-              </li>
-              <li className="flex gap-2">
-                <span className="font-semibold text-people">2.</span>
-                We come back with a shortlist, a timeline and the next decision.
-              </li>
-              <li className="flex gap-2">
-                <span className="font-semibold text-people">3.</span>
-                Once you are ready, the engagement moves into one tracked record.
-              </li>
-            </ol>
+          <div className="mt-8 grid gap-8 lg:grid-cols-[1.3fr_0.7fr]">
+            <PublicLeadForm />
+
+            <aside className="flex flex-col gap-6">
+              <div className="rounded-xl bg-secondary/60 p-6">
+                <h3 className="text-sm font-semibold text-foreground">Prefer to talk?</h3>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Send a short brief or reach the team directly.
+                </p>
+                <div className="mt-4 flex flex-col gap-2">
+                  <a
+                    href="mailto:hello@primepower.com.ph?subject=Staffing%20request"
+                    className="inline-flex items-center gap-2 text-sm font-medium text-foreground underline underline-offset-4"
+                  >
+                    Email the team
+                    <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                  </a>
+                  <a
+                    href="tel:+63288881000"
+                    className="text-sm font-medium text-foreground underline underline-offset-4"
+                  >
+                    Call +63 2 8888 1000
+                  </a>
+                </div>
+              </div>
+
+              <div className="rounded-xl bg-secondary/60 p-6">
+                <h3 className="text-sm font-semibold text-foreground">What happens next</h3>
+                <ol className="mt-4 flex flex-col gap-3 text-sm text-muted-foreground">
+                  <li className="flex gap-2">
+                    <span className="font-semibold text-people">1.</span>
+                    We read the brief and check the roles against current demand.
+                  </li>
+                  <li className="flex gap-2">
+                    <span className="font-semibold text-people">2.</span>
+                    We come back with a shortlist, a timeline and the next decision.
+                  </li>
+                  <li className="flex gap-2">
+                    <span className="font-semibold text-people">3.</span>
+                    Once you are ready, the engagement moves into one tracked record.
+                  </li>
+                </ol>
+              </div>
+            </aside>
           </div>
         </div>
       </section>

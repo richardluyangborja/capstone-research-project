@@ -54,6 +54,7 @@ class Lead extends Model
         'notes',
         'status',
         'owner_id',
+        'consent_at',
     ];
 
     /**
@@ -73,6 +74,7 @@ class Lead extends Model
             'status_changed_at' => 'datetime',
             'last_activity_at' => 'datetime',
             'next_follow_up_at' => 'datetime',
+            'consent_at' => 'datetime',
         ];
     }
 

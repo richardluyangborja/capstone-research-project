@@ -810,7 +810,10 @@ cards, three real-HTML product-preview designs (the lead workspace is reused in 
 request-staffing contact section. S16 removes the standalone login page: `LoginModal` is opened by
 the public header and `?login=1`, `/login` redirects there, protected routes carry `next`, and a 401
 clears the session and reopens the modal; `lib/authRedirect.ts` validates return paths and
-`lib/authEvents.ts` carries the session-expiry signal. The later slices add the public intake form
-and all-role CSV import with ownership rules. Read
+`lib/authEvents.ts` carries the session-expiry signal. S17 embeds the request-staffing form on `/`
+(`components/public/PublicLeadForm.tsx`) and adds the throttled, honeypot-protected
+`POST /api/v1/public/leads`; it creates an unassigned `website` lead with `consent_at` stamped and
+returns only a friendly message, while the form handles field errors, retryable failures and a
+thank-you state. S18 adds all-role CSV import with ownership rules. Read
 `resources/specs/16-module-01-refresh.md` before changing Module 01; the old `01`, `06` and `09` files
 remain the baseline for behavior the refresh does not replace.
