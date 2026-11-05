@@ -8,10 +8,11 @@
 ## Purpose & boundary
 
 The CRM subsystem owns the **client-side relationship**: capturing leads, qualifying them, working
-opportunities, converting to clients, and retaining/tracking clients (contracts, follow-ups,
-satisfaction). It does **not** own recruitment, deployment, timekeeping, payroll, or billing — those
-belong to other departments and are consumed as **read-only feeds/mocked integrations** (ADR-0005,
-ADR-0025).
+opportunities, converting to clients, and retaining/tracking clients (follow-ups, satisfaction,
+communications). Contracts are **owned by Core Transaction 3** (Document & Contract Management /
+Legal & Compliance) and displayed read-only (ADR-0027). The CRM also does **not** own recruitment,
+deployment, timekeeping, payroll or billing — those belong to other departments and are consumed as
+**read-only feeds/mocked integrations** (ADR-0005, ADR-0025).
 
 ## Object model (CRM-owned records)
 
@@ -26,8 +27,8 @@ Adopted from standard CRM design (Salesforce-style objects) adapted to a staffin
 | **Activity** | A logged touch or task (the quick log) | type (call/email/meeting/walk-in/task), subject, notes, due date, owner, related record | A `task` with a due date is a **follow-up** (module 04); mirrors a logged communication |
 | **Communication** | Detailed stored communication (module 03, spec 11) | channel, direction, participants, content/body, duration, outcome, external id, attachments, conversation links (thread/parent), scheduled send (module 04), timestamps | Detail-rich, per lead/company/contact/deal/contract |
 | **CommunicationTemplate** | Reusable wording for the composer (module 03 slice S5) | name, channel, subject line, body (with `{{merge}}` fields), active flag | A prefill only — a saved message never references one |
-| **Contract** | A signed agreement | reference no., commercial header, rate cards (hourly/monthly/placement), term start/end, status, document | Upload required; drives renewals, billing and delivery context |
-| **Client** | An account with a signed/active contract | (state on Company) status, tier, onboarding date, health | Modeled as a lifecycle state on Company, not a separate table (ADR-0001) |
+| **Contract** | A read-only projection of an agreement owned by Core Transaction 3 | reference no., commercial header, rate cards (hourly/monthly/placement), term start/end, status, external id | No CRM upload/sign/renew/document; drives renewals, billing and delivery context (ADR-0027) |
+| **Client** | An account managed through the client lifecycle | (state on Company) status, tier, onboarding date, health | Modeled as a lifecycle state on Company, not a separate table (ADR-0001); manager-managed, not auto-activated by a contract (ADR-0027) |
 
 ## Two pipelines (best-practice split)
 
@@ -47,8 +48,10 @@ New → Contacted → Qualified → Converted ──► Company(+Contact+Opportu
 ```
 
 - **Convert** creates a Company + Contact(s) + Opportunity together (Salesforce-style) (ADR-0001).
-- Conversion is the handoff point where the CRM record becomes reusable for deals, contracts,
-  and client tracking.
+- Conversion is the handoff point where the CRM record becomes reusable for deals and client tracking.
+- The lead detail shows a **derived journey** (Captured → Contacted → Qualified → Converted) with a
+  next-action CTA; `new → qualified` stays blocked and the journey explains the Contacted step and
+  missing criteria. It is a view over existing data, not a new state (ADR-0028, spec `17` T3).
 
 ## Client lifecycle
 
@@ -79,10 +82,10 @@ advanced tiers/health are **built** (ADR-0006). Detailed implementation specs li
    parent/child (branches), account status & tier.
 7. **Contact Management** — contact persons per company, decision-maker roles, primary contact,
    multiple channel handles.
-8. **Lead-to-Client Conversion** — conversion wizard, created records, prospect → client state,
-   service-department handoff trigger.
-9. **Client Account Lifecycle** — client status/tier/health, owner, renewal linkage, dormancy/
-   churn, win-back.
+8. **Lead-to-Client Conversion** — conversion wizard, created records and prospect → client state;
+   no Service handoff is triggered here (ADR-0027).
+9. **Client Account Lifecycle** — manager-managed client status/tier/health, owner, read-only
+   contract/renewal tracking, dormancy/churn, win-back.
 
 ### Module 01 refresh (S0–S19 built — spec 16, ADR-0023–0026)
 
@@ -110,24 +113,37 @@ The refresh keeps the records above but consolidates the working surface:
   (salesrep self, manager team, admin all) write a `system` activity and notify the new owner; the
   Account Book selects rows for a single batch handover, and the Account 360 ownership panel uses
   the delegation path instead of a plain `PATCH`.
-- **Contract commercial header** — `payment_terms`, `po_reference`, `auto_renew`, `notice_days`,
-  `signatory_name` and `signatory_position` on upload and edit; `value` stays the negotiated headline
-  and is never recomputed. A header edit writes a `system` account activity naming the change; a
-  renewal prefills the previous header.
-- **Commercial contracts** — `contract_rate_cards` (hourly/monthly/placement) with read-time client
-  run rate, internal cost, gross margin and estimated term value; bill rates and client values
-  visible to salesreps, pay/margin manager+ (ADR-0024). The set is replaced wholesale, a renewal
-  clones it, and every change writes a system activity on the contract and account.
-- **Global contract workspace** — `GET /contracts` is the role-scoped cross-account book (status,
-  expiring, owner, company, renewal and search filters, summary counts and pagination);
+- **Contract commercial header (read-only)** — `payment_terms`, `po_reference`, `auto_renew`,
+  `notice_days`, `signatory_name` and `signatory_position` are displayed from the external contract;
+  `value` stays the negotiated headline and is never recomputed. The CRM no longer edits the header
+  or creates a renewal (ADR-0027).
+- **Commercial contracts (read-only)** — `contract_rate_cards` (hourly/monthly/placement) carry
+  read-time client run rate, internal cost, gross margin and estimated term value; bill rates and
+  client values are visible to salesreps, pay/margin manager+ (ADR-0024). There is no rate-card
+  editor or renewal clone; the projection is refreshed from Core Transaction 3.
+- **Global contract workspace (read-only)** — `GET /contracts` is the role-scoped cross-account book
+  (status, expiring, owner, company, renewal and search filters, summary counts and pagination);
   `/contracts` is the book page and `/contracts/:id` the detail with commercial totals, rate-card
-  table, document, renewal chain and sign/edit/rate-card/renew actions.
+  table and renewal chain. Upload/sign/edit/rate-card/renew/document actions are retired.
 - **Read-only department feeds** — Recruitment job orders, Deployment assignment, Timekeeping
   summaries and Finance AR/invoices; no CRM tables, no mutation UI, source-labelled (ADR-0025).
 - **Health & manager insight** — computed, explainable account flags and a manager dashboard strip;
   no automatic lifecycle transition (ADR-0023).
 - **Public surface** — simple landing refresh, embedded request-staffing intake, modal sign-in and
   all-role CSV import with ownership rules (ADR-0026).
+
+### Module 01 tracking adjustments (planned — spec 17, ADR-0027/0028)
+
+The post-refresh corrections keep the same objects but fix three boundaries:
+
+- **Contracts are read-only** — Core Transaction 3 owns creation, terms, signatures, renewals and
+  documents. The CRM keeps a projection for relations, shows commercial detail read-only and has no
+  contract write route, document endpoint or signing-triggered activation/handoff.
+- **One pending-timesheet metric** — the dashboard and `/deployments` share one calculation: a
+  deployment whose timekeeping summary is absent or not `current`. The card deep-links to the
+  filtered book.
+- **Lead journey** — a derived Captured → Contacted → Qualified → Converted stepper plus next-action
+  CTA explains the qualification gate without changing the state machine.
 
 
 ## CRM module roadmap (ADR-0014)
@@ -137,7 +153,7 @@ dashboard and AI reports are cross-cutting presentation layers, not data modules
 
 | Module | Name | Depends on | Spec |
 | --- | --- | --- | --- |
-| 01 | Lead & Client Tracking | — | `01`–`09` **(baseline built)** + `16` refresh (S0–S19 built) |
+| 01 | Lead & Client Tracking | — | `01`–`09` **(baseline built)** + `16` refresh (S0–S19 built) + `17` adjustments (T1–T3 planned) |
 | 02 | Opportunity Pipeline Visualization | `Opportunity` record (08) | `10` **(built)** |
 | 03 | Communication History Management | objects from 01–02 | `11` **(built)** |
 | 04 | Follow-up Reminder System | 03 + notifications | `12` **(built)** |
@@ -161,8 +177,8 @@ The refresh adds computed, explainable health flags, not automatic lifecycle mov
 4. **Deal Activity & Timeline** — log touches/next actions; the deal timeline.
 5. **Pipeline Forecast** — board-header/list `meta` (weighted value, per-stage, win rate).
 
-A won deal **prompts contract creation** (reusing the contract upload with `opportunity_id`); the
-mocked Service handoff still fires only on `mark-signed` (ADR-0015 §4).
+A won deal links to the **read-only contract projection** when one exists; Core Transaction 3 owns
+contract creation and signing, and the CRM does not hand off to Service (ADR-0027).
 
 ## Module 03 → delivery slices (built, ADR-0017)
 
@@ -286,27 +302,28 @@ Enforced server-side.
 
 Each integration sits behind an **interface + a mock driver** returning deterministic assumed data
 (ADR-0005, ADR-0013 §4, ADR-0025). They live in `backend/app/Integrations/` (interface, `Mock*`
-driver, readonly DTO), bound in `AppServiceProvider`; the failure path is forced with a config flag
-(`CRM_HANDOFF_SIMULATE_FAILURE=true` for the Service handoff) rather than random failure. Contract
-shapes are defined with OpenAPI (per the API convention).
+driver, readonly DTO), bound in `AppServiceProvider`. Contract shapes are defined with OpenAPI (per
+the API convention). The historic handoff failure flag may remain for display/testing, but the CRM no
+longer initiates a handoff.
 
 **Read-only feed boundary:** the CRM consumes the external department's **read side only**. It does
-not create job orders, deployments, timesheets or invoices, and it stores none of them as CRM tables.
-The only outbound write remains the Service handoff on signing/retry.
+not create contracts, job orders, deployments, timesheets or invoices, and it stores none of them as
+operational CRM tables. The former outbound Service handoff on signing is retired (ADR-0027).
 
 | Integration | Direction | Trigger | Payload (summary) |
 | --- | --- | --- | --- |
-| Service / operations | CRM → Service | **Contract signed** (`mark-signed`) or handoff retry | client + contract + manpower requirement; returns `sent`/`failed` |
+| Service / operations | Service → CRM | Read-only handoff status display | historical handoff status/reference; the CRM does not send or retry (ADR-0027) |
 | Recruitment | Recruitment → CRM | Company delivery view | job order reference, role, requested/filled headcount, status, priority, target start, recruiter, last update |
 | Deployment / assignment | Deployment → CRM | Company delivery view / `/deployments` | deployment reference, contract/job-order, role, site, status, active/filled headcount, start/end, fill rate |
 | Timekeeping | Timekeeping → CRM | Company delivery view | per-deployment period, approved/pending hours, last submission, status |
 | Finance | Finance → CRM | Company billing view / `/billing` | AR summary, invoices, due dates, balances, aging, payment status, credit terms |
-| Legal / documents | — | — | **Deferred**; contract upload is CRM-owned in Phase 1 |
+| Contract Management / Legal (Core Transaction 3) | Core 3 → CRM | Contract list/detail read | contract reference, status, terms, commercial header, rate cards, renewal chain, signatories; documents stay external |
 | HR / employee info | — | — | **Deferred**; no employee-level data in this iteration |
 
-**Shipped before the refresh:** Service (handoff on signing + retry) and a small Finance billing
-snapshot. **Spec 16 consumes:** Recruitment job orders, Deployment status, Timekeeping summaries and an
-expanded Finance AR feed as read-only mocks. Legal and HR remain deferred.
+**Shipped before the refresh:** Service handoff status and a small Finance billing snapshot. **Spec 16
+consumes:** Recruitment job orders, Deployment status, Timekeeping summaries and an expanded Finance AR
+feed as read-only mocks. **Spec 17 (planned)** adds contracts as the read-only projection from Core
+Transaction 3 and retires the CRM contract write/handoff path. HR remains deferred.
 
 ## Decisions
 
@@ -328,11 +345,15 @@ Recorded as ADRs in `decisions/` (read them before changing the design):
 - `decisions/0024-contract-rate-cards.md` — commercial header, rate cards, billing units, margin visibility
 - `decisions/0025-read-only-external-feeds.md` — job orders, deployments, timekeeping and Finance as read-only feeds
 - `decisions/0026-public-acquisition-and-sign-in.md` — landing refresh, public intake, modal sign-in, all-role CSV import
+- `decisions/0027-contracts-read-only.md` — contracts owned by Core Transaction 3; CRM projection is read-only
+- `decisions/0028-lead-journey-derived.md` — the lead journey stepper is a derived view, not a stored state
 
 Still open / to be decided later: dedup/merge rules (module-01 deferrals). The satisfaction survey
 structure is settled by `specs/13-client-satisfaction-survey.md` (ADR-0019). Follow-up/reminder rules
 are settled by `specs/12-follow-up-reminders.md` (ADR-0018), except automatic client aging (still
-deferred). The contract and rate-card data model is settled by `specs/16-module-01-refresh.md`
-(ADR-0024), extending `specs/00-data-model.md` and `specs/09-client-account-lifecycle.md`; the deal
-pipeline is specified in `specs/10-opportunity-pipeline-visualization.md` (ADR-0015). The external
-feeds are read-only and add no tables (ADR-0025).
+deferred). The contract boundary is settled by `specs/17-module-01-tracking-adjustments.md`
+(ADR-0027): contracts are a read-only projection of Core Transaction 3, while the commercial fields
+and rate-card formulas from `specs/16-module-01-refresh.md` (ADR-0024) remain. The lead journey is
+derived (ADR-0028). The deal pipeline is specified in
+`specs/10-opportunity-pipeline-visualization.md` (ADR-0015). The external feeds are read-only and add
+no operational tables (ADR-0025).

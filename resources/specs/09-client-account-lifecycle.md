@@ -1,7 +1,14 @@
 # 09 — Client Account Lifecycle
 
 Submodule 9. Entities: `Company`, `Contract`, `ContractRateCard` (refresh), `Opportunity`, `Contact`,
-`Activity`. ADRs: 0001, 0005, 0007, 0010, 0013, **0023**, **0024**, **0025**.
+`Activity`. ADRs: 0001, 0005, 0007, 0010, 0013, **0023**, **0024**, **0025**, **0027**.
+
+> **Contract boundary superseded (ADR-0027 / spec 17 — T1 planned).** Contract upload, editing,
+> `mark-signed`, rate-card writes, document storage/download, signing-triggered activation and the
+> Service handoff retry are retired by T1. Core Transaction 3 owns contracts; the CRM keeps a read-only
+> projection. The lifecycle state machine, manager-managed transitions, billing and delivery feeds
+> below remain current. Read `17-module-01-tracking-adjustments.md` for the target contract API,
+> permissions and UI; the contract-write sections in this file are historical once T1 lands.
 
 > **Module 01 refresh (spec `16`, ADR-0023–0025).** Contracts gain a commercial header and rate cards,
 > the account's contracts/billing move into the grouped **Commercial** tab, the global **Contracts** and
@@ -15,8 +22,9 @@ Submodule 9. Entities: `Company`, `Contract`, `ContractRateCard` (refresh), `Opp
 
 ## Purpose
 
-Manage a company once it becomes a client: advance its lifecycle state, trigger the service-department
-handoff when a contract is signed, support repeat business, and track dormancy/churn/win-back.
+Manage a company once it becomes a client: advance its lifecycle state, track the contract projected
+from Core Transaction 3, support repeat business, and track dormancy/churn/win-back. The CRM no longer
+signs contracts or triggers the Service handoff; a manager owns every lifecycle move.
 
 ## Lifecycle states
 
@@ -24,7 +32,7 @@ handoff when a contract is signed, support repeat business, and track dormancy/c
 prospect ──► onboarding ──► active ◄──► at_risk ◄──► dormant
     │              │           ▲            │            │
     │              └─► churned ◄┴────────────┴────────────┘
-    └──────────────────────► active  (a signed contract activates straight from prospect)
+    └──────────────────────► active  (manager action; a signed projection does not auto-activate)
 ```
 
 `Company.status` is the single source of truth and the allowed moves live in
@@ -32,7 +40,7 @@ prospect ──► onboarding ──► active ◄──► at_risk ◄──►
 
 | From | May move to |
 | --- | --- |
-| `prospect` | `onboarding`, `active` *(via a signed contract)* |
+| `prospect` | `onboarding`, `active` *(manager action)* |
 | `onboarding` | `active`, `churned` |
 | `active` | `at_risk`, `dormant`, `churned` |
 | `at_risk` | `active`, `dormant`, `churned` |
@@ -43,6 +51,11 @@ prospect ──► onboarding ──► active ◄──► at_risk ◄──►
 is won back keeps its original client date.
 
 ## Business rules
+
+> **Historical contract rules (superseded by ADR-0027 / spec 17).** Rules 1, 2, 6, 8 and 10 below
+> describe the retired CRM contract write path. Current behavior: contracts are a read-only
+> projection; signing is external; no CRM action moves the account, triggers a handoff or stores a
+> document; renewals are tracked, not created. Lifecycle rules 3, 4, 5, 7, 9 and 11 remain current.
 
 1. **Contract signed → client:** `mark-signed` is the *only* path to `Contract.status = signed`.
    It writes the contract, marks it signed, and then (after the write commits) runs the activation +
@@ -83,11 +96,17 @@ is won back keeps its original client date.
     `contract_rate_cards` (hourly/monthly/placement). Client monthly value, internal cost, margin and
     estimated total are computed on read; `value` stays the negotiated headline. Manager+ writes rate
     cards; a salesrep reads bill rates but not pay/margin (ADR-0024, spec 16).
-11. **Delivery, timekeeping and Finance are read-only feeds** (ADR-0025): handoff, job orders,
-    deployments, timesheet summaries and AR/invoices are labelled external, never written by the CRM,
-    and never create a CRM table. The only outbound integration remains the Service handoff.
+11. **Delivery, timekeeping, Finance and contracts are read-only feeds** (ADR-0025, ADR-0027):
+    handoff status, job orders, deployments, timesheet summaries, AR/invoices and contracts are
+    labelled external, never written by the CRM, and never create operational tables. The former
+    outbound Service handoff on signing is retired.
 
 ## Permissions
+
+> **Target contract permissions are view-only (ADR-0027 / spec 17 T1).** The contract write/retry
+> rows in the table below become historical when T1 lands. A contract inherits its company's view
+> scope; no role may upload, edit, sign, renew, retire, rate-card-write or download a contract document
+> in the CRM.
 
 A contract inherits its company's rights (ADR-0011 §2 pattern extended by ADR-0013 §7); its
 `owner_id` is the account owner.
@@ -106,6 +125,11 @@ A contract inherits its company's rights (ADR-0011 §2 pattern extended by ADR-0
 | Set `Company.status` through `PATCH /companies/{id}` | — | — | ✓ *(system override)* |
 
 ## API endpoints
+
+> **Target contract API (ADR-0027 / spec 17 T1):** only `GET /companies/{id}/contracts`,
+> `GET /contracts`, `GET /contracts/{id}` and `GET /contracts/{id}/rate-cards` remain. The contract
+> write, file and handoff-retry rows below become historical when T1 lands. Lifecycle, billing and
+> delivery endpoints remain current.
 
 | Method | Path | Description |
 | --- | --- | --- |
@@ -128,18 +152,17 @@ A contract inherits its company's rights (ADR-0011 §2 pattern extended by ADR-0
 | `GET` | `/api/v1/billing` | **Refresh** — manager+ cross-account AR book |
 | `GET` | `/api/v1/companies?filter[status]=…` | Lifecycle lists (client book) |
 
-**Contract payload:** `{ id, reference, company_id, company?, opportunity_id, opportunity?,
-renewal_of_contract_id, renewal_of?, title, status, start_date, end_date, signed_at, value, currency,
-payment_terms, po_reference, auto_renew, notice_days, signatory_name, signatory_position, terms,
-notes, rate_cards[], commercial { client_monthly_value, internal_monthly_cost, gross_margin,
-gross_margin_percent, estimated_total_value, can_view_margin }, file { present, name, size, mime },
-days_until_expiry, is_expiring_soon, is_signed, is_active, owner, owner_id, allowed_transitions[],
-can_update, can_mark_signed, can_delete, created_at, updated_at }`.
+**Contract payload:** the target read-only payload is defined in spec 17. It keeps the commercial
+header, `rate_cards[]`, computed `commercial`, expiry fields and owner, but removes `file`,
+`allowed_transitions` and write flags (`can_update`, `can_mark_signed`, `can_delete`) and adds
+`meta.source`, `meta.read_only` and `meta.as_of` provenance. The historical payload below is retained
+for reference.
 
 **Company payload additions:** `counts.contracts`, `churn_reason`, `churned_at`,
-`handoff { status, reference, error, requested_at, can_retry }`, `allowed_status_transitions[]`,
-`health { state, flags[], suggested_action, can_view_financial_detail }`, `can_manage_lifecycle`,
-`can_view_billing`, `can_view_margin`, `can_upload_contract`.
+`handoff { status, reference, error, requested_at }` (display-only after ADR-0027; `can_retry` is
+removed), `allowed_status_transitions[]`, `health { state, flags[], suggested_action,
+can_view_financial_detail }`, `can_manage_lifecycle`, `can_view_billing`, `can_view_margin`
+(`can_upload_contract` is removed).
 
 **Create/update errors:** 422 — not a pdf/png/jpeg, file missing or over 10 MB, `renewal_of_contract_id`
 from another company, `opportunity_id` from another company, `status = signed`, illegal status move,
@@ -148,6 +171,10 @@ negative amount; 403 — outside the account, rate-card write for a salesrep, or
 salesrep (the account's risk flag remains readable).
 
 ## UI
+
+> **Target contract UI is read-only (spec 17 T1).** The upload form, contract document link,
+> mark-signed/renew/retire actions, rate-card editor and handoff retry button described below are
+> retired by T1. The book, Account 360 Commercial tab and contract detail remain as read-only screens.
 
 - **Lifecycle panel** on `/accounts/:id` (Overview) — current badge, `client_since`, churn reason/date,
   the `Service handoff` reference, and one button per legal move from `allowed_status_transitions`;
@@ -176,8 +203,11 @@ salesrep (the account's risk flag remains readable).
 
 ## Events
 
-- `ContractSigned` (contract, company, actor) — dispatched **after** the contract commits; handled by
-  `HandoffContractToService`, which calls `Company::handoffToService()`.
+> **Contract events retired (ADR-0027).** `ContractSigned` and its `HandoffContractToService` listener
+> are removed with the contract write path. `CompanyStatusChanged`, `CompanyActivated` and
+> `CompanyChurned` remain for manager-driven lifecycle moves.
+
+- ~~`ContractSigned`~~ (contract, company, actor) — historical; no CRM contract signing.
 - `CompanyStatusChanged` (company, from, to, actor, note) — handled by `RecordCompanyStatusChange`
   (timeline).
 - `CompanyActivated` (company, contract?, actor) and `CompanyChurned` (company, reason, actor) —
@@ -185,8 +215,11 @@ salesrep (the account's risk flag remains readable).
 
 ## Acceptance criteria
 
+> **Historical contract-write criteria below are superseded.** Current acceptance criteria for the
+> read-only contract boundary live in spec 17 T1. Lifecycle, billing and delivery criteria remain.
+
 - [x] `mark-signed` sets `signed_at`, stamps `client_since`, moves the company to `active` and calls
-      the Service mock exactly once (the retry path calls it again, and only again).
+      the Service mock exactly once (the retry path calls it again, and only again). *(retired)*
 - [x] A failed handoff does not roll back the signed contract and exposes `handoff.can_retry` + the
       retry endpoint; the retry activates the client.
 - [x] `mark-churned`/`reactivate` are 403 for a salesrep and require a reason for churn; reactivation

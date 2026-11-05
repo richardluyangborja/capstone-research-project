@@ -18,8 +18,9 @@ three-second rules fallback. That framing no longer matches the product need:
 - CRM data is sensitive. A free tier is not a licence to send contact names, notes or message bodies
   to a third party.
 
-The existing `ai/` service is a FastAPI scaffold with only `/health`; the dashboard's “AI” report is
-Laravel rules. There is no model integration to preserve.
+At the time this decision was drafted, the existing `ai/` service was a FastAPI scaffold with only
+`/health`; the dashboard's “AI” report was Laravel rules. S2 now adds the authenticated
+`POST /reports/dashboard` Groq integration described below.
 
 ## Decision
 

@@ -85,6 +85,40 @@ Worklist rows, alerts and staff rows carry a `minTier` (`personal` < `team` < `o
 when the session tier is at or above it. The server applies the same filter in D2 — the client is
 never the only gate.
 
+## Manager strip (Module 01 refresh S14)
+
+A manager+ dashboard payload carries three additional blocks. They use the same role scope as the
+rest of the page and add no table.
+
+```jsonc
+{
+  "commercial": {
+    "outstanding": 1284000, "overdue": 212000, "overdue_accounts": 2,
+    "renewals": { "days_30": 1, "days_60": 2, "days_90": 3 },
+    "active_deployments": 18, "fill_rate": 92,
+    "pending_timesheets": 3,
+    "source": "Finance / Deployment / Timekeeping (mocked)",
+    "as_of": "2026-11-05T01:00:00Z"
+  },
+  "account_risks": [ /* the highest-severity health flags with account, reason, owner, action */ ],
+  "team_workload": [ /* shared queue + per-rep open leads, overdue follow-ups, accounts owned */ ]
+}
+```
+
+### Pending timesheets (single definition — spec 17 T2)
+
+`commercial.pending_timesheets` is the number of **deployments** in the caller's scope whose
+timekeeping summary is absent or whose status is **not `current`** (including `missing`). It is not a
+count of hours and not a count of timesheet submissions.
+
+The dashboard and the deployment book must read the same `DeliverySnapshot`/`DeliveryMetrics` service;
+`GET /deployments` exposes the same number as `summary.pending_timesheets` (with
+`summary.deployments_pending` retained as a compatibility alias) and accepts
+`filter[timesheet]=pending|current|missing`. Table filters narrow the rows, not the scope-wide
+summary. The card links to `/deployments?timesheet=pending` so the counted deployments are
+inspectable, and its visible label is **Deployments without current timesheet** with a hint that it
+counts deployments, not hours.
+
 ## Mock data (D1 policy, retired)
 
 1. **One source (D1).** `frontend/src/mocks/dashboard.ts` built every block; `getDashboard(role,
@@ -304,6 +338,15 @@ Implementation notes:
   frontend adapter formats raw values and leaves the components presentational.
 - `HrGateway` is bound to `MockHrGateway`; `CRM_HR_SIMULATE_FAILURE=true` returns `hr: null` and
   `meta.hr_available: false`, and the note explains the missing source.
+
+### Pending-timesheet adjustment (spec 17 T2 — planned)
+
+- [ ] `commercial.pending_timesheets` and `/deployments` `summary.pending_timesheets` come from the
+      same scope snapshot.
+- [ ] For the same user/scope they are equal; a regression test fixes the equality.
+- [ ] `filter[timesheet]=pending` shows exactly the deployments counted by the card.
+- [ ] The manager card label/hint names deployments without a current timesheet, not hours, and
+      deep-links to `/deployments?timesheet=pending`.
 
 ### D3 — moved to Module 07
 

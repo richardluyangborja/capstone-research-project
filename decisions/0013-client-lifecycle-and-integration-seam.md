@@ -1,7 +1,17 @@
 # 0013 — Client lifecycle, contracts & the integration seam
 
-- Status: Accepted
+- Status: Accepted; contract ownership amended by 0027
 - Date: 2026-10-17
+
+> **Amended by ADR-0027 (contracts are read-only).** The lifecycle state machine, manager-managed
+> transitions, billing and the read-only feed seam remain current. Contract upload, editing,
+> `mark-signed`, document storage/download, signing-triggered activation and the Service handoff
+> retry are retired: Core Transaction 3 owns the contract, and the CRM keeps a read-only projection.
+> See `0027-contracts-read-only.md` and `resources/specs/17-module-01-tracking-adjustments.md`.
+
+The contract-write and signing workflow in the historical decision below is retained to explain the
+original Phase-1 implementation. It is not current guidance; ADR-0027 and spec 17 govern all
+contract behavior going forward.
 
 ## Context
 

@@ -1,7 +1,16 @@
 # 0025 — Read-only external department feeds
 
-- Status: Accepted
+- Status: Accepted; contract boundary amended by 0027
 - Date: 2026-10-27
+
+> **Amended by ADR-0027 (contracts are read-only).** The read-only feed rule is unchanged and now
+> includes contracts from Core Transaction 3. The exception below that allowed an outbound Service
+> handoff on signing is retired; the CRM no longer triggers the handoff. See
+> `0027-contracts-read-only.md` and `resources/specs/17-module-01-tracking-adjustments.md`.
+
+The outbound handoff language retained below documents the pre-0027 baseline and is not an
+implementation instruction. Current integrations are read-only feeds, including the contract
+projection.
 
 ## Context
 

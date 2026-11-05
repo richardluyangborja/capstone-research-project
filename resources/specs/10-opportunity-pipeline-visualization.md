@@ -5,14 +5,19 @@ ADRs: 0002, 0004, 0007, 0012, 0015.
 
 > **Implemented.** The contract below is what shipped (see ADR-0015 for the choices made where the
 > spec was open). It builds on the deal record submodule 08 created (ADR-0012 §1). The full
-> dashboard/management reports stay with the separate AI module; the deal pipeline does **not**
-> trigger the Service handoff on `won` — that stays on `mark-signed` (ADR-0015 §4).
+> dashboard/management reports stay with the separate AI module.
+>
+> **Amended by ADR-0027 (contracts are read-only).** The pipeline itself is unchanged, and `won`
+> never triggers a Service handoff. A won deal no longer exposes **Create contract from deal** or a
+> CRM contract upload; it links to the read-only contract projection when one exists, and otherwise
+> states that contracts are managed in Contract Management (Core Transaction 3).
 
 ## Purpose
 
 Turn the `Opportunity` record into a working deal pipeline: see every open deal as a board, move a
-deal through the staffing stages, record won/lost, log the activity that drives it, and hand a won
-deal to a contract — so reps work deals and managers can read the forecast.
+deal through the staffing stages, record won/lost, log the activity that drives it, and link a won
+deal to the contract tracked from Core Transaction 3 — so reps work deals and managers can read the
+forecast.
 
 ## Pipeline stages
 
@@ -38,8 +43,9 @@ Rules applied by `Opportunity::transitionTo(stage, ...)`:
    caller supplies one.
 4. Every move stamps `stage_changed_at` and `last_activity_at` and records a `system` activity on the
    deal timeline (mirrors `LeadStatusChanged`, ADR-0009).
-5. A move to `won` is a **record only** — it does **not** trigger the Service handoff (ADR-0015 §4);
-   the UI offers **Create contract from deal**.
+5. A move to `won` is a **record only** — it does **not** trigger the Service handoff or create a
+   contract (ADR-0015 §4, ADR-0027). The UI links to the read-only contract projection when one exists;
+   otherwise it states that contract work happens in Contract Management.
 
 ## Submodules & delivery slices
 
@@ -112,9 +118,9 @@ or force delete without the right role; 404 — missing deal. Creates return 201
    conversion, otherwise it is chosen directly.
 4. **`amount` is manager+ to set** (ADR-0012 §4, ADR-0015 §5) but visible to whoever can see the deal;
    a salesrep-opened deal starts with an amount only if a manager sets one.
-5. **`won` records the outcome** and exposes **Create contract from deal**; it never runs the Service
-   handoff (that is `mark-signed`, ADR-0013 §5). Reopening a won/lost deal clears the close date and
-   lost reason.
+5. **`won` records the outcome** and links to the read-only contract projection; it never runs the
+   Service handoff or creates a contract (ADR-0027). Reopening a won/lost deal clears the close date
+   and lost reason.
 6. **Deletion is soft.** A deleted deal leaves the board/list and returns on restore (manager+). A
    deal does **not** block deleting its company once it is closed (`won`/`lost`); an open deal still
    blocks (ADR-0012 §4).
@@ -141,7 +147,8 @@ or force delete without the right role; 404 — missing deal. Creates return 201
   stage, a stale badge), a **Closed** toggle for `won`/`lost`, board filters (owner, company, close
   window, source, search) and a **forecast summary** header (open value, weighted value, win rate).
   Cards **drag between columns** and every card has a keyboard-accessible **Move to…** menu; a drop on
-  `lost` opens a reason prompt, a drop on `won` reveals **Create contract from deal**.
+  `lost` opens a reason prompt, a drop on `won` reveals the linked read-only contract or the external
+  contract-tracking note.
 - **Deal list** (`/opportunities`) — `DataTable` (reference, deal, company, stage badge + probability,
   amount, expected close, owner, next step) with the same filters and pagination.
 - **New deal** (`/opportunities/new`) — `FormCard`: company (visible companies only), name, amount
@@ -185,8 +192,8 @@ forecast header and the win-rate all demo without faking.
       `can_set_amount` is false on the payload.
 - [x] A deal can be created directly on a visible company (owner = creator) and the company
       Opportunities tab links to it; conversion still opens a `qualified` deal.
-- [x] Marking a deal `won` does **not** hand off to Service (no handoff runs); the "Create contract
-      from deal" action opens the contract upload prefilled with `opportunity_id`.
+- [x] Marking a deal `won` does **not** hand off to Service or create a contract; the deal links to
+      the read-only projection when one exists (ADR-0027).
 - [x] Soft-deleting a deal removes it from the board and list; restore (manager+) brings it back; a
       salesrep cannot restore.
 - [x] The board drag path and the Move-to menu produce identical results.

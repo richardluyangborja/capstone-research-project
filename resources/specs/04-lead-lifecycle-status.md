@@ -2,6 +2,10 @@
 
 Submodule 4. Entities: `Lead`, `Activity`. ADRs: 0002, 0003.
 
+> **UI note (spec 17 T3, planned).** The lead detail adds a derived Captured → Contacted → Qualified →
+> Converted journey with a next-action CTA. It is a read-only view of these transitions; the state
+> machine and `new → qualified` guard are unchanged (ADR-0028).
+
 ## Purpose
 
 Govern legal status transitions (a state machine), keep status current from activity, and flag/age

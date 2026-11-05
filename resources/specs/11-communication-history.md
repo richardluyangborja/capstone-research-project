@@ -104,8 +104,9 @@ from the linked contact when none was typed, and a message with no destination i
 | `DELETE` | `/api/v1/attachments/{id}` | Remove — the same scope as uploading |
 
 Files live on a private disk and are never addressed by URL: the resource carries no path, and the bytes
-come only from the authorized download, exactly as a contract document does. The disk, size ceiling and
-per-record cap are config (`crm.attachments.*`), sharing the contract allow-list. Attaching is refused
+come only from the authorized download. Contract documents are not stored here — they remain in Core
+Transaction 3 (ADR-0027). The disk, size ceiling and per-record cap are config (`crm.attachments.*`),
+sharing the same MIME allow-list. Attaching is refused
 with **422** while a message has left or arrived — a `sent`/`received` message keeps the files it carried
 — and an upload that fails leaves the logged record untouched.
 
@@ -225,7 +226,8 @@ Indexes: `subject_type+subject_id`, `channel`, `direction`, `status`, `occurred_
 `attachable_type`/`attachable_id` (morph, ULIDs), `disk`, `path`, `original_name`, `mime_type`, `size`,
 `uploaded_by` (FK), timestamps. No `deleted_at`: a file exists for its row and for nothing else, so
 removing the row removes the file (there is no "retired but kept" state for a file). Communications are
-its first user; the single contract document can move onto it later without a second table.
+its first user; contract documents do not move onto it because they stay in Core Transaction 3
+(ADR-0027).
 
 **`communication_templates` table (S5):** `name`, `channel` (default `email`), `subject`, `body`,
 `is_active` (default true), `created_by` (FK users, nullable), timestamps, `deleted_at`. Indexes: `name`,

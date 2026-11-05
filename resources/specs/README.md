@@ -6,7 +6,7 @@ as ADR live in `../../decisions/`. The roadmap (module order + numbering) is ADR
 shared data model, `01`–`09` are module 01's submodules, and `10+` is **one file per later module**,
 with that module's **delivery slices** declared in the file (ADR-0016).
 
-## Module 01 — Lead & Client Tracking (baseline done; refresh S0–S19 built)
+## Module 01 — Lead & Client Tracking (baseline done; refresh S0–S19 built; adjustments T1–T3 planned)
 
 | File | Submodule |
 | --- | --- |
@@ -20,9 +20,12 @@ with that module's **delivery slices** declared in the file (ADR-0016).
 | `08-lead-to-client-conversion.md` | 8. Lead-to-Client Conversion |
 | `09-client-account-lifecycle.md` | 9. Client Account Lifecycle |
 | `16-module-01-refresh.md` | **Refresh** — workspace/Account 360 consolidation, contract rate cards, read-only department feeds, public intake and modal sign-in (ADR-0023–0026) |
+| `17-module-01-tracking-adjustments.md` | **Tracking adjustments** — read-only contract projection, consistent pending-timesheet metric, derived lead journey (ADR-0027–0028) |
 
 The refresh extends the baseline files rather than replacing their history. Where a rule differs —
 navigation, commercial terms, read-only feeds, public intake or sign-in — `16` is the newer contract.
+`17` is newer still for the contract boundary, the deployment pending-timesheet metric and the lead
+journey; it retires the contract write surfaces shipped by `16` S6–S8.
 
 Deferred **inside** module 01: 5. Duplicate Detection & Merge and **advanced** tiers/scoring
 (ADR-0006). The refresh adds **computed, explainable health flags** (ADR-0023), not a stored health
@@ -51,7 +54,7 @@ behind a rules fallback. Module 07 is not a data module and adds no table.
 From module 02 on, the delivery unit is the **slice**, not the spec file: each spec declares its slices
 with their own acceptance criteria and each ships as its own PR (ADR-0016). Module 01's original
 submodules predate this and used one file (and one PR) per submodule; its **refresh follows the slice
-rule** (spec `16`, S1–S19).
+rule** (spec `16`, S1–S19), and the tracking adjustments follow it too (spec `17`, T1–T3).
 
 ## Shared conventions (proposed defaults — confirm before scaffolding)
 
@@ -71,10 +74,11 @@ rule** (spec `16`, S1–S19).
 - **Timestamps:** store UTC, serialise ISO-8601; date-only fields for pure dates.
 - **Enums:** stored as lowercase strings; defined in `00-data-model.md`. Never store free text where
   an enum exists.
-- **Documents:** stored on a **private** disk and never exposed by path; downloads go through an
-  authorized endpoint (`GET /contracts/{id}/file` in Phase 1). Allowed MIME `application/pdf`,
-  `image/png`, `image/jpeg`; max 10 MB. A record needing *several* files would use the polymorphic
-  `attachments` table, which is deferred (`00-data-model.md`).
+- **Documents:** communication attachments are stored on a **private** disk and never exposed by
+  path; downloads go through an authorized endpoint (`GET /attachments/{id}/file`). Allowed MIME
+  `application/pdf`, `image/png`, `image/jpeg`; max 10 MB. **Contract documents are external** (Core
+  Transaction 3, ADR-0027): the CRM neither stores nor serves them. A record needing *several* files
+  uses the polymorphic `attachments` table (`00-data-model.md`).
 - **Audit:** every mutation writes a row to `audit_logs` (actor, action, before/after) and, where
   user-visible, an `activities` row.
 
@@ -95,7 +99,8 @@ rule** (spec `16`, S1–S19).
 Enforced **server-side** via policies combining role + ownership/team:
 
 - `salesrep` — own records only; sensitive fields (pay rate, margin, billing) stripped from responses.
-  Client-facing bill rates and contract values are visible on their own accounts (ADR-0024).
+  Client-facing bill rates and contract values are visible on their own accounts (ADR-0024); contract
+  data is read-only for every role (ADR-0027).
 - `manager` — records owned by users in their team; sensitive fields read-only.
 - `admin`, `superadmin` — all records.
 
@@ -119,8 +124,8 @@ records are visible to manager+.
 | `LeadCreated` | intake | notify assignee/queue |
 | `LeadQualified` | qualification | eligible for conversion |
 | `LeadConverted` | conversion | create Company/Contact/Opportunity (ADR-0001) |
-| `OpportunityWon` | deal pipeline (module 02) | deal closed won; prompts contract creation — does **not** hand off to Service (ADR-0015 §4) |
-| `ContractSigned` | client lifecycle | contract `signed` → company advances + **handoff to Service** (mock) |
+| `OpportunityWon` | deal pipeline (module 02) | deal closed won; links to the read-only contract projection — no CRM contract creation and no handoff (ADR-0027) |
+| ~~`ContractSigned`~~ | — | **retired** with the contract write path; Core Transaction 3 owns signing, and the CRM does not activate or hand off (ADR-0027) |
 | `CompanyStatusChanged` | client lifecycle | timeline activity per lifecycle move |
 | `CompanyActivated` / `CompanyChurned` | client lifecycle | win/retention bookkeeping (reporting deferred) |
 
@@ -130,5 +135,6 @@ Shared conventions are locked in **ADR-0007**. Remaining decisions to confirm:
 - automatic aging/dormancy thresholds and whether they run in Phase 1 — **manual only in Phase 1**
   (ADR-0013 §3); the thresholds return with the deferred follow-up module.
 - round-robin assignment and whether `onboarding` is a distinct state (see submodule open questions) —
-  round-robin stays deferred (spec 03 §3); `onboarding` **stays distinct** as the state a signed
-  client waits in for the Service handoff (spec 09).
+  round-robin stays deferred (spec 03 §3); `onboarding` **stays distinct** as a manager-managed stage
+  before an active client. Its handoff display is read-only/legacy data, not a CRM send action
+  (ADR-0027).
