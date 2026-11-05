@@ -293,7 +293,12 @@ const { company, site, contact, deal, contract, billing, delivery, paginated } =
         },
         job_orders: [],
         deployments: [],
-        timesheets: { approved_hours: 0, pending_hours: 0, deployments_pending: 0 },
+        timesheets: {
+          approved_hours: 0,
+          pending_hours: 0,
+          deployments_pending: 0,
+          pending_timesheets: 0,
+        },
       },
       meta: {
         source: 'Recruitment / Deployment / Timekeeping (mocked, read-only)',

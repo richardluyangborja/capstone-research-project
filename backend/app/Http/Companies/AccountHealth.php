@@ -5,6 +5,7 @@ namespace App\Http\Companies;
 use App\Enums\CompanyStatus;
 use App\Enums\ContractStatus;
 use App\Enums\HandoffStatus;
+use App\Http\Delivery\DeliverySnapshot;
 use App\Integrations\DeploymentFeed;
 use App\Integrations\DeploymentSummary;
 use App\Integrations\FinanceBilling;
@@ -322,15 +323,16 @@ final class AccountHealth
         }
 
         $pending = collect($deployments)->first(
-            fn (DeploymentSummary $deployment): bool => $deployment->timesheet !== null
-                && $deployment->timesheet->status !== 'current',
+            fn (DeploymentSummary $deployment): bool => DeliverySnapshot::needsCurrentTimesheet(
+                $deployment->timesheet,
+            ),
         );
 
         if ($pending !== null) {
             $flags[] = $this->flag(
                 code: 'timesheets_pending',
                 severity: 'warning',
-                title: 'Timesheets pending',
+                title: 'Deployment without current timesheet',
                 reason: sprintf(
                     'Deployment %s has %s hours awaiting a decision.',
                     $pending->reference,

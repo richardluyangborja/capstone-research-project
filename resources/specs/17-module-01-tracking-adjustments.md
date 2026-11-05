@@ -4,9 +4,9 @@ Post-refresh adjustments to Module 01. Extends `16-module-01-refresh.md`, `09-cl
 and `00-data-model.md`. ADRs: **0027** (contracts are read-only), **0028** (the lead journey is derived),
 plus 0004, 0013, 0015, 0024 and 0025 where they remain relevant.
 
-> **Status: T1 implemented; T2–T3 planned.** T1 ships the read-only contract projection on
-> `feature/module-01-contracts-read-only`; T2 makes the pending-timesheet metric single-source,
-> and T3 adds the lead journey.
+> **Status: T1–T2 implemented; T3 planned.** T1 ships the read-only contract projection on
+> `feature/module-01-contracts-read-only`; T2 makes the pending-timesheet metric single-source on
+> `feature/module-01-delivery-metrics-consistency`; T3 adds the lead journey.
 > The contract-write rules in specs `09` and `16`, and the Service-handoff trigger in `ADR-0013`/
 > `ADR-0015`, are superseded by ADR-0027 for the surfaces described here.
 
@@ -217,14 +217,14 @@ The summary is scope-wide; table filters narrow the table, not the summary.
 
 ### Acceptance
 
-- [ ] Dashboard and deployment book use one shared calculation.
-- [ ] For the same user/scope, `commercial.pending_timesheets` equals the deployments
+- [x] Dashboard and deployment book use one shared calculation.
+- [x] For the same user/scope, `commercial.pending_timesheets` equals the deployments
       `summary.pending_timesheets`/`deployments_pending`.
-- [ ] Applying table filters does not change the summary.
-- [ ] `filter[timesheet]=pending` shows exactly the rows counted by the card.
-- [ ] The dashboard card deep-links to the filtered deployment book.
-- [ ] A regression test fixes the equality, including a filter case.
-- [ ] Labels/hints say deployments, not hours or submissions.
+- [x] Applying table filters does not change the summary.
+- [x] `filter[timesheet]=pending` shows exactly the rows counted by the card.
+- [x] The dashboard card deep-links to the filtered deployment book.
+- [x] A regression test fixes the equality, including a filter case.
+- [x] Labels/hints say deployments, not hours or submissions.
 
 ### Note on the reported 6 vs 3
 

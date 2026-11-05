@@ -54,6 +54,7 @@ const { book } = vi.hoisted(() => {
       ended: 0,
       fill_rate: 100,
       deployments_pending: 0,
+      pending_timesheets: 0,
       approved_hours: 704,
       pending_hours: 0,
     },
@@ -111,7 +112,7 @@ describe('Deployment Book (/deployments)', () => {
     expect(screen.getByText(/Deployment \/ Timekeeping \(mocked, read-only\)/)).toBeInTheDocument()
     expect(screen.getByText('Total deployments')).toBeInTheDocument()
     expect(screen.getByText('Overall fill rate')).toBeInTheDocument()
-    expect(screen.getByText('704 hrs approved · 0 hrs pending')).toBeInTheDocument()
+    expect(screen.getByText('704 hrs approved · 0 hrs pending · deployment count')).toBeInTheDocument()
 
     const table = screen.getByRole('table')
     expect(within(table).getByText('Harbor Logistics Corp')).toBeInTheDocument()

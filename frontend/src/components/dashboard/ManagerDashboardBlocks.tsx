@@ -149,10 +149,10 @@ export default function ManagerDashboardBlocks({
             to="/deployments"
           />
           <CommercialMetric
-            label="Pending timesheets"
+            label="Deployments without current timesheet"
             value={String(commercial.pending_timesheets)}
-            hint="Awaiting a decision"
-            to="/deployments"
+            hint="Deployment count, not hours"
+            to="/deployments?timesheet=pending"
           />
         </div>
       </section>

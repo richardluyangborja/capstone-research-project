@@ -54,8 +54,9 @@ Laravel's own and is separate from `frontend/`.
 > activation or Service handoff. The dashboard and `/deployments` will share one pending-timesheet
 > metric (deployments with no current timesheet). The lead detail gains a derived
 > Captured → Contacted → Qualified → Converted journey with a next-action CTA; the state machine is
-> unchanged. T1 is now implemented on `feature/module-01-contracts-read-only`; T2–T3 remain
-> planned. The historical contract-write details below are superseded by ADR-0027.
+> unchanged. T1 is implemented on `feature/module-01-contracts-read-only` and T2 is implemented on
+> `feature/module-01-delivery-metrics-consistency`; T3 remains planned. The historical
+> contract-write details below are superseded by ADR-0027.
 
 - **Submodule 01 — Lead Capture & Intake:** `/api/v1/leads` (index/store/show/destroy +
   `POST /leads/{id}/restore`), advisory duplicate check, role/ownership scoping (ADR-0004).
@@ -738,6 +739,9 @@ Dedup/merge and advanced/stored tier scoring are module-01 deferrals
 T1 of spec 17 is implemented on `feature/module-01-contracts-read-only`: contract reads now use
 the Core Transaction 3 projection boundary, with no CRM contract writes, documents, signing trigger,
 or handoff retry; the frontend exposes the same read-only surface.
+T2 is implemented on `feature/module-01-delivery-metrics-consistency`: dashboard and deployment
+book pending-timesheet counts share `Http/Delivery/DeliverySnapshot`, with the filtered deployment
+view linked from the dashboard.
 
 **Module 01 refresh (S0–S19 built — `specs/16`, ADR-0023–0026).** S0 is the planning contract and
 S1 is the shell: the sidebar is grouped by module, `/accounts` (plus `/accounts/new` and
