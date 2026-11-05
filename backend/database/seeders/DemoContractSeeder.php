@@ -11,23 +11,16 @@ use App\Models\Contract;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Storage;
 
 /**
  * Fixed demo contracts (no faker — seeded for the proposal demo, see system-tech.md).
  *
  * Covers the shapes the Contracts tab and lifecycle stepper can show: a live engagement
- * with its earlier (expired) agreement it renews, a signed contract whose Service handoff
- * failed (the retry banner), one out for signature, a terminated account and a draft.
- *
- * A placeholder document is written to the private disk so the download endpoint works in
- * the demo (the API requires a file, so the seed cannot leave the column empty).
+ * with its earlier (expired) agreement it renews, a signed contract whose historical Service
+ * handoff status is failed, one out for signature, a terminated account and a draft.
  */
 class DemoContractSeeder extends Seeder
 {
-    /** A valid 1x1 PNG standing in for a scanned signed contract. */
-    private const PLACEHOLDER_PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
-
     public function run(): void
     {
         $sam = User::where('email', 'salesrep@primepower.test')->firstOrFail();
@@ -233,10 +226,11 @@ class DemoContractSeeder extends Seeder
             'owner_id' => $company->owner_id,
         ]);
 
-        $this->attachPlaceholder($contract);
         $this->createRateCards($contract, $company, $rates);
 
         $contract->forceFill([
+            'external_id' => 'core3-'.$contract->reference,
+            'synced_at' => Carbon::now()->subDays($ageDays),
             'created_at' => Carbon::now()->subDays($ageDays),
             'updated_at' => Carbon::now()->subDays(max($ageDays - 1, 0)),
         ])->save();
@@ -273,20 +267,5 @@ class DemoContractSeeder extends Seeder
                 'position' => $index + 1,
             ]);
         }
-    }
-
-    private function attachPlaceholder(Contract $contract): void
-    {
-        $disk = config('crm.contracts.disk');
-        $path = 'contracts/'.$contract->id.'.png';
-
-        Storage::disk($disk)->put($path, base64_decode(self::PLACEHOLDER_PNG, true));
-
-        $contract->forceFill([
-            'file_path' => $path,
-            'file_name' => $contract->reference.'-signed.png',
-            'file_size' => strlen(base64_decode(self::PLACEHOLDER_PNG, true)),
-            'file_mime' => 'image/png',
-        ])->save();
     }
 }

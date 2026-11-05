@@ -5,7 +5,7 @@ import Contracts from './Contracts'
 import * as contractApi from '../lib/contracts'
 import type { Contract, ContractsResponse } from '../types'
 
-const { mockContract, mockResponse } = vi.hoisted(() => {
+const { mockResponse } = vi.hoisted(() => {
   const contract: Contract = {
     id: 'contract-1',
     reference: 'CON-2026-0001',
@@ -104,12 +104,11 @@ const { mockContract, mockResponse } = vi.hoisted(() => {
     },
   }
 
-  return { mockContract: contract, mockResponse: response }
+  return { mockResponse: response }
 })
 
 vi.mock('../lib/contracts', () => ({
   listContracts: vi.fn().mockImplementation(() => Promise.resolve(mockResponse)),
-  downloadContractFile: vi.fn().mockResolvedValue(undefined),
 }))
 
 vi.mock('../lib/companies', () => ({
@@ -194,7 +193,7 @@ describe('Contracts Book (/contracts)', () => {
     })
   })
 
-  it('downloads the attached contract file when clicked', async () => {
+  it('does not expose contract documents in the CRM', async () => {
     render(
       <MemoryRouter>
         <Contracts />
@@ -203,9 +202,7 @@ describe('Contracts Book (/contracts)', () => {
 
     await screen.findByText('CON-2026-0001')
 
-    const downloadBtn = screen.getByTitle('Download signed document')
-    fireEvent.click(downloadBtn)
-
-    expect(contractApi.downloadContractFile).toHaveBeenCalledWith(mockContract)
+    expect(screen.queryByTitle('Download signed document')).not.toBeInTheDocument()
+    expect(screen.getByTitle('View contract details')).toBeInTheDocument()
   })
 })

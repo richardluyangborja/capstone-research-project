@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { Download, Eye, FileCheck, Filter, RefreshCw, Search, ShieldAlert } from 'lucide-react'
+import { Eye, FileCheck, Filter, RefreshCw, Search, ShieldAlert } from 'lucide-react'
 import PageHeader from '../components/common/PageHeader'
 import StatusBadge from '../components/common/StatusBadge'
 import EmptyState from '../components/common/EmptyState'
 import StatCard from '../components/common/StatCard'
 import DataTable, { type DataTableColumn } from '../components/common/DataTable'
-import { downloadContractFile, listContracts } from '../lib/contracts'
+import { listContracts } from '../lib/contracts'
 import { listCompanies } from '../lib/companies'
 import { getAssignableUsers } from '../lib/leads'
 import { contractStatusMeta, formatExpiry } from '../lib/contractMeta'
@@ -111,15 +111,6 @@ export default function Contracts() {
     if (company) params.set('company', company)
     setSearchParams(params, { replace: true })
   }, [search, status, renewal, expiringOnly, owner, company, setSearchParams])
-
-  const handleDownload = async (contract: Contract) => {
-    try {
-      await downloadContractFile(contract)
-    } catch (err) {
-      console.error(err)
-      setError(`Could not download document for contract ${contract.reference}.`)
-    }
-  }
 
   const columns: DataTableColumn<Contract>[] = [
     {
@@ -244,16 +235,6 @@ export default function Contracts() {
       className: 'text-right',
       render: (contract) => (
         <div className="flex items-center justify-end gap-2">
-          {contract.file?.present && (
-            <button
-              type="button"
-              onClick={() => handleDownload(contract)}
-              title="Download signed document"
-              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-input bg-background text-muted-foreground hover:bg-accent hover:text-foreground"
-            >
-              <Download className="h-4 w-4" />
-            </button>
-          )}
           <Link
             to={`/contracts/${contract.id}`}
             title="View contract details"
@@ -270,8 +251,14 @@ export default function Contracts() {
     <div className="space-y-6">
       <PageHeader
         title="Contracts"
-        description="Cross-account commercial agreements, rate cards and renewal terms."
+        description="Read-only contract projection from Contract Management."
       />
+      {contracts.length > 0 && (
+        <p className="text-xs text-muted-foreground">
+          Source: {contracts[0].source ?? 'Contract Management (mocked, read-only)'} · Read-only
+          · As of {contracts[0].as_of ? formatDate(contracts[0].as_of) : '—'}
+        </p>
+      )}
 
       {error && (
         <div className="rounded-md border border-danger/30 bg-danger/10 p-4 text-sm text-danger">
@@ -422,7 +409,7 @@ export default function Contracts() {
             description={
               search || status || renewal || expiringOnly || owner || company
                 ? 'Try adjusting your search filters to find what you are looking for.'
-                : 'No contracts have been uploaded to accounts yet.'
+                : 'No contract projections are available for the selected accounts.'
             }
           />
         }

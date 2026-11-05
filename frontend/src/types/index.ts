@@ -232,7 +232,6 @@ export interface Company {
   can_view_billing: boolean
   /** Salesrep-safe Finance signal on the account detail (spec 16 S11); no amounts. */
   billing_risk?: CompanyBillingRisk | null
-  can_upload_contract: boolean
   created_at: string
   updated_at: string
 }
@@ -569,7 +568,6 @@ export interface CompanyHandoff {
   reference: string | null
   error: string | null
   requested_at: string | null
-  can_retry: boolean
 }
 
 export interface ContractFileRef {
@@ -577,6 +575,12 @@ export interface ContractFileRef {
   name: string | null
   size: number | null
   mime: string | null
+}
+
+export interface ContractProvenance {
+  source?: string
+  read_only?: boolean
+  as_of?: string
 }
 
 export interface ContractRenewalRef {
@@ -680,20 +684,24 @@ export interface Contract {
   rate_cards: ContractRateCard[]
   rate_cards_count?: number
   commercial: ContractCommercial
-  file: ContractFileRef
+  /** @deprecated documents are owned by Contract Management and never served by CRM. */
+  file?: ContractFileRef
+  /** Projection provenance supplied by Contract Management. */
+  source?: string
+  read_only?: boolean
+  as_of?: string
   days_until_expiry: number | null
   is_expiring_soon: boolean
   is_signed: boolean
   is_active: boolean
   owner: { id: number; name: string } | null
   owner_id: number
-  /** Legal `PATCH` moves — signing has its own action and is never listed. */
-  allowed_transitions: ContractStatus[]
-  can_update: boolean
-  can_mark_signed: boolean
-  can_delete: boolean
-  /** Writing rate cards is manager+ (ADR-0024 §5). */
-  can_manage_rate_cards: boolean
+  /** @deprecated write affordances are no longer returned by the API. */
+  allowed_transitions?: ContractStatus[]
+  can_update?: boolean
+  can_mark_signed?: boolean
+  can_delete?: boolean
+  can_manage_rate_cards?: boolean
   created_at: string
   updated_at: string
 }
@@ -701,6 +709,7 @@ export interface Contract {
 export interface CompanyContracts {
   data: Contract[]
   meta: { total: number; active: number }
+  provenance?: ContractProvenance
 }
 
 export interface PaginationMeta {
@@ -738,26 +747,7 @@ export interface ContractsResponse {
   meta: PaginationMeta
   links?: Record<string, string | null>
   summary: ContractSummary
-}
-
-export interface ContractInput {
-  file: File
-  title: string
-  opportunity_id?: string | null
-  renewal_of_contract_id?: string | null
-  start_date?: string | null
-  end_date?: string | null
-  value?: number | null
-  currency?: string
-  payment_terms?: string | null
-  po_reference?: string | null
-  auto_renew?: boolean
-  notice_days?: number | null
-  signatory_name?: string | null
-  signatory_position?: string | null
-  terms?: string | null
-  notes?: string | null
-  status?: ContractStatus
+  provenance?: ContractProvenance
 }
 
 /** Read-only AR snapshot consumed from the mocked Finance department (spec 09 §7). */
@@ -874,7 +864,6 @@ export interface DeliveryHandoff {
   reference: string | null
   error: string | null
   requested_at: string | null
-  can_retry: boolean
 }
 
 /** One Recruitment job order — read-only (ADR-0025). */

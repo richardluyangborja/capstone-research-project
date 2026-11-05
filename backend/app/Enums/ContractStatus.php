@@ -4,7 +4,7 @@ namespace App\Enums;
 
 /**
  * Contract status (spec 09 §1). `signed` is the only status that binds a client, so it is
- * only reachable through `POST /contracts/{id}/mark-signed` — which advances the company
+ * supplied by the owning contract system; CRM reads this status without changing the company
  * and fires the mocked service handoff.
  */
 enum ContractStatus: string

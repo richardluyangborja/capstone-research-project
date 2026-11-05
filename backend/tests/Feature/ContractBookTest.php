@@ -280,22 +280,6 @@ class ContractBookTest extends TestCase
         $this->assertNotContains($repContract->id, collect($scoped->json('data'))->pluck('id')->all());
     }
 
-    public function test_a_contract_write_response_keeps_the_renewal_chain(): void
-    {
-        $admin = User::factory()->admin()->create();
-        $company = Company::factory()->create();
-
-        $original = Contract::factory()->forCompany($company)->signed()->create();
-        Contract::factory()->forCompany($company)->renewalOf($original)->signed()->create();
-
-        $this->actingAs($admin, 'api')
-            ->patchJson("/api/v1/contracts/{$original->id}", ['title' => $original->title])
-            ->assertOk()
-            ->assertJsonPath('data.id', $original->id)
-            ->assertJsonPath('data.renewal_of', null)
-            ->assertJsonCount(1, 'data.renewals');
-    }
-
     public function test_salesrep_cannot_see_sensitive_margins_in_contract_detail(): void
     {
         $rep = User::factory()->salesrep()->create();

@@ -241,35 +241,17 @@ class CompanyLifecycleTest extends TestCase
             ->assertJsonPath('data.account_status', 'closed');
     }
 
-    public function test_the_lifecycle_of_a_client_with_a_live_contract_is_not_cleared_by_signing(): void
+    public function test_reading_a_signed_contract_does_not_change_the_company_lifecycle(): void
     {
         $manager = User::factory()->manager()->create();
         $company = Company::factory()->ownedBy($manager)->create(['status' => CompanyStatus::Prospect]);
-
-        // A signed contract activates the client; a manual at-risk move afterwards sticks
-        // even if another agreement is signed later (spec 09 §3).
-        $this->actingAs($manager, 'api')
-            ->patchJson("/api/v1/companies/{$company->id}/lifecycle", ['status' => CompanyStatus::Onboarding->value])
-            ->assertOk();
-
-        $contract = Contract::factory()->forCompany($company)->create();
+        $contract = Contract::factory()->forCompany($company)->signed()->create();
 
         $this->actingAs($manager, 'api')
-            ->postJson("/api/v1/contracts/{$contract->id}/mark-signed")
-            ->assertOk();
+            ->getJson("/api/v1/contracts/{$contract->id}")
+            ->assertOk()
+            ->assertJsonPath('meta.read_only', true);
 
-        $this->assertSame(CompanyStatus::Active, $company->fresh()->status);
-
-        $this->actingAs($manager, 'api')
-            ->patchJson("/api/v1/companies/{$company->id}/lifecycle", ['status' => CompanyStatus::AtRisk->value])
-            ->assertOk();
-
-        $second = Contract::factory()->forCompany($company)->create();
-
-        $this->actingAs($manager, 'api')
-            ->postJson("/api/v1/contracts/{$second->id}/mark-signed")
-            ->assertOk();
-
-        $this->assertSame(CompanyStatus::AtRisk, $company->fresh()->status);
+        $this->assertSame(CompanyStatus::Prospect, $company->fresh()->status);
     }
 }

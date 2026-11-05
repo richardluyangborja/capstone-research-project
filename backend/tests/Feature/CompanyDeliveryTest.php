@@ -72,7 +72,6 @@ class CompanyDeliveryTest extends TestCase
             ->getJson("/api/v1/companies/{$company->id}/delivery")
             ->assertOk()
             ->assertJsonPath('data.handoff.status', 'failed')
-            ->assertJsonPath('data.handoff.can_retry', true)
             ->assertJsonPath('data.job_orders.0.status', 'open')
             ->assertJsonPath('data.job_orders.0.priority', 'high')
             ->assertJsonPath('data.job_orders.0.filled', 0)

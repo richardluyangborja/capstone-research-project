@@ -10,8 +10,7 @@ use Illuminate\Http\Resources\Json\JsonResource;
 class ContractResource extends JsonResource
 {
     /**
-     * Relations the full contract payload reads. Shared by the detail read and every
-     * single-contract write so a refreshed page never loses the renewal chain.
+     * Relations the full contract payload reads.
      *
      * @return array<int, string>
      */
@@ -34,6 +33,8 @@ class ContractResource extends JsonResource
     {
         return [
             'id' => $this->id,
+            'external_id' => $this->external_id,
+            'synced_at' => $this->synced_at?->toIso8601String(),
             'reference' => $this->reference,
             'company_id' => $this->company_id,
             'company' => $this->whenLoaded('company', fn () => [
@@ -104,14 +105,6 @@ class ContractResource extends JsonResource
                     'can_view_margin' => $canViewMargin,
                 ];
             }),
-            // The document itself is streamed from an authorized endpoint; the storage path
-            // is never exposed (spec 09 §API).
-            'file' => [
-                'present' => $this->hasFile(),
-                'name' => $this->file_name,
-                'size' => $this->file_size,
-                'mime' => $this->file_mime,
-            ],
             'days_until_expiry' => $this->daysUntilExpiry(),
             'is_expiring_soon' => $this->isExpiringSoon(),
             'is_signed' => $this->isSigned(),
@@ -121,17 +114,30 @@ class ContractResource extends JsonResource
                 'name' => $this->owner->name,
             ]),
             'owner_id' => $this->owner_id,
-            // Signing is deliberately absent: it has its own action (spec 09 §1).
-            'allowed_transitions' => array_map(
-                static fn ($status): string => $status->value,
-                $this->status->accessibleTransitions(),
-            ),
-            'can_update' => (bool) $request->user()?->can('update', $this->resource),
-            'can_mark_signed' => (bool) $request->user()?->can('markSigned', $this->resource),
-            'can_delete' => (bool) $request->user()?->can('delete', $this->resource),
-            'can_manage_rate_cards' => (bool) $request->user()?->can('manageRateCards', $this->resource),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function with(Request $request): array
+    {
+        return [
+            'meta' => $this->provenance(),
+        ];
+    }
+
+    /**
+     * @return array{source: string, read_only: bool, as_of: string}
+     */
+    private function provenance(): array
+    {
+        return [
+            'source' => 'Contract Management (mocked, read-only)',
+            'read_only' => true,
+            'as_of' => now()->toIso8601String(),
         ];
     }
 

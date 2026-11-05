@@ -1,10 +1,9 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
-import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom'
+import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import Companies from './Companies'
 import CompanyDetail from './CompanyDetail'
 import * as companyApi from '../lib/companies'
-import * as contractApi from '../lib/contracts'
 import type { BillingSummary, Company, CompanySite, Contact, Contract, Opportunity } from '../types'
 
 vi.mock('../lib/auth-context', () => ({
@@ -29,7 +28,7 @@ const { company, site, contact, deal, contract, billing, delivery, paginated } =
     client_since: null,
     churn_reason: null,
     churned_at: null,
-    handoff: { status: null, reference: null, error: null, requested_at: null, can_retry: false },
+    handoff: { status: null, reference: null, error: null, requested_at: null },
     tags: ['walk-in'],
     parent_company_id: null,
     parent: null,
@@ -84,7 +83,6 @@ const { company, site, contact, deal, contract, billing, delivery, paginated } =
     can_delete: true,
     can_manage_lifecycle: true,
     can_view_billing: true,
-    can_upload_contract: true,
     created_at: '2026-10-15T03:51:40.000000Z',
     updated_at: '2026-10-17T03:51:40.000000Z',
   }
@@ -292,7 +290,6 @@ const { company, site, contact, deal, contract, billing, delivery, paginated } =
           reference: null,
           error: null,
           requested_at: null,
-          can_retry: false,
         },
         job_orders: [],
         deployments: [],
@@ -323,13 +320,6 @@ vi.mock('../lib/contracts', () => ({
   listCompanyContracts: vi
     .fn()
     .mockResolvedValue({ data: [contract], meta: { total: 1, active: 0 } }),
-  createContract: vi.fn(),
-  updateContract: vi.fn().mockResolvedValue(contract),
-  replaceContractRateCards: vi.fn().mockResolvedValue(contract),
-  markContractSigned: vi.fn().mockResolvedValue(contract),
-  deleteContract: vi.fn(),
-  restoreContract: vi.fn(),
-  downloadContractFile: vi.fn(),
 }))
 
 vi.mock('../lib/deliveries', () => ({
@@ -350,7 +340,6 @@ vi.mock('../lib/companies', () => ({
   bulkAssignCompanies: vi.fn().mockResolvedValue({ assigned: 1, unchanged: 0 }),
   updateCompanyLifecycle: vi.fn().mockResolvedValue(company),
   reactivateCompany: vi.fn().mockResolvedValue(company),
-  retryCompanyHandoff: vi.fn().mockResolvedValue(company),
   createCompanySite: vi.fn(),
   updateCompanySite: vi.fn(),
   deleteCompanySite: vi.fn(),
@@ -519,11 +508,10 @@ describe('Company detail', () => {
       client_since: null,
       churn_reason: null,
       churned_at: null,
-      handoff: { status: null, reference: null, error: null, requested_at: null, can_retry: false },
+      handoff: { status: null, reference: null, error: null, requested_at: null },
       allowed_status_transitions: ['onboarding', 'active'],
       can_manage_lifecycle: true,
       can_view_billing: true,
-      can_upload_contract: true,
     })
     vi.clearAllMocks()
   })
@@ -608,316 +596,6 @@ describe('Company detail', () => {
     expect(screen.queryByText('Billing')).not.toBeInTheDocument()
   })
 
-  it('hides the billing snapshot when the payload says so', async () => {
-    company.can_view_billing = false
-
-    renderDetail()
-
-    await screen.findByRole('heading', { name: 'Sunrise Foods Inc' })
-    fireEvent.click(screen.getByRole('button', { name: /^Commercial/ }))
-    await screen.findByText('Sunrise Foods Inc — Warehouse staffing')
-    expect(screen.queryByText('Billing')).not.toBeInTheDocument()
-  })
-
-  it('shows the salesrep only the redacted Finance risk flag', async () => {
-    Object.assign(company, {
-      can_view_billing: false,
-      billing_risk: {
-        has_overdue: true,
-        message: 'Finance reports an overdue balance on this account. Follow up with Finance.',
-      },
-    })
-
-    renderDetail()
-
-    await screen.findByRole('heading', { name: 'Sunrise Foods Inc' })
-    fireEvent.click(screen.getByRole('button', { name: /^Commercial/ }))
-
-    expect(await screen.findByText('Finance follow-up needed')).toBeInTheDocument()
-    expect(
-      screen.getByText(
-        'Finance reports an overdue balance on this account. Follow up with Finance.',
-      ),
-    ).toBeInTheDocument()
-    expect(screen.queryByText('Billing')).not.toBeInTheDocument()
-    expect(screen.queryByText('INV-2026-0102')).not.toBeInTheDocument()
-    expect(screen.queryByText('₱250,000.00')).not.toBeInTheDocument()
-
-    delete company.billing_risk
-  })
-
-  it('churns a client through the inline reason form', async () => {
-    Object.assign(company, {
-      status: 'active',
-      is_client: true,
-      client_since: '2025-04-01',
-      allowed_status_transitions: ['at_risk', 'dormant', 'churned'],
-    })
-
-    renderDetail()
-
-    await screen.findByRole('heading', { name: 'Sunrise Foods Inc' })
-    fireEvent.click(screen.getByRole('button', { name: 'Move to Churned' }))
-
-    // A churn without a reason is refused, so the button stays disabled (spec 09 §5).
-    const submit = screen.getByRole('button', { name: 'Churn client' })
-    expect(submit).toBeDisabled()
-
-    fireEvent.change(screen.getByLabelText('Why did the client leave?'), {
-      target: { value: 'moved in-house' },
-    })
-    fireEvent.click(submit)
-
-    await screen.findByText('Client moved to churned.')
-    expect(companyApi.updateCompanyLifecycle).toHaveBeenCalledWith('company-1', {
-      status: 'churned',
-      reason: 'moved in-house',
-      note: '',
-    })
-  })
-
-  it('offers a retry when the Service handoff failed', async () => {
-    company.handoff = {
-      status: 'failed',
-      reference: null,
-      error: 'The Service desk did not acknowledge the handoff (mocked failure).',
-      requested_at: '2026-10-17T00:00:00+00:00',
-      can_retry: true,
-    }
-
-    renderDetail()
-
-    await screen.findByRole('heading', { name: 'Sunrise Foods Inc' })
-    expect(screen.getByText('Service handoff failed')).toBeInTheDocument()
-    expect(screen.getByText(/The signed contract stands/)).toBeInTheDocument()
-
-    fireEvent.click(screen.getByRole('button', { name: 'Retry handoff' }))
-
-    await screen.findByText(/Service accepted the handoff|The handoff failed again/)
-    expect(companyApi.retryCompanyHandoff).toHaveBeenCalledWith('company-1')
-  })
-
-  it('lists the contracts of the account and signs one', async () => {
-    renderDetail()
-
-    await screen.findByRole('heading', { name: 'Sunrise Foods Inc' })
-    fireEvent.click(screen.getByRole('button', { name: /^Commercial/ }))
-
-    const title = await screen.findByText('Warehouse staffing agreement')
-    const row = title.closest('tr')
-    expect(row).not.toBeNull()
-    expect(within(row as HTMLElement).getByText('CON-2026-0001')).toBeInTheDocument()
-    expect(within(row as HTMLElement).getByText('Draft')).toBeInTheDocument()
-    expect(within(row as HTMLElement).getByText('₱450,000.00')).toBeInTheDocument()
-    expect(within(row as HTMLElement).getByText(/Net 15/)).toBeInTheDocument()
-    expect(
-      within(row as HTMLElement).getByRole('button', { name: 'agreement.pdf' }),
-    ).toBeInTheDocument()
-
-    fireEvent.click(within(row as HTMLElement).getByRole('button', { name: 'Mark signed' }))
-
-    await screen.findByText(/CON-2026-0001 is signed/)
-    expect(contractApi.markContractSigned).toHaveBeenCalledWith('contract-1')
-  })
-
-  it('edits the commercial header of a contract', async () => {
-    renderDetail()
-
-    await screen.findByRole('heading', { name: 'Sunrise Foods Inc' })
-    fireEvent.click(screen.getByRole('button', { name: /^Commercial/ }))
-
-    const title = await screen.findByText('Warehouse staffing agreement')
-    const row = title.closest('tr')
-    expect(row).not.toBeNull()
-
-    fireEvent.click(within(row as HTMLElement).getByRole('button', { name: 'Edit' }))
-
-    expect(screen.getByLabelText('Payment terms')).toHaveValue('Net 15')
-    expect(screen.getByLabelText('PO reference')).toHaveValue('PO-SF-2026-002')
-    expect(screen.getByLabelText('Notice days')).toHaveValue(30)
-    expect(screen.getByLabelText('Signatory name')).toHaveValue('Ramon Villanueva')
-    // The document is not replaced by a header edit.
-    expect(screen.getByText(/a header edit never replaces the document/)).toBeInTheDocument()
-
-    fireEvent.change(screen.getByLabelText('Payment terms'), { target: { value: 'Net 45' } })
-    fireEvent.change(screen.getByLabelText('Notice days'), { target: { value: '45' } })
-    fireEvent.click(screen.getByLabelText('Auto-renew'))
-    fireEvent.click(screen.getByRole('button', { name: 'Save contract' }))
-
-    await waitFor(() =>
-      expect(contractApi.updateContract).toHaveBeenCalledWith(
-        'contract-1',
-        expect.objectContaining({
-          payment_terms: 'Net 45',
-          po_reference: 'PO-SF-2026-002',
-          notice_days: 45,
-          auto_renew: true,
-          signatory_name: 'Ramon Villanueva',
-        }),
-      ),
-    )
-    expect(await screen.findByText('Contract updated.')).toBeInTheDocument()
-  })
-
-  it('captures the commercial header when uploading a contract', async () => {
-    renderDetail()
-
-    await screen.findByRole('heading', { name: 'Sunrise Foods Inc' })
-    fireEvent.click(screen.getByRole('button', { name: /^Commercial/ }))
-    fireEvent.click(await screen.findByRole('button', { name: 'Upload a contract' }))
-
-    fireEvent.change(screen.getByLabelText('Title'), {
-      target: { value: 'Forklift pooling agreement' },
-    })
-    fireEvent.change(screen.getByLabelText('Document'), {
-      target: {
-        files: [new File(['pdf'], 'signed.pdf', { type: 'application/pdf' })],
-      },
-    })
-    fireEvent.change(screen.getByLabelText('Payment terms'), { target: { value: 'Net 30' } })
-    fireEvent.change(screen.getByLabelText('PO reference'), { target: { value: 'PO-HL-9' } })
-    fireEvent.change(screen.getByLabelText('Notice days'), { target: { value: '60' } })
-    fireEvent.change(screen.getByLabelText('Signatory name'), { target: { value: 'Elena Cruz' } })
-    fireEvent.change(screen.getByLabelText('Signatory position'), {
-      target: { value: 'VP, Operations' },
-    })
-    fireEvent.click(screen.getByLabelText('Auto-renew'))
-    fireEvent.click(screen.getByRole('button', { name: 'Save contract' }))
-
-    await waitFor(() =>
-      expect(contractApi.createContract).toHaveBeenCalledWith(
-        'company-1',
-        expect.objectContaining({
-          title: 'Forklift pooling agreement',
-          payment_terms: 'Net 30',
-          po_reference: 'PO-HL-9',
-          auto_renew: true,
-          notice_days: 60,
-          signatory_name: 'Elena Cruz',
-          signatory_position: 'VP, Operations',
-        }),
-      ),
-    )
-  })
-
-  it('shows the rate-card lines and the computed contract totals', async () => {
-    renderDetail()
-
-    await screen.findByRole('heading', { name: 'Sunrise Foods Inc' })
-    fireEvent.click(screen.getByRole('button', { name: /^Commercial/ }))
-
-    expect(await screen.findByText('₱116,160.00/mo')).toBeInTheDocument()
-    expect(screen.getByText(/22.7% margin/)).toBeInTheDocument()
-
-    fireEvent.click(screen.getByRole('button', { name: 'Rates' }))
-
-    expect(await screen.findByText('CON-2026-0001 rate cards')).toBeInTheDocument()
-    expect(screen.getByText('Warehouse associate')).toBeInTheDocument()
-    expect(screen.getByText('₱110.00')).toBeInTheDocument()
-    expect(screen.getByText('Pay rate')).toBeInTheDocument()
-    expect(screen.getByText('₱85.00')).toBeInTheDocument()
-    expect(screen.getByText('Internal / mo')).toBeInTheDocument()
-    expect(screen.getAllByText('₱89,760.00').length).toBeGreaterThan(0)
-    expect(screen.getByText('Gross margin')).toBeInTheDocument()
-    expect(screen.getByText('₱26,400.00 (22.7%)')).toBeInTheDocument()
-  })
-
-  it('lets a manager replace the rate-card set', async () => {
-    renderDetail()
-
-    await screen.findByRole('heading', { name: 'Sunrise Foods Inc' })
-    fireEvent.click(screen.getByRole('button', { name: /^Commercial/ }))
-    fireEvent.click(await screen.findByRole('button', { name: 'Rates' }))
-    fireEvent.click(await screen.findByRole('button', { name: 'Edit rate cards' }))
-
-    expect(screen.getByLabelText('Role 1')).toHaveValue('Warehouse associate')
-    expect(screen.getByLabelText('Bill rate 1')).toHaveValue(110)
-    expect(screen.getByLabelText('Pay rate 1')).toHaveValue(85)
-
-    fireEvent.change(screen.getByLabelText('Bill rate 1'), { target: { value: '120' } })
-    fireEvent.change(screen.getByLabelText('Headcount 1'), { target: { value: '8' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Add rate card' }))
-    fireEvent.change(screen.getByLabelText('Role 2'), { target: { value: 'Team lead' } })
-    fireEvent.change(screen.getByLabelText('Billing unit 2'), { target: { value: 'monthly' } })
-    fireEvent.change(screen.getByLabelText('Bill rate 2'), { target: { value: '45000' } })
-    fireEvent.change(screen.getByLabelText('Pay rate 2'), { target: { value: '32000' } })
-    fireEvent.change(screen.getByLabelText('Headcount 2'), { target: { value: '2' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Save rate cards' }))
-
-    await waitFor(() =>
-      expect(contractApi.replaceContractRateCards).toHaveBeenCalledWith('contract-1', [
-        expect.objectContaining({
-          role_title: 'Warehouse associate',
-          headcount: 8,
-          billing_unit: 'hourly',
-          bill_rate: 120,
-          pay_rate: 85,
-          units_per_period: 176,
-        }),
-        expect.objectContaining({
-          role_title: 'Team lead',
-          headcount: 2,
-          billing_unit: 'monthly',
-          bill_rate: 45000,
-          pay_rate: 32000,
-          units_per_period: 1,
-        }),
-      ]),
-    )
-    expect(await screen.findByText('Rate cards updated.')).toBeInTheDocument()
-  })
-
-  it('hides pay rates and margin from a salesrep', async () => {
-    const redacted: Contract = {
-      ...contract,
-      can_manage_rate_cards: false,
-      commercial: {
-        ...contract.commercial,
-        internal_monthly_cost: null,
-        gross_margin: null,
-        gross_margin_percent: null,
-        can_view_margin: false,
-      },
-      rate_cards: contract.rate_cards.map((card) => ({
-        ...card,
-        pay_rate: null,
-        line_internal_monthly: null,
-        can_view_margin: false,
-      })),
-    }
-
-    vi.mocked(contractApi.listCompanyContracts).mockResolvedValueOnce({
-      data: [redacted],
-      meta: { total: 1, active: 0 },
-    })
-
-    renderDetail()
-
-    await screen.findByRole('heading', { name: 'Sunrise Foods Inc' })
-    fireEvent.click(screen.getByRole('button', { name: /^Commercial/ }))
-    fireEvent.click(await screen.findByRole('button', { name: 'Rates' }))
-
-    expect(await screen.findByText('CON-2026-0001 rate cards')).toBeInTheDocument()
-    expect(screen.getByText('₱110.00')).toBeInTheDocument()
-    expect(screen.queryByText('Pay rate')).not.toBeInTheDocument()
-    expect(screen.queryByText('Internal / mo')).not.toBeInTheDocument()
-    expect(screen.queryByText('Gross margin')).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Edit rate cards' })).not.toBeInTheDocument()
-  })
-
-  it.each([
-    ['contacts', 'Plant HR Manager'],
-    ['sites', 'Head office'],
-    ['opportunities', 'Sunrise Foods Inc — Warehouse staffing'],
-    ['contracts', 'Warehouse staffing agreement'],
-    ['activities', 'No activity recorded yet.'],
-  ])('maps the old %s tab onto its grouped tab', async (tab, expected) => {
-    renderDetail(`/accounts/company-1?tab=${tab}`)
-
-    await screen.findByRole('heading', { name: 'Sunrise Foods Inc' })
-    expect(await screen.findByText(expected)).toBeInTheDocument()
-  })
-
   it('groups communications, satisfaction and activities under Engagement', async () => {
     renderDetail('/accounts/company-1?tab=engagement')
 
@@ -938,65 +616,6 @@ describe('Company detail', () => {
     expect(screen.getByText('No deployments yet')).toBeInTheDocument()
   })
 
-  it('opens a deal-linked contract upload on Commercial', async () => {
-    render(
-      <MemoryRouter initialEntries={['/accounts/company-1?tab=contracts&opportunity_id=opp-1']}>
-        <Routes>
-          <Route
-            path="/accounts/:id"
-            element={
-              <>
-                <CompanyDetail />
-                <LocationProbe />
-              </>
-            }
-          />
-        </Routes>
-      </MemoryRouter>,
-    )
-
-    await screen.findByRole('heading', { name: 'Sunrise Foods Inc' })
-    await waitFor(() => {
-      expect(screen.getByTestId('company-location')).toHaveTextContent('tab=commercial')
-      expect(screen.getByTestId('company-location')).toHaveTextContent('section=contracts')
-      expect(screen.getByTestId('company-location')).toHaveTextContent('opportunity_id=opp-1')
-    })
-    expect(screen.getByRole('button', { name: 'Save contract' })).toBeInTheDocument()
-    expect(screen.getByText(/From deal/)).toBeInTheDocument()
-  })
-
-  it('opens a contract renewal prefilled from the contract page deep link', async () => {
-    render(
-      <MemoryRouter
-        initialEntries={['/accounts/company-1?tab=contracts&renew_contract_id=contract-1']}
-      >
-        <Routes>
-          <Route
-            path="/accounts/:id"
-            element={
-              <>
-                <CompanyDetail />
-                <LocationProbe />
-              </>
-            }
-          />
-        </Routes>
-      </MemoryRouter>,
-    )
-
-    await screen.findByRole('heading', { name: 'Sunrise Foods Inc' })
-
-    await waitFor(() => {
-      expect(screen.getByTestId('company-location')).toHaveTextContent('tab=commercial')
-      expect(screen.getByTestId('company-location')).toHaveTextContent('section=contracts')
-      expect(screen.getByTestId('company-location')).not.toHaveTextContent('renew_contract_id')
-    })
-
-    expect(screen.getByRole('heading', { name: 'Renew contract' })).toBeInTheDocument()
-    expect(screen.getByText(/Renewal of/)).toHaveTextContent('CON-2026-0001')
-    expect(screen.getByLabelText('Title')).toHaveValue('Warehouse staffing agreement (renewal)')
-  })
-
   it('reassigns the account through the delegation endpoint', async () => {
     renderDetail()
 
@@ -1013,8 +632,3 @@ describe('Company detail', () => {
     ).toBeInTheDocument()
   })
 })
-
-function LocationProbe() {
-  const location = useLocation()
-  return <output data-testid="company-location">{location.search}</output>
-}

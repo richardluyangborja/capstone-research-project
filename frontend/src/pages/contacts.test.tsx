@@ -22,7 +22,7 @@ const { paginated, companies } = vi.hoisted(() => {
     client_since: null,
     churn_reason: null,
     churned_at: null,
-    handoff: { status: null, reference: null, error: null, requested_at: null, can_retry: false },
+    handoff: { status: null, reference: null, error: null, requested_at: null },
     tags: [],
     parent_company_id: null,
     parent: null,
@@ -51,7 +51,6 @@ const { paginated, companies } = vi.hoisted(() => {
     can_delete: true,
     can_manage_lifecycle: true,
     can_view_billing: true,
-    can_upload_contract: true,
     created_at: '2026-10-15T03:51:40.000000Z',
     updated_at: '2026-10-15T03:51:40.000000Z',
   }

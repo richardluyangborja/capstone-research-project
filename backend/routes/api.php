@@ -150,23 +150,17 @@ Route::prefix('v1')->group(function (): void {
         // Static paths must precede the resource route.
         Route::patch('companies/{company}/lifecycle', [CompanyLifecycleController::class, 'update']);
         Route::post('companies/{company}/reactivate', [CompanyLifecycleController::class, 'reactivate']);
-        Route::post('companies/{company}/handoff/retry', [CompanyLifecycleController::class, 'retryHandoff']);
         Route::get('companies/{company}/billing', [CompanyBillingController::class, 'show']);
         // Module 01 refresh S9 — read-only Recruitment / Deployment / Timekeeping feed.
         Route::get('companies/{company}/delivery', [CompanyDeliveryController::class, 'show']);
         Route::get('companies/{company}/contracts', [CompanyContractController::class, 'index']);
-        Route::post('companies/{company}/contracts', [CompanyContractController::class, 'store']);
-        Route::get('contracts/{contract}/file', [ContractController::class, 'download']);
         // Module 01 refresh S10 — read-only cross-account deployment book.
         Route::get('deployments', [DeploymentBookController::class, 'index']);
         // Module 01 refresh S12 — read-only cross-account AR book (manager+).
         Route::get('billing', [BillingBookController::class, 'index']);
         Route::get('contracts/{contract}/rate-cards', [ContractRateCardController::class, 'index']);
-        Route::put('contracts/{contract}/rate-cards', [ContractRateCardController::class, 'update']);
-        Route::post('contracts/{contract}/mark-signed', [ContractController::class, 'markSigned']);
-        Route::post('contracts/{id}/restore', [ContractController::class, 'restore']);
         Route::apiResource('contracts', ContractController::class)
-            ->only(['index', 'show', 'update', 'destroy']);
+            ->only(['index', 'show']);
 
         // Module 02 — opportunity pipeline. Static paths must precede the resource route.
         Route::get('pipeline', [PipelineController::class, 'index']);

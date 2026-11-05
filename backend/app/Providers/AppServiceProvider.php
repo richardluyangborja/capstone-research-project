@@ -2,19 +2,19 @@
 
 namespace App\Providers;
 
+use App\Integrations\ContractFeed;
 use App\Integrations\DeploymentFeed;
 use App\Integrations\EmailGateway;
 use App\Integrations\FinanceBilling;
 use App\Integrations\HrGateway;
+use App\Integrations\MockContractFeed;
 use App\Integrations\MockDeploymentFeed;
 use App\Integrations\MockEmailGateway;
 use App\Integrations\MockFinanceBilling;
 use App\Integrations\MockHrGateway;
 use App\Integrations\MockRecruitmentFeed;
-use App\Integrations\MockServiceHandoff;
 use App\Integrations\MockTimekeepingFeed;
 use App\Integrations\RecruitmentFeed;
-use App\Integrations\ServiceHandoff;
 use App\Integrations\TimekeepingFeed;
 use App\Models\Activity;
 use App\Policies\TaskPolicy;
@@ -30,7 +30,6 @@ class AppServiceProvider extends ServiceProvider
     {
         // Department integrations are mocked (ADR-0005). Swapping a mock for a real
         // driver is a binding change here — no caller changes.
-        $this->app->bind(ServiceHandoff::class, MockServiceHandoff::class);
         $this->app->bind(FinanceBilling::class, MockFinanceBilling::class);
         $this->app->bind(EmailGateway::class, MockEmailGateway::class);
         $this->app->bind(HrGateway::class, MockHrGateway::class);
@@ -38,6 +37,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(RecruitmentFeed::class, MockRecruitmentFeed::class);
         $this->app->bind(DeploymentFeed::class, MockDeploymentFeed::class);
         $this->app->bind(TimekeepingFeed::class, MockTimekeepingFeed::class);
+        $this->app->bind(ContractFeed::class, MockContractFeed::class);
     }
 
     /**

@@ -4,7 +4,6 @@ namespace App\Http\Resources;
 
 use App\Enums\CompanyStatus;
 use App\Enums\FollowUpDueState;
-use App\Enums\HandoffStatus;
 use App\Http\Companies\AccountHealth;
 use App\Models\Company;
 use Illuminate\Http\Request;
@@ -33,14 +32,12 @@ class CompanyResource extends JsonResource
             'client_since' => $this->client_since?->toDateString(),
             'churn_reason' => $this->churn_reason,
             'churned_at' => $this->churned_at?->toIso8601String(),
-            // Mocked Service handoff (spec 09 §2): a failed request is retryable.
+            // Historical handoff status from the external system; the CRM does not retry it.
             'handoff' => [
                 'status' => $this->handoff_status,
                 'reference' => $this->handoff_reference,
                 'error' => $this->handoff_error,
                 'requested_at' => $this->handoff_requested_at?->toIso8601String(),
-                'can_retry' => $this->handoff_status === HandoffStatus::Failed
-                    && (bool) $request->user()?->can('retryHandoff', $this->resource),
             ],
             'tags' => $this->tags ?? [],
             'parent_company_id' => $this->parent_company_id,
@@ -107,7 +104,6 @@ class CompanyResource extends JsonResource
                 $this->resource->getAttribute('billing_risk') !== null,
                 fn (): mixed => $this->resource->getAttribute('billing_risk'),
             ),
-            'can_upload_contract' => (bool) $request->user()?->can('uploadContract', $this->resource),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];

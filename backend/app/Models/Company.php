@@ -2,8 +2,6 @@
 
 namespace App\Models;
 
-use App\Enums\ActivityStatus;
-use App\Enums\ActivityType;
 use App\Enums\CompanySize;
 use App\Enums\CompanyStatus;
 use App\Enums\CompanyTier;
@@ -15,8 +13,6 @@ use App\Events\CompanyActivated;
 use App\Events\CompanyAssigned;
 use App\Events\CompanyChurned;
 use App\Events\CompanyStatusChanged;
-use App\Integrations\HandoffResult;
-use App\Integrations\ServiceHandoff;
 use Database\Factories\CompanyFactory;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
@@ -30,7 +26,6 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
-use Throwable;
 
 /**
  * A company/account: the organization a lead becomes and a client is built on (spec 06).
@@ -342,84 +337,6 @@ class Company extends Model
     public function hasActiveContract(): bool
     {
         return $this->contracts()->where('status', ContractStatus::Signed->value)->exists();
-    }
-
-    /**
-     * Hand a signed contract to the Service department (mocked, ADR-0005) and move the
-     * client accordingly (spec 09 §1–2). A handoff failure never rolls the contract back:
-     * the client waits in `onboarding` with `handoff_status = failed` until it is retried.
-     *
-     * Called by the `ContractSigned` listener and by the handoff retry endpoint, so both
-     * paths run the exact same orchestration.
-     */
-    public function handoffToService(Contract $contract, ?User $actor = null): void
-    {
-        $result = $this->requestHandoff($contract);
-
-        DB::transaction(function () use ($contract, $result, $actor): void {
-            $previous = $this->status;
-
-            // The first signature stamps the client date; reactivation keeps the original.
-            $this->client_since ??= $contract->signed_at?->toDateString() ?? now()->toDateString();
-            $this->handoff_status = $result->success ? HandoffStatus::Sent : HandoffStatus::Failed;
-            $this->handoff_reference = $result->reference;
-            $this->handoff_error = $result->message;
-            $this->handoff_requested_at = now();
-
-            // Repeat business never resets an established client (spec 09 §3): only a
-            // prospect/onboarding account advances, and a failure only parks a prospect.
-            $advance = $result->success
-                ? in_array($previous, [CompanyStatus::Prospect, CompanyStatus::Onboarding], true)
-                : $previous === CompanyStatus::Prospect;
-
-            if ($advance) {
-                $this->status = $result->success ? CompanyStatus::Active : CompanyStatus::Onboarding;
-            }
-
-            $this->save();
-
-            $this->activities()->create([
-                'type' => ActivityType::System,
-                'subject' => $result->success
-                    ? sprintf('Contract %s signed — handed off to Service', $contract->reference)
-                    : sprintf('Service handoff failed for contract %s', $contract->reference),
-                'body' => $result->success
-                    ? sprintf('Handoff reference %s.', $result->reference)
-                    : $result->message,
-                'status' => ActivityStatus::Done,
-                'owner_id' => $actor?->id ?? $this->owner_id,
-                'occurred_at' => now(),
-            ]);
-
-            if ($this->status !== $previous) {
-                CompanyStatusChanged::dispatch(
-                    $this,
-                    $previous,
-                    $this->status,
-                    $actor,
-                    sprintf('Signed contract %s.', $contract->reference),
-                );
-            }
-
-            if ($result->success && $this->status !== $previous) {
-                CompanyActivated::dispatch($this, $contract, $actor);
-            }
-        });
-    }
-
-    /**
-     * Ask Service to take the engagement over. Driver exceptions are reported and treated
-     * as a failed handoff — a broken integration must not take the contract down with it.
-     */
-    private function requestHandoff(Contract $contract): HandoffResult
-    {
-        try {
-            return app(ServiceHandoff::class)->handoff($this, $contract);
-        } catch (Throwable $exception) {
-            report($exception);
-
-            return HandoffResult::failed('The Service handoff failed: '.$exception->getMessage());
-        }
     }
 
     /**

@@ -13,11 +13,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
-use Illuminate\Support\Carbon;
 
 /**
- * A signed engagement with a client (spec 09). The uploaded document lives on a private
- * disk and is streamed through an authorized endpoint — the API never exposes the path.
+ * A read-only projection of an engagement owned by Core Transaction 3 (ADR-0027).
  */
 class Contract extends Model
 {
@@ -26,6 +24,8 @@ class Contract extends Model
 
     protected $fillable = [
         'company_id',
+        'external_id',
+        'synced_at',
         'opportunity_id',
         'renewal_of_contract_id',
         'title',
@@ -43,10 +43,6 @@ class Contract extends Model
         'signatory_position',
         'terms',
         'notes',
-        'file_path',
-        'file_name',
-        'file_size',
-        'file_mime',
         'owner_id',
     ];
 
@@ -63,6 +59,7 @@ class Contract extends Model
             'value' => 'decimal:2',
             'auto_renew' => 'boolean',
             'notice_days' => 'integer',
+            'synced_at' => 'datetime',
         ];
     }
 
@@ -294,24 +291,5 @@ class Contract extends Model
             'placement_fees' => $placementFees,
             'rate_card_count' => $cards->count(),
         ];
-    }
-
-    /**
-     * Whether the uploaded document is present on disk.
-     */
-    public function hasFile(): bool
-    {
-        return $this->file_path !== null;
-    }
-
-    /**
-     * Mark the contract signed. Side effects (client activation + service handoff) are
-     * the caller's — see ContractController::markSigned.
-     */
-    public function markSigned(?Carbon $signedAt = null): void
-    {
-        $this->status = ContractStatus::Signed;
-        $this->signed_at = $signedAt ?? now();
-        $this->save();
     }
 }

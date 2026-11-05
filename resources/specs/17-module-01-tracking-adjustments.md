@@ -4,8 +4,9 @@ Post-refresh adjustments to Module 01. Extends `16-module-01-refresh.md`, `09-cl
 and `00-data-model.md`. ADRs: **0027** (contracts are read-only), **0028** (the lead journey is derived),
 plus 0004, 0013, 0015, 0024 and 0025 where they remain relevant.
 
-> **Status: planned.** This spec declares three slices. T1 changes the contract boundary, T2 makes the
-> pending-timesheet metric single-source, and T3 adds the lead journey. No slice is implemented yet.
+> **Status: T1 implemented; T2–T3 planned.** T1 ships the read-only contract projection on
+> `feature/module-01-contracts-read-only`; T2 makes the pending-timesheet metric single-source,
+> and T3 adds the lead journey.
 > The contract-write rules in specs `09` and `16`, and the Service-handoff trigger in `ADR-0013`/
 > `ADR-0015`, are superseded by ADR-0027 for the surfaces described here.
 
@@ -163,17 +164,17 @@ not merely hidden in the UI.
 
 ### Acceptance
 
-- [ ] No contract write route or document endpoint is registered.
-- [ ] Contract reads are role-scoped and carry source/read-only/as-of metadata.
-- [ ] A salesrep sees bill/client values but not pay/margin; a manager+ sees both.
-- [ ] Rate cards are read-only; the commercial summary still computes on read.
-- [ ] No contract file is stored or served; seeded documents are removed.
-- [ ] Contract signing does not move `Company.status`, does not fire a handoff and does not create a
+- [x] No contract write route or document endpoint is registered.
+- [x] Contract reads are role-scoped and carry source/read-only/as-of metadata.
+- [x] A salesrep sees bill/client values but not pay/margin; a manager+ sees both.
+- [x] Rate cards are read-only; the commercial summary still computes on read.
+- [x] No contract file is stored or served; seeded documents are removed.
+- [x] Contract signing does not move `Company.status`, does not fire a handoff and does not create a
       retry action.
-- [ ] Signed projected contracts still block company deletion and feed health/renewal reads.
-- [ ] Communications/activities/surveys still resolve their contract reference.
-- [ ] The contract book, Account 360 Commercial and contract detail show no write action.
-- [ ] Backend and frontend contract tests are updated and pass.
+- [x] Signed projected contracts still block company deletion and feed health/renewal reads.
+- [x] Communications/activities/surveys still resolve their contract reference.
+- [x] The contract book, Account 360 Commercial and contract detail show no write action.
+- [x] Backend and frontend contract tests are updated and pass.
 
 ---
 

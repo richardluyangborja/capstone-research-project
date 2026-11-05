@@ -13,7 +13,7 @@ use App\Models\Opportunity;
  * Move a deal through the pipeline (module 02 §3). Any-to-any with rules — the single
  * definition is `OpportunityStage::allowedTransitions()` + `Opportunity::transitionTo()`
  * (ADR-0015 §1). A `won` deal prompts contract creation; it never runs the Service
- * handoff, which stays on `mark-signed` (ADR-0015 §4).
+ * handoff, which is owned by the external contract system (ADR-0027).
  */
 class OpportunityStageController extends Controller
 {
