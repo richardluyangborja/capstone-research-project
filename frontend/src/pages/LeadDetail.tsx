@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { ArrowLeft, CalendarClock, UserPlus } from 'lucide-react'
 import PageHeader from '../components/common/PageHeader'
@@ -8,6 +8,7 @@ import StatusBadge from '../components/common/StatusBadge'
 import AlertItem from '../components/common/AlertItem'
 import LeadOwnerControl from '../components/common/LeadOwnerControl'
 import LeadAgingBadge from '../components/common/LeadAgingBadge'
+import LeadJourney from '../components/leads/LeadJourney'
 import {
   archiveLead,
   assignLead,
@@ -30,6 +31,7 @@ import {
   leadStatusMeta,
   urgencyLabels,
 } from '../lib/leadMeta'
+import { qualificationCriterionLabel } from '../lib/leadJourney'
 import { followUpDueMeta } from '../lib/followUpMeta'
 import { formatDate, formatDateTime } from '../lib/format'
 import type {
@@ -38,6 +40,7 @@ import type {
   DisqualificationReason,
   Lead,
   LeadRating,
+  LeadStatus,
   LeadTimeline,
   Urgency,
 } from '../types'
@@ -95,6 +98,7 @@ export default function LeadDetail() {
   const [targets, setTargets] = useState<AssignmentTarget[]>([])
   const [timeline, setTimeline] = useState<LeadTimeline | null>(null)
   const [assignBusy, setAssignBusy] = useState(false)
+  const checklistFormRef = useRef<HTMLFormElement>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -188,6 +192,27 @@ export default function LeadDetail() {
       setStatusNote('')
       await refreshTimeline()
     }
+  }
+
+  const onJourneyStatus = async (status: LeadStatus) => {
+    const ok = await run(
+      () => updateLeadStatus(id, { status }),
+      status === 'new'
+        ? 'Lead restored to New.'
+        : `Status updated to ${leadStatusMeta[status].label}.`,
+      'Could not change the status.',
+    )
+
+    if (ok) await refreshTimeline()
+  }
+
+  const onCompleteChecklist = () => {
+    const form = checklistFormRef.current
+
+    if (!form) return
+
+    form.scrollIntoView?.({ behavior: 'smooth', block: 'center' })
+    form.querySelector<HTMLElement>('input, select, textarea')?.focus()
   }
 
   const onArchiveLead = async () => {
@@ -331,11 +356,23 @@ export default function LeadDetail() {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="flex flex-col gap-6 lg:col-span-2">
+          <LeadJourney
+            lead={lead}
+            timeline={timeline}
+            saving={saving}
+            onStatus={(status) => void onJourneyStatus(status)}
+            onCompleteChecklist={onCompleteChecklist}
+          />
+
           <FormCard
             title="Qualification checklist"
             description="Minimum to qualify: headcount + needed roles + a contact channel."
           >
-            <form onSubmit={onSaveChecklist} className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <form
+              ref={checklistFormRef}
+              onSubmit={onSaveChecklist}
+              className="grid grid-cols-1 gap-4 md:grid-cols-2"
+            >
               <Field label="Estimated headcount" error={errors.estimated_headcount}>
                 <input
                   type="number"
@@ -736,7 +773,7 @@ export default function LeadDetail() {
 
             {lead.missing_criteria.length > 0 && (
               <p className="mt-3 text-xs text-muted-foreground">
-                Missing: {lead.missing_criteria.join(', ')}
+                Missing: {lead.missing_criteria.map(qualificationCriterionLabel).join(', ')}
               </p>
             )}
 
