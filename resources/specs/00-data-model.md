@@ -18,13 +18,15 @@ Lead ──(convert)──► Company ──► CompanySite
                       ├──► Contact
                       ├──► SurveyInvitation ──► SurveyResponse ──► SurveyAnswer
                       └──► Activity / Attachment   (polymorphic)
-Opportunity ──► Contract ──► ContractRateCard
+Opportunity ──► Contract ──► ContractRateCard   (Contract is a read-only projection)
                     │
-                    └──(signed)──► Company becomes "Client"
+                    └──(read-only)──► commercial / renewal / delivery context
 Survey ──► SurveyQuestion
 ```
 
 `Client` is **not** a table — it is `Company.status ∈ {onboarding, active, at_risk, dormant, churned}`.
+`Contract` is a read-only projection owned by Core Transaction 3 (ADR-0027); the CRM has no contract
+write path.
 
 ## Enums
 
@@ -153,8 +155,9 @@ Survey ──► SurveyQuestion
 | `next_step` | string | | free-text next action; scheduled tasks are the follow-up module (module 02) |
 
 Module 02 (pipeline) adds the deal list/board, stage moves (any-to-any with rules, ADR-0015) and the
-deal timeline; it adds only these columns — no new tables. Winning a deal is a record only: the
-contract is created from the deal and the mocked Service handoff still fires on signing (ADR-0015 §4).
+deal timeline; it adds only these columns — no new tables. Winning a deal is a record only: contract
+work happens in Core Transaction 3, and the CRM reads the resulting projection (ADR-0027); a won deal
+no longer creates a contract or triggers a handoff.
 
 ## Activity (supporting, used in Phase 1)
 
@@ -220,16 +223,24 @@ composer (slice S5, ADR-0017 §10) — a saved communication never references on
 template cannot rewrite history. Merge fields are `{{token}}` and are resolved at render time from the
 record (and the caller); anything that cannot be filled is left verbatim and reported, never invented.
 
-## Contract (spec 09)
+## Contract (spec 09; read-only projection — ADR-0027 / spec 17)
+
+Core Transaction 3 (Document & Contract Management / Legal & Compliance) owns contract creation,
+terms, signatures, renewals, documents and signatories. The CRM keeps `contracts` and
+`contract_rate_cards` as a **read-only projection** so communications, activities, surveys,
+deployments, billing and health keep a stable local key. The CRM has no contract write route; see
+spec 17 T1 for the current API surface and the `ContractFeed` seam.
 
 | Field | Type | Req | Notes |
 | --- | --- | --- | --- |
-| `reference` | string | ✓ | `CON-YYYY-NNNN`, generated |
+| `reference` | string | ✓ | `CON-YYYY-NNNN`, generated for the projection; display/search only |
+| `external_id` | string, nullable, unique | | Core Transaction 3 identifier (projection metadata) |
+| `synced_at` | timestamp, nullable | | last successful projection refresh |
 | `company_id` | FK companies | ✓ | |
 | `opportunity_id` | ULID | | the deal the engagement came from |
 | `renewal_of_contract_id` | ULID contracts | | renewal chain; must be the same company |
 | `title` | string | ✓ | |
-| `status` | `ContractStatus` | ✓ | default `draft`; `signed` only via `mark-signed` |
+| `status` | `ContractStatus` | ✓ | read from Contract Management; same lowercase enum, never set by a CRM route |
 | `start_date` / `end_date` | date | | `end_date` drives the expiry/renewal countdown |
 | `signed_at` | timestamp | | set when signed |
 | `value` | decimal(15,2) | | negotiated headline value; never recomputed from rate cards |
@@ -242,13 +253,13 @@ record (and the caller); anything that cannot be filled is left verbatim and rep
 | `signatory_position` | string | | client signatory role |
 | `terms` | text | | terms summary |
 | `notes` | text | | |
-| `file_path` / `file_name` / `file_size` / `file_mime` | string / int | | document on the private disk (ADR-0013 §2) |
+| `file_path` / `file_name` / `file_size` / `file_mime` | string / int | | **deprecated** — contract documents live in Core Transaction 3; the CRM does not store or serve them (ADR-0027) |
 | `owner_id` | FK users | ✓ | the account owner, so contract and company scoping agree |
 
-Soft deletes; a `signed` contract blocks deleting its company. Indexes: `status`, `company_id`,
-`opportunity_id`, `end_date`. Full contract/document management (e-signature, clause versions,
-several files per record) stays a separate module — Phase 1 ships one document plus term/status
-tracking. The module 01 refresh adds the commercial header above and the rate-card table below.
+Soft deletes remain for projection maintenance; a projected `signed` contract still blocks deleting
+its company. Indexes: `status`, `company_id`, `opportunity_id`, `end_date`. The CRM has no create,
+edit, sign, renew, retire or document-download route. The module 01 refresh adds the commercial
+header above and the rate-card table below; both are read-only after spec 17 T1.
 
 ### ContractRateCard (module 01 refresh, ADR-0024)
 
@@ -265,32 +276,33 @@ tracking. The module 01 refresh adds the commercial header above and the rate-ca
 | `notes` | text | | |
 | `position` | int | ✓ | display order |
 
-Soft deletes. The set is replaced wholesale by `PUT /contracts/{id}/rate-cards`; a contract may have
-zero rows. `client_monthly_value`, `internal_monthly_cost`, `gross_margin`,
-`gross_margin_percent` and `estimated_total_value` are **computed on read**; nothing is stored.
-`pay_rate`/margin/estimated internal cost are omitted for salesreps. See spec 16 §Contract commercial
-model for the formulas.
+Soft deletes. The set is a read-only projection of the external agreement; the former
+`PUT /contracts/{id}/rate-cards` write is retired (ADR-0027). A contract may have zero rows.
+`client_monthly_value`, `internal_monthly_cost`, `gross_margin`, `gross_margin_percent` and
+`estimated_total_value` are **computed on read**; nothing is stored. `pay_rate`/margin/estimated
+internal cost are omitted for salesreps. See spec 16 §Contract commercial model for the formulas.
 
 ### External read-only feeds (module 01 refresh, ADR-0025)
 
-Recruitment job orders, deployments, timekeeping summaries and Finance AR/invoices are **not CRM
-tables**. They are read-only integration DTOs under `backend/app/Integrations/`, assembled on read and
-labelled with `meta.source`, `read_only` and `as_of`. The CRM never writes them; the only outbound
-integration remains the Service handoff. No candidate, worker or employee-level rows are stored or
-exposed.
+Recruitment job orders, deployments, timekeeping summaries, Finance AR/invoices and contracts are
+**not CRM-owned operational tables**. They are read-only integration DTOs under
+`backend/app/Integrations/`, assembled on read and labelled with `meta.source`, `read_only` and
+`as_of`. The CRM never writes them, and the former outbound Service handoff on signing is retired
+(ADR-0027). No candidate, worker or employee-level rows are stored or exposed.
 
 ## Attachment (built — module 03 slice S3)
 
 A polymorphic `attachments` table (`attachable_type` / `attachable_id` (ULIDs), `disk`, `path`,
-`original_name`, `mime_type`, `size`, `uploaded_by`) is for records that need *several* files. Phase 1
-kept the single contract document on the contract row and serves it through
-`GET /api/v1/contracts/{id}/file`; uploads accept pdf/png/jpeg up to 10 MB on a private disk.
+`original_name`, `mime_type`, `size`, `uploaded_by`) is for records that need *several* files. The
+earlier single contract document on the contract row and its
+`GET /api/v1/contracts/{id}/file` download are retired by ADR-0027; contract documents live in Core
+Transaction 3.
 
 **Module 03 slice S3 implements this table** (spec 11) for a communication's files — up to 5 per message,
 10 MB each, same MIME allow-list, stored under a generated path with the uploader's filename kept for
 display, and downloaded only through `GET /api/v1/attachments/{id}/file`. There is no `deleted_at`: the
-file lives only as long as the row. Once the table exists, contracts and contacts can move onto it;
-nothing is scheduled to.
+file lives only as long as the row. Contract documents no longer use this table or the contract row;
+they stay in Core Transaction 3.
 
 ## Survey (module 05, spec 13)
 

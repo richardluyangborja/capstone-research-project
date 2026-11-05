@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Api\V1;
 
-use App\Enums\HandoffStatus;
 use App\Http\Controllers\Controller;
 use App\Integrations\DeploymentFeed;
 use App\Integrations\DeploymentSummary;
@@ -60,8 +59,6 @@ class CompanyDeliveryController extends Controller
                     'reference' => $company->handoff_reference,
                     'error' => $company->handoff_error,
                     'requested_at' => $company->handoff_requested_at?->toIso8601String(),
-                    'can_retry' => $company->handoff_status === HandoffStatus::Failed
-                        && (bool) $request->user()?->can('retryHandoff', $company),
                 ],
                 'job_orders' => array_map(
                     static fn (JobOrderSummary $order): array => $order->toArray(),

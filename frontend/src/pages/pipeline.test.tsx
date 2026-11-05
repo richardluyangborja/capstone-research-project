@@ -307,11 +307,12 @@ describe('Deal detail', () => {
     ).not.toBeInTheDocument()
   })
 
-  it('offers Create contract from deal once the deal is won', async () => {
+  it('explains that contracts are managed by the external contract system', async () => {
     vi.mocked(opportunityApi.getOpportunity).mockResolvedValue(wonDeal)
     renderDetail()
 
-    const link = await screen.findByRole('link', { name: /create contract from deal/i })
-    expect(link).toHaveAttribute('href', '/accounts/company-1?tab=contracts&opportunity_id=opp-1')
+    expect(
+      await screen.findByText('No linked projection — contracts are managed in Contract Management.'),
+    ).toBeInTheDocument()
   })
 })

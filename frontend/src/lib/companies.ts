@@ -186,11 +186,6 @@ export const reactivateCompany = async (id: string, note?: string): Promise<Comp
 }
 
 /** Retry the mocked Service handoff that failed when the contract was signed (§2). */
-export const retryCompanyHandoff = async (id: string): Promise<Company> => {
-  const { data } = await api.post<{ data: Company }>(`/companies/${id}/handoff/retry`)
-  return data.data
-}
-
 /** Read-only AR snapshot from the mocked Finance department — manager+ only (spec 09 §7). */
 export const getCompanyBilling = async (id: string): Promise<CompanyBilling> => {
   const { data } = await api.get<CompanyBilling>(`/companies/${id}/billing`)

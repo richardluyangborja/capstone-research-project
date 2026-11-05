@@ -48,6 +48,15 @@ Laravel's own and is separate from `frontend/`.
 `POST /api/v1/auth/login`, `GET /api/v1/auth/me`, `POST /api/v1/auth/logout`; teams + roles on
 `users` (seeded, no faker).
 
+> **Planned Module 01 tracking adjustments (spec `17`, ADR-0027/0028 — docs written, not built).**
+> Contracts become a **read-only projection** owned by Core Transaction 3: no CRM upload/edit/sign/
+> renew/rate-card-write, no contract document storage/download, no signing-triggered account
+> activation or Service handoff. The dashboard and `/deployments` will share one pending-timesheet
+> metric (deployments with no current timesheet). The lead detail gains a derived
+> Captured → Contacted → Qualified → Converted journey with a next-action CTA; the state machine is
+> unchanged. T1 is now implemented on `feature/module-01-contracts-read-only`; T2–T3 remain
+> planned. The historical contract-write details below are superseded by ADR-0027.
+
 - **Submodule 01 — Lead Capture & Intake:** `/api/v1/leads` (index/store/show/destroy +
   `POST /leads/{id}/restore`), advisory duplicate check, role/ownership scoping (ADR-0004).
 - **Submodule 02 — Lead Qualification & Scoring:** `PATCH /leads/{id}/qualification`,
@@ -146,11 +155,12 @@ Laravel's own and is separate from `frontend/`.
   win rate, average deal, stalled count from `crm.pipeline.stuck_days`, default 21).
   `GET /opportunities/{id}/timeline` + `POST /opportunities/{id}/activities` are the deal timeline
   (logging a touch refreshes `last_activity_at`, so staleness tracks real work). **`won` does not hand
-  off to Service** — it surfaces **Create contract from deal**, which deep-links to the company contract
-  upload prefilled with `opportunity_id`; the mocked Service handoff still fires only on `mark-signed`
-  (ADR-0013 §5). Events: `OpportunityStageChanged`, `OpportunityWon`, `OpportunityLost`
-  (`OpportunityCreated` now also fires on manual creation). The dashboard read endpoints are
-  covered under module 06 below, and AI Management Reports (spec `15`) under module 07.
+  off to Service** — it currently surfaces **Create contract from deal**, which deep-links to the
+  company contract upload prefilled with `opportunity_id`; spec 17 T1 retires that action in favour of
+  a link to the read-only contract projection (ADR-0027). Events: `OpportunityStageChanged`,
+  `OpportunityWon`, `OpportunityLost` (`OpportunityCreated` now also fires on manual creation). The
+  dashboard read endpoints are covered under module 06 below, and AI Management Reports (spec `15`)
+  under module 07.
 - **Module 03 — Communication History Management (slices S1–S5 — log & history, email, attachments,
   threads, templates):** the detailed,
   channel-aware history record beside `Activity` (ADR-0017). Flat `/api/v1/communications`
@@ -462,8 +472,9 @@ native drag-and-drop + a keyboard "Move to…" menu per card, a Lost-reason dial
 won/lost, owner/close-window/search filters and a forecast header), `/opportunities` (deal book:
 filters, pagination, summary), `/opportunities/new` (deal created directly on an account),
 `/opportunities/:id` (edit form, stage control, deal timeline + log-activity, linked contracts and
-"Create contract from deal" when won). `/accounts/:id?tab=contracts&opportunity_id=…` opens the
-contract upload prefilled from a won deal. `/communications` (history book: summary cards, channel/
+"Create contract from deal" when won — spec 17 T1 replaces this with a read-only contract link).
+`/accounts/:id?tab=contracts&opportunity_id=…` currently opens the contract upload prefilled from a
+won deal; after T1 it opens the read-only Commercial tab. `/communications` (history book: summary cards, channel/
 direction/status/**due**/record-type/owner/date filters — the status picker names the scheduled count
 — a `?subject_type=&subject_id=` deep link and an admin
 "Pull replies" action), `/communications/new` (log form — a **Draft** status for an outbound email,
@@ -627,10 +638,12 @@ Sunrise one as unresolved work through the real path — its answer raises the o
 - **Other-department integrations are read-only feeds mocked in `backend/app/Integrations/`**
   (ADR-0005, ADR-0013 §4, ADR-0025): an interface + a `Mock*` driver (bound in `AppServiceProvider`) +
   `final readonly` DTOs. This is the one deliberate new base folder under `backend/app/` — do not add
-  others without approval. Driver behaviour is deterministic, never faker:
-  `CRM_HANDOFF_SIMULATE_FAILURE=true` makes the Service handoff fail (that is how the retry path is
-  demoed and tested), and the Finance billing snapshot is derived from the company reference. The CRM
-  does not write Recruitment, Deployment, Timekeeping or Finance operations or store their records.
+  others without approval. Driver behaviour is deterministic, never faker: the Finance billing snapshot
+  is derived from the company reference, and contracts join the feeds as a read-only projection
+  (ADR-0027). The historic `CRM_HANDOFF_SIMULATE_FAILURE` flag may remain for seeded/display handoff
+  status, but the CRM no longer triggers or retries a handoff; spec 17 T1 removes the retry path. The
+  CRM does not write Recruitment, Deployment, Timekeeping, Finance or contract operations or store
+  their records.
 - **Icons:** use `lucide` (lucide-react) only.
 - **Locale / currency is PH-based:** `en-PH`, `Asia/Manila` (store UTC), dates `DD MMM YYYY`, PH
   address/phone formats, and **single currency PHP (₱)** — no multi-currency.
@@ -681,6 +694,8 @@ Design docs an agent should read before touching CRM features:
 - `resources/crm-flow.md` — object model, pipelines, submodules, integrations, role visibility
 - `resources/specs/` — per-submodule implementation specs (data model, API, UI, acceptance criteria)
 - `resources/specs/16-module-01-refresh.md` — the Module 01 refresh delivery contract (ADR-0023–0026)
+- `resources/specs/17-module-01-tracking-adjustments.md` — read-only contracts, the shared
+  pending-timesheet metric and the derived lead journey (ADR-0027–0028)
 - `decisions/` — accepted design decisions (ADRs)
 - `DEPLOYMENT.md` — local vs deployed environment variables, Neon Postgres, per-app build/start
   commands, persistent storage and CORS
@@ -719,6 +734,10 @@ summaries, message drafting) are future submodules.
 Dedup/merge and advanced/stored tier scoring are module-01 deferrals
 (ADR-0006), and automatic client aging stays one too (ADR-0018 §6). Other departments are consumed via
 **read-only mocked feeds** (ADR-0005, ADR-0025), not built here.
+
+T1 of spec 17 is implemented on `feature/module-01-contracts-read-only`: contract reads now use
+the Core Transaction 3 projection boundary, with no CRM contract writes, documents, signing trigger,
+or handoff retry; the frontend exposes the same read-only surface.
 
 **Module 01 refresh (S0–S19 built — `specs/16`, ADR-0023–0026).** S0 is the planning contract and
 S1 is the shell: the sidebar is grouped by module, `/accounts` (plus `/accounts/new` and
@@ -778,9 +797,10 @@ Postings/employees/hours are never stored, there are no write routes, account vi
 mutation action. S10 adds the scoped, read-only `/deployments` book: `GET /api/v1/deployments` flattens
 the same Deployment/Timekeeping feeds over every account the caller may see, joins each row to its
 account and owner, and supports `filter[status|company|contract|owner]` + `search` with a scope-wide
-summary (total/active/pending/ended, overall fill rate, pending timesheets and approved/pending hours).
-The page has status/account/contract/owner filters, links back to Account 360 and prints the source/
-as-of line; there is no create, edit, complete or approve action. S11 expands the Finance/AR feed:
+summary (total/active/pending/ended, overall fill rate, deployments without a current timesheet and
+approved/pending hours). The page has status/account/contract/owner filters, links back to Account 360
+and prints the source/as-of line; there is no create, edit, complete or approve action. Spec 17 T2
+adds `filter[timesheet]` and makes that count share the dashboard's calculation. S11 expands the Finance/AR feed:
 `GET /companies/{id}/billing` now carries deterministic invoices (reference, period, issued/due,
 amount, balance, `paid|open|overdue`) beside the summary and aging, the Account 360 Commercial tab
 shows a dedicated manager+ Billing panel with the source/as-of label, and a salesrep sees only the
@@ -797,8 +817,9 @@ powers `filter[health]` on `GET /companies`; the Account Book gains a health col
 360 Overview an **Account health** panel, while a salesrep sees the Finance flag with amounts redacted.
 The service never writes `Company.status` or triggers a lifecycle move. S14 adds the manager+
 dashboard blocks: `GET /dashboard` carries `commercial` (AR outstanding/overdue, renewals inside
-30/60/90 days, active deployments, fill rate and pending timesheets), `account_risks` (the top
-critical/warning health flags with account, reason, owner and action) and `team_workload` (the shared
+30/60/90 days, active deployments, fill rate and deployments without a current timesheet),
+`account_risks` (the top critical/warning health flags with account, reason, owner and action) and
+`team_workload` (the shared
 unassigned queue plus per-rep open leads, overdue follow-ups and accounts owned), all built by
 `Http/Dashboard/DashboardManager` and rendered by
 `frontend/src/components/dashboard/ManagerDashboardBlocks.tsx` below the charts; a salesrep's
@@ -821,5 +842,7 @@ defaults to the unassigned queue or a selected salesrep in scope. S19 closes the
 02–05 keep their grouped, sectioned sidebar pattern, the dashboard route inventory lives in
 `frontend/src/routes/dashboardRoutes.tsx`, and the sidebar test checks every entry against it so a
 navigation link cannot point at a missing route. Read
-`resources/specs/16-module-01-refresh.md` before changing Module 01; the old `01`, `06` and `09` files
-remain the baseline for behavior the refresh does not replace.
+`resources/specs/16-module-01-refresh.md` and the current
+`resources/specs/17-module-01-tracking-adjustments.md` before changing Module 01; the old `01`, `06`
+and `09` files remain the baseline for behavior the refresh does not replace. The contract-write
+passages in `09` are historical once spec 17 T1 lands.

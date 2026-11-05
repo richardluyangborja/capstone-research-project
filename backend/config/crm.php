@@ -71,17 +71,15 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Contracts (spec 09)
+    | Contract projection (ADR-0027)
     |--------------------------------------------------------------------------
     |
-    | Uploaded documents live on a private disk and are streamed through an authorized
-    | endpoint. `expiring_soon_days` drives the renewal/expiry countdown in the UI.
+    | Contract documents are owned by Core Transaction 3. `expiring_soon_days` drives
+    | the renewal/expiry countdown in the UI.
     |
     */
 
     'contracts' => [
-        'disk' => env('CRM_CONTRACT_DISK', 'local'),
-        'max_kb' => (int) env('CRM_CONTRACT_MAX_KB', 10240),
         'expiring_soon_days' => (int) env('CRM_CONTRACT_EXPIRING_DAYS', 30),
     ],
 

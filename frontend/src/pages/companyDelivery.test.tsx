@@ -12,7 +12,6 @@ const { activeDelivery, emptyDelivery } = vi.hoisted(() => {
         reference: 'SVC-CON-2026-0001',
         error: null,
         requested_at: '2026-10-01T08:00:00+00:00',
-        can_retry: false,
       },
       job_orders: [
         {
@@ -72,7 +71,6 @@ const { activeDelivery, emptyDelivery } = vi.hoisted(() => {
         reference: null,
         error: null,
         requested_at: null,
-        can_retry: false,
       },
       job_orders: [],
       deployments: [],

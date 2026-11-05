@@ -1,7 +1,14 @@
 # 0015 — Opportunity pipeline conventions
 
-- Status: Accepted
+- Status: Accepted; won→contract step amended by 0027
 - Date: 2026-10-17
+
+> **Amended by ADR-0027 (contracts are read-only).** The deal pipeline, stage rules, board and
+> permissions remain current. A won deal no longer prompts a CRM contract upload or creates a
+> contract; it links to the read-only projection when one exists. See `0027-contracts-read-only.md`.
+
+The original contract prompt described in the historical decision below is superseded by ADR-0027.
+The pipeline rules remain current; only the won-to-contract action and signing handoff changed.
 
 ## Context
 

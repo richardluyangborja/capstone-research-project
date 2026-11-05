@@ -121,7 +121,6 @@ public. Do not put a Groq key, JWT secret, or database password in the frontend.
 | `FRONTEND_URL` | `http://localhost:5173` | `https://crm.example.com` | Exact browser origin, no trailing slash |
 | `CRM_SURVEY_URL` | `http://localhost:5173` | `https://crm.example.com` | Public survey page origin |
 | `FILESYSTEM_DISK` | `local` | `local` or `s3` | See storage below |
-| `CRM_CONTRACT_DISK` | `local` | `local` or `s3` | Contract documents |
 | `CRM_ATTACHMENT_DISK` | `local` | `local` or `s3` | Communication attachments |
 | `CACHE_STORE` | `database` | `database` | AI report cache, cooldowns and rate limits |
 | `SESSION_DRIVER` | `database` | `database` | JWT is used, but keep a working session store |
@@ -223,7 +222,6 @@ Mount a persistent disk at `backend/storage` (or at least `backend/storage/app/p
 
 ```dotenv
 FILESYSTEM_DISK=local
-CRM_CONTRACT_DISK=local
 CRM_ATTACHMENT_DISK=local
 ```
 
@@ -231,7 +229,6 @@ CRM_ATTACHMENT_DISK=local
 
 ```dotenv
 FILESYSTEM_DISK=s3
-CRM_CONTRACT_DISK=s3
 CRM_ATTACHMENT_DISK=s3
 AWS_ACCESS_KEY_ID=...
 AWS_SECRET_ACCESS_KEY=...
@@ -242,9 +239,8 @@ AWS_BUCKET=...
 # AWS_USE_PATH_STYLE_ENDPOINT=false
 ```
 
-The bucket should be private. The app's download endpoints authorize access before streaming.
-Contracts and attachments are served through those endpoints, so `php artisan storage:link` is not
-required for them.
+The bucket should be private. The attachment download endpoint authorizes access before streaming.
+Contract documents are owned and served by Core Transaction 3; the CRM stores no contract files.
 
 ### 4.4 Optional CRM tuning
 
@@ -258,7 +254,6 @@ These have defaults and can be omitted:
 | `CRM_ARCHIVE_DAYS` | `60` | Lead archive-due threshold |
 | `CRM_DEAL_STUCK_DAYS` | `21` | Stalled deal threshold |
 | `CRM_FOLLOW_UP_CHECK_IN_DAYS` | `45` | Generated client check-in reminder |
-| `CRM_CONTRACT_MAX_KB` | `10240` | Contract upload cap |
 | `CRM_CONTRACT_EXPIRING_DAYS` | `30` | Renewal reminder window |
 | `CRM_ATTACHMENT_MAX_KB` | `10240` | Attachment upload cap |
 | `CRM_ATTACHMENT_MAX_FILES` | `5` | Attachments per message |
@@ -273,6 +268,10 @@ CRM_HANDOFF_SIMULATE_FAILURE=false
 CRM_EMAIL_SIMULATE_FAILURE=false
 CRM_HR_SIMULATE_FAILURE=false
 ```
+
+`CRM_HANDOFF_SIMULATE_FAILURE` is retained only for historical seeded/display status while the
+contract projection adjustment is being implemented. The CRM no longer triggers or retries a Service
+handoff from contract signing.
 
 `INTEGRATIONS_MODE=mock` appears in the example file but is not read by the current code. The
 department integrations are always the `Mock*` drivers bound in `AppServiceProvider`.
@@ -312,7 +311,6 @@ SESSION_DOMAIN=null
 
 BROADCAST_CONNECTION=log
 FILESYSTEM_DISK=local
-CRM_CONTRACT_DISK=local
 CRM_ATTACHMENT_DISK=local
 QUEUE_CONNECTION=database
 CACHE_STORE=database
@@ -543,7 +541,7 @@ It returns `200` with `{"status":"ok"}`. Laravel also exposes `/up`.
 
 ### 8.5 Storage and permissions
 
-The app writes private files for contracts and attachments, plus logs and framework cache. Ensure
+The app writes private files for communication attachments, plus logs and framework cache. Ensure
 the PHP user can write to:
 
 ```text
@@ -836,7 +834,7 @@ restart/clear config. CORS will fail until the backend sees the final origin.
 - [ ] A deep link such as `/companies/<id>` survives a browser refresh (SPA fallback).
 - [ ] CORS preflight from the frontend origin returns `access-control-allow-origin`.
 - [ ] A survey link opens at `https://crm.example.com/survey/<token>` without login.
-- [ ] A contract or attachment download opens.
+- [ ] A contract detail page shows its read-only source/as-of metadata; an attachment download opens.
 - [ ] `POST /api/v1/reports/management/generate` returns model prose with matching
       `AI_SERVICE_TOKEN` values; with a missing/mismatched token, `AI_REPORT_ENABLED=false`, or an
       AI failure it returns a rules report with `fallback`.

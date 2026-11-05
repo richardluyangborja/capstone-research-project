@@ -1,7 +1,12 @@
 # 0024 — Contract rate cards & commercial terms
 
-- Status: Accepted
+- Status: Superseded in part by 0027
 - Date: 2026-10-27
+
+> **Superseded in part by ADR-0027 (contracts are read-only).** The commercial header, rate-card
+> fields, computed read models and margin visibility remain. CRM ownership of rate-card writes,
+> renewal creation and contract signing is retired; Core Transaction 3 owns those records. See
+> `0027-contracts-read-only.md` and `resources/specs/17-module-01-tracking-adjustments.md`.
 
 ## Context
 

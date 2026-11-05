@@ -513,12 +513,18 @@ export default function OpportunityDetail() {
                 </p>
               )}
               {deal.is_won && deal.company && (
-                <Link
-                  to={`/accounts/${deal.company_id}?tab=contracts&opportunity_id=${deal.id}`}
-                  className="inline-flex items-center justify-center rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground"
-                >
-                  Create contract from deal
-                </Link>
+                linkedContracts.length > 0 ? (
+                  <Link
+                    to={`/contracts/${linkedContracts[0].id}`}
+                    className="inline-flex items-center justify-center rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground"
+                  >
+                    View linked contract
+                  </Link>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Contracts are managed in Contract Management.
+                  </p>
+                )
               )}
             </div>
           </FormCard>
@@ -527,7 +533,7 @@ export default function OpportunityDetail() {
             {linkedContracts.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 {deal.is_won
-                  ? 'No contract yet — create one to activate the client.'
+                  ? 'No linked projection — contracts are managed in Contract Management.'
                   : 'A contract is created once the deal is won.'}
               </p>
             ) : (

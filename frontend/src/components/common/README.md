@@ -30,8 +30,6 @@ check this list first:
 - `JourneyStepper` — read-only, derived account journey (module 01 refresh, Account 360) — **done**
 - `RateCardTable` — read-only contract rate-card table with manager-only pay/margin columns (module 01
   refresh, Account 360 + contract detail) — **done**
-- `RateCardEditor` — replace-the-set rate-card form with site, notes and computed preview totals
-  (module 01 refresh, Account 360 + contract detail) — **done**
 - `CompanyDeliveryPanel` — read-only Recruitment / Deployment / Timekeeping feed for Account 360's
   Delivery tab, with source/as-of provenance and no mutation actions (module 01 refresh S9) — **done**
 - `AccountHealthPanel` — explainable account-health state, flags, source and suggested action

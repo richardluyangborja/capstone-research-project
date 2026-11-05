@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Enums\CompanyStatus;
-use App\Enums\ContractStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\UpdateCompanyLifecycleRequest;
 use App\Http\Resources\CompanyResource;
@@ -12,8 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 
 /**
- * The client lifecycle (spec 09 §1, §5): status moves along the state machine, win-back,
- * and the retry of a failed (mocked) Service handoff.
+ * The client lifecycle (spec 09 §1, §5): status moves along the state machine and win-back.
  */
 class CompanyLifecycleController extends Controller
 {
@@ -50,30 +48,6 @@ class CompanyLifecycleController extends Controller
             null,
             $request->string('note')->toString() ?: null,
         );
-
-        return new CompanyResource($this->present($company));
-    }
-
-    /**
-     * Retry the Service handoff that failed when a contract was signed (spec 09 §2). The
-     * same orchestration as signing runs, so a success activates the client.
-     */
-    public function retryHandoff(Request $request, Company $company): CompanyResource
-    {
-        $this->authorize('retryHandoff', $company);
-
-        $contract = $company->contracts()
-            ->where('status', ContractStatus::Signed->value)
-            ->latest('signed_at')
-            ->first();
-
-        if ($contract === null) {
-            throw ValidationException::withMessages([
-                'handoff' => ['This client has no signed contract to hand off.'],
-            ]);
-        }
-
-        $company->handoffToService($contract, $request->user());
 
         return new CompanyResource($this->present($company));
     }

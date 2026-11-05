@@ -43,7 +43,7 @@ sign-in), plus 0004, 0005, 0007, 0010, 0013, 0014, 0016.
 > Account 360 Overview explains each flag with its source and action without moving the lifecycle;
 > a salesrep sees the Finance flag with the amount redacted. S14 adds the manager+ dashboard strip:
 > `GET /dashboard` gains `commercial` (AR outstanding/overdue, renewals inside 30/60/90 days, active
-> deployments, overall fill rate and deployments with pending timesheets), `account_risks` (the
+> deployments, overall fill rate and deployments without a current timesheet), `account_risks` (the
 > highest-severity health flags with account, reason, owner and action link) and `team_workload`
 > (the shared unassigned queue plus per-rep open leads, overdue follow-ups and accounts owned); the
 > dashboard renders them below the charts, while a salesrep's payload and page keep their existing
@@ -66,6 +66,12 @@ sign-in), plus 0004, 0005, 0007, 0010, 0013, 0014, 0016.
 > points at a registered route. The refresh is complete; each slice shipped on its own
 > `feature/module-01-*` branch and was merged to `main` after review.
 
+> **Post-refresh adjustment (planned — spec 17, ADR-0027/0028).** The contract upload/edit/sign/
+> renew/rate-card/document-write surfaces shipped in S6–S8 are retired: contracts become a read-only
+> projection of Core Transaction 3. The commercial fields, read-time totals, visibility split and
+> contract book/detail reads remain. The lead journey is a frontend-derived view. The rest of this
+> refresh remains current; see spec 17 for the corrective slices.
+
 ## Purpose
 
 Module 01 is functionally complete but not yet **one coherent workspace**. Eight flat sidebar entries
@@ -82,9 +88,10 @@ operational tables for other departments.
 ## Scope
 
 - **In:** grouped sidebar and route cleanup; Lead Workspace saved views; Account Book; Account 360
-  (five tabs); account assignment/delegation; contract commercial header and rate cards; global
-  Contracts, Deployments and Billing pages; read-only Recruitment, Deployment, Timekeeping and Finance
-  feeds; computed account health; manager dashboard strip; public landing refresh; public intake;
+  (five tabs); account assignment/delegation; contract commercial header and rate cards (read-only
+  after spec 17); global Contracts, Deployments and Billing pages; read-only Recruitment, Deployment,
+  Timekeeping and Finance feeds; computed account health; manager dashboard strip; public landing
+  refresh; public intake;
   login modal; all-role CSV import.
 - **Out:** recreating Recruitment/Deployment/Finance/HR/Legal operations; candidate, worker, shift,
   timesheet or invoice records; timesheet approval; invoice posting; automatic lifecycle moves;
@@ -239,6 +246,10 @@ communications, satisfaction and activities keep their current endpoints and per
 
 ## Contract commercial model
 
+> **Read-only after spec 17 T1 (ADR-0027).** Core Transaction 3 owns the contract and its rate cards.
+> The fields, computed values, visibility split and read screens below remain; the upload/renew/
+> sign/retire/rate-card-write and document-download actions are retired.
+
 ADR-0024. The contract header gains `payment_terms`, `po_reference`, `auto_renew`, `notice_days`,
 `signatory_name` and `signatory_position`. `value` remains the negotiated headline and is never
 recomputed.
@@ -260,8 +271,8 @@ recomputed.
 | `notes` | text | | |
 | `position` | int | ✓ | display order |
 
-The set is replaced wholesale by `PUT /contracts/{id}/rate-cards`; a contract may have no rate cards
-for backward compatibility. A `site_id` must belong to the contract's company (422 otherwise).
+The set is read-only; the former `PUT /contracts/{id}/rate-cards` write is retired by ADR-0027. A
+contract may have no rate cards. A projected `site_id` belongs to the contract's company.
 
 ### Computed values (read time)
 
@@ -275,30 +286,28 @@ for backward compatibility. A `site_id` must belong to the contract's company (4
 - `estimated_total_value` = monthly value × whole months in the term (minimum 1) + placement fees.
 - `contract.value` remains the negotiated headline and is displayed beside the computed estimate.
 
-### Visibility and editing
+### Visibility and editing (current boundary, spec 17)
 
 - Salesrep: bill rates and client values visible; pay rates, internal cost and margin hidden.
-- Manager+: full commercial detail and write access to rate cards.
-- Contract header upload/edit: the account's existing `update` right.
-- Renewal: “Renew” prefills the previous header and rate cards and links `renewal_of_contract_id`;
-  the old contract is untouched.
-- A signed contract's rate cards may be corrected by manager+; every change writes a system activity
-  to the contract and account timelines. There is no e-signature or clause versioning.
+- Manager+: full commercial detail, still read-only.
+- No role uploads, edits, signs, renews or retires a contract in the CRM; no role writes rate cards.
+- Contract header and rate-card changes happen in Core Transaction 3 and reach the CRM through the
+  projection/feed. There is no e-signature or clause versioning in this repo.
 
 ### Global contracts
 
 `GET /contracts` is the scoped cross-account book: filters `status`, `expiring`, `owner`, `company`,
 `renewal`, `search`; columns reference, account, title, status, term/expiry, value, rate-card count,
-owner. `/contracts/:id` shows the header, rate cards, document, renewal chain and allowed actions;
-the rate-card table and editor are shared with Account 360, so the site/notes fields and computed
-preview are identical on both surfaces. The detail also exposes the legal `PATCH` status moves
-(signing keeps its own action) and a manager+ **Retire** action. The book's summary cards stay
-scope-wide while the table filters narrow the rows.
+owner. `/contracts/:id` shows the header, rate cards, renewal chain and read-time totals; the
+rate-card table is read-only and shared with Account 360, so the site/notes fields and computed
+preview are identical on both surfaces. There are no document, sign, edit, renew or retire actions
+(ADR-0027). The book's summary cards stay scope-wide while the table filters narrow the rows.
 
 ## Read-only external feeds
 
 ADR-0025. Every feed is an interface + `Mock*` driver + readonly DTOs under `app/Integrations/`; no
-feed table and no mutation route. The only outbound integration remains the Service handoff.
+feed table and no mutation route. The former outbound Service handoff on signing is retired by
+ADR-0027; Core Transaction 3 adds contracts as a read-only feed.
 
 | Feed | Read-only payload | UI |
 | --- | --- | --- |
@@ -306,7 +315,8 @@ feed table and no mutation route. The only outbound integration remains the Serv
 | **Deployment / assignment** | reference, job-order/contract reference, role, site, status, active/filled headcount, start/end, operations owner, fill rate, last update | Delivery tab; `/deployments` |
 | **Timekeeping** | per deployment: period bounds, approved hours, pending hours, last submission, status (`current`, `pending`, `missing`) | Delivery card; billing context; manager strip |
 | **Finance / AR** | existing billing summary + invoices (reference, period, issued, due, amount, balance, status), aging, credit terms | Commercial > Billing (manager+); `/billing` |
-| **Service / operations** | handoff `sent`/`failed`, reference, requested/updated time | Delivery tab |
+| **Contract Management / Legal (Core 3)** | contract reference, status, terms, commercial header, rate cards, renewal chain, signatories; documents stay external | Commercial > Contracts; `/contracts` (read-only) |
+| **Service / operations** | handoff `sent`/`failed`, reference, requested/updated time | Delivery tab (display only) |
 
 **Endpoints:**
 
@@ -316,6 +326,7 @@ feed table and no mutation route. The only outbound integration remains the Serv
 | `GET` | `/deployments` | cross-account deployment book (read-only) |
 | `GET` | `/companies/{id}/billing` | expanded Finance snapshot (manager+) |
 | `GET` | `/billing` | cross-account AR book (manager+) |
+| `GET` | `/contracts`, `/contracts/{id}`, `/companies/{id}/contracts` | read-only contract projection (spec 17 T1) |
 
 Every response includes `meta: { source, read_only: true, as_of }`. The UI prints the source and
 “as of” timestamp and never shows a create/edit/delete action for feed data. A salesrep who can view
@@ -327,7 +338,7 @@ the Commercial tab; the full feed is manager+. The manager endpoint is not relax
 ```json
 {
   "data": {
-    "handoff": { "status": "sent", "reference": "SVC-CON-2026-0001", "requested_at": "…", "can_retry": false },
+    "handoff": { "status": "sent", "reference": "SVC-CON-2026-0001", "requested_at": "…", "read_only": true },
     "job_orders": [
       { "reference": "JO-2026-0014", "role": "Warehouse associate", "requested": 12, "filled": 12,
         "status": "filled", "priority": "high", "target_start_date": "2026-11-03",
@@ -405,7 +416,7 @@ A salesrep sees a redacted financial reason without amounts. The account book ma
 `GET /dashboard` gains three blocks for manager+ (the salesrep view keeps its existing shape):
 
 - `commercial`: AR outstanding and overdue, renewals due in 30/60/90 days, active deployments,
-  overall fill rate, deployments with pending timesheets.
+  overall fill rate, deployments without a current timesheet.
 - `account_risks`: the highest-severity health rows with account, flag, reason, owner and action link.
 - `team_workload`: per-rep open leads, overdue follow-ups, unassigned queue and accounts owned.
 
