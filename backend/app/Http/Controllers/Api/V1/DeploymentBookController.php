@@ -3,8 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
-use App\Integrations\DeploymentFeed;
-use App\Integrations\TimekeepingFeed;
+use App\Http\Delivery\DeliverySnapshot;
 use App\Models\Company;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -18,8 +17,7 @@ use Illuminate\Support\Collection;
 class DeploymentBookController extends Controller
 {
     public function __construct(
-        private readonly DeploymentFeed $deploymentFeed,
-        private readonly TimekeepingFeed $timekeepingFeed,
+        private readonly DeliverySnapshot $snapshot,
     ) {}
 
     public function index(Request $request): JsonResponse
@@ -36,7 +34,8 @@ class DeploymentBookController extends Controller
             ->orderBy('name')
             ->get();
 
-        $rows = $this->rows($companies);
+        $snapshot = $this->snapshot->forCompanies($companies);
+        $rows = $snapshot['rows'];
         $search = trim((string) $request->input('search', $filters['search'] ?? ''));
 
         $filtered = $this->filter($rows, $filters, $companies, $user->id, $user->team_id, $search);
@@ -70,39 +69,10 @@ class DeploymentBookController extends Controller
                 'read_only' => true,
                 'as_of' => now()->toIso8601String(),
             ],
-            'summary' => $this->summary($rows),
+            'summary' => $snapshot['totals'] + [
+                'deployments_pending' => $snapshot['totals']['pending_timesheets'],
+            ],
         ]);
-    }
-
-    /**
-     * @param  Collection<int, Company>  $companies
-     * @return array<int, array<string, mixed>>
-     */
-    private function rows(Collection $companies): array
-    {
-        $rows = [];
-
-        foreach ($companies as $company) {
-            foreach ($this->deploymentFeed->deployments($company) as $deployment) {
-                $deployment = $deployment->withTimesheet(
-                    $this->timekeepingFeed->summary($company, $deployment),
-                );
-
-                $rows[] = $deployment->toArray() + [
-                    'company' => [
-                        'id' => $company->id,
-                        'reference' => $company->reference,
-                        'name' => $company->name,
-                    ],
-                    'owner' => $company->owner === null ? null : [
-                        'id' => $company->owner->id,
-                        'name' => $company->owner->name,
-                    ],
-                ];
-            }
-        }
-
-        return $rows;
     }
 
     /**
@@ -123,6 +93,7 @@ class DeploymentBookController extends Controller
         $company = $filters['company'] ?? $filters['company_id'] ?? null;
         $contract = $filters['contract'] ?? $filters['contract_id'] ?? null;
         $owner = $filters['owner'] ?? $filters['owner_id'] ?? null;
+        $timesheet = $filters['timesheet'] ?? null;
         $search = mb_strtolower($search);
 
         $ownerCompanyIds = $owner === null || $owner === ''
@@ -155,6 +126,15 @@ class DeploymentBookController extends Controller
                 'company.id',
                 $ownerCompanyIds,
             ))
+            ->when($timesheet, fn (Collection $rows, $timesheet): Collection => $rows->filter(
+                fn (array $row): bool => match ((string) $timesheet) {
+                    'current' => ($row['timesheet']['status'] ?? null) === 'current',
+                    'missing' => ($row['timesheet']['status'] ?? null) === null
+                        || ($row['timesheet']['status'] ?? null) === 'missing',
+                    'pending' => ($row['timesheet']['status'] ?? null) !== 'current',
+                    default => true,
+                },
+            ))
             ->when($search !== '', fn (Collection $rows): Collection => $rows->filter(
                 fn (array $row): bool => str_contains(
                     mb_strtolower(implode(' ', [
@@ -169,37 +149,5 @@ class DeploymentBookController extends Controller
                 ),
             ))
             ->values();
-    }
-
-    /**
-     * Scope-wide cards, like the contract book: filters narrow the table, not the summary.
-     *
-     * @param  array<int, array<string, mixed>>  $rows
-     * @return array<string, mixed>
-     */
-    private function summary(array $rows): array
-    {
-        $open = collect($rows)->whereIn('status', ['active', 'pending']);
-        $requested = (int) $open->sum('requested_headcount');
-        $active = (int) $open->sum('active_headcount');
-        $pendingTimesheets = collect($rows)->filter(
-            fn (array $row): bool => ($row['timesheet']['status'] ?? null) !== null
-                && $row['timesheet']['status'] !== 'current',
-        )->count();
-
-        return [
-            'total' => count($rows),
-            'active' => collect($rows)->where('status', 'active')->count(),
-            'pending' => collect($rows)->where('status', 'pending')->count(),
-            'ended' => collect($rows)->where('status', 'ended')->count(),
-            'fill_rate' => $requested === 0 ? 0 : (int) round(($active / $requested) * 100),
-            'deployments_pending' => $pendingTimesheets,
-            'approved_hours' => round((float) collect($rows)->sum(
-                fn (array $row): float => (float) ($row['timesheet']['approved_hours'] ?? 0),
-            ), 2),
-            'pending_hours' => round((float) collect($rows)->sum(
-                fn (array $row): float => (float) ($row['timesheet']['pending_hours'] ?? 0),
-            ), 2),
-        ];
     }
 }

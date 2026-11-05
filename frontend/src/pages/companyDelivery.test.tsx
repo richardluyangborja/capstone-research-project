@@ -55,6 +55,7 @@ const { activeDelivery, emptyDelivery } = vi.hoisted(() => {
         approved_hours: 1056,
         pending_hours: 0,
         deployments_pending: 0,
+        pending_timesheets: 0,
       },
     },
     meta: {
@@ -74,7 +75,12 @@ const { activeDelivery, emptyDelivery } = vi.hoisted(() => {
       },
       job_orders: [],
       deployments: [],
-      timesheets: { approved_hours: 0, pending_hours: 0, deployments_pending: 0 },
+      timesheets: {
+        approved_hours: 0,
+        pending_hours: 0,
+        deployments_pending: 0,
+        pending_timesheets: 0,
+      },
     },
     meta: {
       source: 'Recruitment / Deployment / Timekeeping (mocked, read-only)',
@@ -108,7 +114,7 @@ describe('CompanyDeliveryPanel', () => {
     expect(screen.getByText('Service handoff')).toBeInTheDocument()
     expect(screen.getAllByText('Job orders').length).toBeGreaterThan(0)
     expect(screen.getByText('Active deployments')).toBeInTheDocument()
-    expect(screen.getByText('Timesheets pending')).toBeInTheDocument()
+    expect(screen.getByText('Deployments without current timesheet')).toBeInTheDocument()
     expect(screen.getAllByText('Warehouse associate').length).toBeGreaterThan(0)
     expect(screen.getByText('Manila South Harbor office')).toBeInTheDocument()
     expect(screen.getAllByText('Filled').length).toBeGreaterThan(0)

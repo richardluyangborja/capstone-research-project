@@ -38,7 +38,9 @@ class DeploymentBookTest extends TestCase
             ->assertJsonPath('meta.source', 'Deployment / Timekeeping (mocked, read-only)')
             ->assertJsonPath('summary.total', 1)
             ->assertJsonPath('summary.active', 1)
-            ->assertJsonPath('summary.fill_rate', 100);
+            ->assertJsonPath('summary.fill_rate', 100)
+            ->assertJsonPath('summary.pending_timesheets', 0)
+            ->assertJsonPath('summary.deployments_pending', 0);
 
         $this->assertNotEmpty($response->json('meta.as_of'));
 
@@ -75,13 +77,28 @@ class DeploymentBookTest extends TestCase
             ->assertJsonPath('meta.total', 2)
             ->assertJsonPath('summary.total', 3)
             ->assertJsonPath('summary.active', 2)
-            ->assertJsonPath('summary.pending', 1);
+            ->assertJsonPath('summary.pending', 1)
+            ->assertJsonPath('summary.pending_timesheets', 1)
+            ->assertJsonPath('summary.deployments_pending', 1);
 
         $this->actingAs($rep, 'api')
             ->getJson('/api/v1/deployments?filter[status]=pending')
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.company.id', $pending->company_id)
+            ->assertJsonPath('data.0.timesheet.status', 'missing');
+
+        $this->actingAs($rep, 'api')
+            ->getJson('/api/v1/deployments?filter[timesheet]=pending')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.company.id', $pending->company_id)
+            ->assertJsonPath('summary.pending_timesheets', 1);
+
+        $this->actingAs($rep, 'api')
+            ->getJson('/api/v1/deployments?filter[timesheet]=missing')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.timesheet.status', 'missing');
 
         $this->actingAs($rep, 'api')
@@ -154,6 +171,38 @@ class DeploymentBookTest extends TestCase
         $this->actingAs($rep, 'api')
             ->postJson('/api/v1/deployments', [])
             ->assertStatus(405);
+    }
+
+    public function test_dashboard_and_book_share_pending_timesheet_count_even_when_book_is_filtered(): void
+    {
+        $team = Team::factory()->create();
+        $rep = User::factory()->salesrep()->create(['team_id' => $team->id]);
+        $manager = User::factory()->manager()->create(['team_id' => $team->id]);
+        $this->activeAccount($rep);
+        $this->pendingAccount($rep);
+
+        $book = $this->actingAs($manager, 'api')
+            ->getJson('/api/v1/deployments')
+            ->assertOk();
+        $bookPending = $book->json('summary.pending_timesheets');
+
+        $dashboard = $this->actingAs($manager, 'api')
+            ->getJson('/api/v1/dashboard')
+            ->assertOk()
+            ->json('data.commercial');
+
+        $this->assertSame(
+            $bookPending,
+            $dashboard['pending_timesheets'],
+            'Dashboard and deployment book must share the pending-timesheet count.',
+        );
+
+        $this->actingAs($manager, 'api')
+            ->getJson('/api/v1/deployments?filter[timesheet]=pending')
+            ->assertOk()
+            ->assertJsonCount($dashboard['pending_timesheets'], 'data')
+            ->assertJsonPath('summary.pending_timesheets', $dashboard['pending_timesheets'])
+            ->assertJsonPath('summary.deployments_pending', $dashboard['pending_timesheets']);
     }
 
     /**

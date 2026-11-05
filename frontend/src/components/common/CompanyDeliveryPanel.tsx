@@ -287,13 +287,13 @@ export default function CompanyDeliveryPanel({
           hint={`${overallFill}% overall fill · ${data.deployments.length} total`}
         />
         <StatCard
-          label="Timesheets pending"
-          value={data.timesheets.deployments_pending}
+          label="Deployments without current timesheet"
+          value={data.timesheets.pending_timesheets ?? data.timesheets.deployments_pending}
           domain="activity"
           icon={Clock}
           hint={`${formatHours(data.timesheets.approved_hours)} approved · ${formatHours(
             data.timesheets.pending_hours,
-          )} pending`}
+          )} pending · deployment count`}
         />
       </div>
 

@@ -57,6 +57,7 @@ export default function Deployments() {
   const [company, setCompany] = useState(searchParams.get('company') ?? '')
   const [contract, setContract] = useState(searchParams.get('contract') ?? '')
   const [owner, setOwner] = useState(searchParams.get('owner') ?? '')
+  const [timesheet, setTimesheet] = useState(searchParams.get('timesheet') ?? '')
 
   const [companies, setCompanies] = useState<Company[]>([])
   const [contracts, setContracts] = useState<Contract[]>([])
@@ -74,9 +75,10 @@ export default function Deployments() {
       if (company) filters.company = company
       if (contract) filters.contract = contract
       if (owner) filters.owner = owner
+      if (timesheet) filters.timesheet = timesheet as DeploymentBookFilters['timesheet']
       return filters
     },
-    [search, status, company, contract, owner],
+    [search, status, company, contract, owner, timesheet],
   )
 
   const loadDeployments = useCallback(
@@ -128,8 +130,9 @@ export default function Deployments() {
     if (company) params.set('company', company)
     if (contract) params.set('contract', contract)
     if (owner) params.set('owner', owner)
+    if (timesheet) params.set('timesheet', timesheet)
     setSearchParams(params, { replace: true })
-  }, [search, status, company, contract, owner, setSearchParams])
+  }, [search, status, company, contract, owner, timesheet, setSearchParams])
 
   const contractOptions = company
     ? contracts.filter((item) => item.company?.id === company)
@@ -254,7 +257,7 @@ export default function Deployments() {
     },
   ]
 
-  const hasFilters = Boolean(search || status || company || contract || owner)
+  const hasFilters = Boolean(search || status || company || contract || owner || timesheet)
 
   return (
     <div className="space-y-6">
@@ -318,13 +321,13 @@ export default function Deployments() {
           hint="Active heads ÷ requested heads on open deployments"
         />
         <StatCard
-          label="Timesheets pending"
-          value={summary?.deployments_pending ?? 0}
+          label="Deployments without current timesheet"
+          value={summary?.pending_timesheets ?? summary?.deployments_pending ?? 0}
           domain="activity"
           icon={Clock}
           hint={`${formatHours(summary?.approved_hours ?? 0)} approved · ${formatHours(
             summary?.pending_hours ?? 0,
-          )} pending`}
+          )} pending · deployment count`}
         />
       </div>
 
@@ -350,6 +353,18 @@ export default function Deployments() {
           <option value="active">Active</option>
           <option value="pending">Pending</option>
           <option value="ended">Ended</option>
+        </select>
+
+        <select
+          value={timesheet}
+          onChange={(e) => setTimesheet(e.target.value)}
+          className="rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+          aria-label="Filter by timesheet status"
+        >
+          <option value="">All timesheets</option>
+          <option value="pending">Without current timesheet</option>
+          <option value="current">Current timesheet</option>
+          <option value="missing">Missing timesheet</option>
         </select>
 
         <select
@@ -410,6 +425,7 @@ export default function Deployments() {
               setCompany('')
               setContract('')
               setOwner('')
+              setTimesheet('')
             }}
             className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
           >

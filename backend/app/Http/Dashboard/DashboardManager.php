@@ -7,9 +7,8 @@ use App\Enums\ContractStatus;
 use App\Enums\LeadStatus;
 use App\Enums\Role;
 use App\Http\Companies\AccountHealth;
-use App\Integrations\DeploymentFeed;
+use App\Http\Delivery\DeliverySnapshot;
 use App\Integrations\FinanceBilling;
-use App\Integrations\TimekeepingFeed;
 use App\Models\Activity;
 use App\Models\Communication;
 use App\Models\Company;
@@ -34,8 +33,7 @@ final class DashboardManager
         private readonly User $user,
         private readonly AccountHealth $health,
         private readonly FinanceBilling $billing,
-        private readonly DeploymentFeed $deployments,
-        private readonly TimekeepingFeed $timekeeping,
+        private readonly DeliverySnapshot $deliverySnapshot,
     ) {}
 
     /**
@@ -57,7 +55,7 @@ final class DashboardManager
     {
         $companies = Company::query()
             ->visibleTo($this->user)
-            ->get(['id', 'name', 'reference']);
+            ->get(['id', 'name', 'reference', 'status', 'handoff_status', 'updated_at']);
 
         $outstanding = 0.0;
         $overdue = 0.0;
@@ -73,40 +71,17 @@ final class DashboardManager
             }
         }
 
-        $active = 0;
-        $requested = 0;
-        $activeHeads = 0;
-        $pendingTimesheets = 0;
-
-        foreach ($companies as $company) {
-            foreach ($this->deployments->deployments($company) as $deployment) {
-                $deployment = $deployment->withTimesheet(
-                    $this->timekeeping->summary($company, $deployment),
-                );
-
-                if ($deployment->status === 'active') {
-                    $active++;
-                }
-
-                if (in_array($deployment->status, ['active', 'pending'], true)) {
-                    $requested += $deployment->requestedHeadcount;
-                    $activeHeads += $deployment->activeHeadcount;
-                }
-
-                if ($deployment->timesheet !== null && $deployment->timesheet->status !== 'current') {
-                    $pendingTimesheets++;
-                }
-            }
-        }
+        $delivery = $this->deliverySnapshot->forCompanies($companies);
+        $totals = $delivery['totals'];
 
         return [
             'outstanding' => round($outstanding, 2),
             'overdue' => round($overdue, 2),
             'overdue_accounts' => $overdueAccounts,
             'renewals' => $this->renewals(),
-            'active_deployments' => $active,
-            'fill_rate' => $requested === 0 ? 0 : (int) round(($activeHeads / $requested) * 100),
-            'pending_timesheets' => $pendingTimesheets,
+            'active_deployments' => $totals['active'],
+            'fill_rate' => $totals['fill_rate'],
+            'pending_timesheets' => $totals['pending_timesheets'],
             'source' => 'Finance / Deployment / Timekeeping (mocked)',
             'as_of' => now()->toIso8601String(),
         ];

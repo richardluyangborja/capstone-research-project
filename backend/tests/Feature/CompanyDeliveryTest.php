@@ -82,7 +82,8 @@ class CompanyDeliveryTest extends TestCase
             ->assertJsonPath('data.deployments.0.timesheet.approved_hours', 0)
             ->assertJsonPath('data.deployments.0.timesheet.pending_hours', 704)
             ->assertJsonPath('data.timesheets.pending_hours', 704)
-            ->assertJsonPath('data.timesheets.deployments_pending', 1);
+            ->assertJsonPath('data.timesheets.deployments_pending', 1)
+            ->assertJsonPath('data.timesheets.pending_timesheets', 1);
     }
 
     public function test_a_prospect_without_a_signed_contract_has_no_delivery(): void
@@ -99,7 +100,8 @@ class CompanyDeliveryTest extends TestCase
             ->assertJsonCount(0, 'data.deployments')
             ->assertJsonPath('data.timesheets.approved_hours', 0)
             ->assertJsonPath('data.timesheets.pending_hours', 0)
-            ->assertJsonPath('data.timesheets.deployments_pending', 0);
+            ->assertJsonPath('data.timesheets.deployments_pending', 0)
+            ->assertJsonPath('data.timesheets.pending_timesheets', 0);
     }
 
     public function test_a_churned_account_has_ended_deployments_and_closed_demand(): void

@@ -927,6 +927,7 @@ export interface DeploymentBookSummary {
   ended: number
   fill_rate: number
   deployments_pending: number
+  pending_timesheets: number
   approved_hours: number
   pending_hours: number
 }
@@ -937,6 +938,7 @@ export interface DeploymentBookFilters {
   company?: string
   contract?: string
   owner?: string
+  timesheet?: 'pending' | 'current' | 'missing'
   page?: number
   per_page?: number
 }
@@ -959,6 +961,7 @@ export interface DeliveryTimesheetTotals {
   approved_hours: number
   pending_hours: number
   deployments_pending: number
+  pending_timesheets: number
 }
 
 export interface DeliveryFeed {

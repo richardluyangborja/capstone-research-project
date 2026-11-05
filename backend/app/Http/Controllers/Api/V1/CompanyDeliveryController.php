@@ -3,11 +3,9 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
-use App\Integrations\DeploymentFeed;
-use App\Integrations\DeploymentSummary;
+use App\Http\Delivery\DeliverySnapshot;
 use App\Integrations\JobOrderSummary;
 use App\Integrations\RecruitmentFeed;
-use App\Integrations\TimekeepingFeed;
 use App\Models\Company;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -21,8 +19,7 @@ class CompanyDeliveryController extends Controller
 {
     public function __construct(
         private readonly RecruitmentFeed $recruitment,
-        private readonly DeploymentFeed $deployment,
-        private readonly TimekeepingFeed $timekeeping,
+        private readonly DeliverySnapshot $snapshot,
     ) {}
 
     public function show(Request $request, Company $company): JsonResponse
@@ -31,26 +28,7 @@ class CompanyDeliveryController extends Controller
 
         $jobOrders = $this->recruitment->jobOrders($company);
 
-        $deployments = array_map(
-            fn (DeploymentSummary $deployment): DeploymentSummary => $deployment->withTimesheet(
-                $this->timekeeping->summary($company, $deployment),
-            ),
-            $this->deployment->deployments($company),
-        );
-
-        $approvedHours = array_sum(array_map(
-            static fn (DeploymentSummary $deployment): float => $deployment->timesheet?->approvedHours ?? 0.0,
-            $deployments,
-        ));
-        $pendingHours = array_sum(array_map(
-            static fn (DeploymentSummary $deployment): float => $deployment->timesheet?->pendingHours ?? 0.0,
-            $deployments,
-        ));
-        $deploymentsPending = count(array_filter(
-            $deployments,
-            static fn (DeploymentSummary $deployment): bool => $deployment->timesheet !== null
-                && $deployment->timesheet->status !== 'current',
-        ));
+        $delivery = $this->snapshot->forCompany($company);
 
         return response()->json([
             'data' => [
@@ -64,14 +42,12 @@ class CompanyDeliveryController extends Controller
                     static fn (JobOrderSummary $order): array => $order->toArray(),
                     $jobOrders,
                 ),
-                'deployments' => array_map(
-                    static fn (DeploymentSummary $deployment): array => $deployment->toArray(),
-                    $deployments,
-                ),
+                'deployments' => $delivery['rows'],
                 'timesheets' => [
-                    'approved_hours' => round($approvedHours, 2),
-                    'pending_hours' => round($pendingHours, 2),
-                    'deployments_pending' => $deploymentsPending,
+                    'approved_hours' => $delivery['totals']['approved_hours'],
+                    'pending_hours' => $delivery['totals']['pending_hours'],
+                    'deployments_pending' => $delivery['totals']['pending_timesheets'],
+                    'pending_timesheets' => $delivery['totals']['pending_timesheets'],
                 ],
             ],
             'meta' => [
