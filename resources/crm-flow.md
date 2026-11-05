@@ -84,14 +84,15 @@ advanced tiers/health are **built** (ADR-0006). Detailed implementation specs li
 9. **Client Account Lifecycle** — client status/tier/health, owner, renewal linkage, dormancy/
    churn, win-back.
 
-### Module 01 refresh (S0–S8 built — spec 16, ADR-0023–0026)
+### Module 01 refresh (S0–S19 built — spec 16, ADR-0023–0026)
 
 The refresh keeps the records above but consolidates the working surface:
 
 - **Grouped sidebar + canonical routes** — Leads (Lead Workspace, Capture, Import), Accounts (Account
   Book, Contracts, Deployments, Billing) and Contacts. Qualification, assignment, lifecycle and
   conversion become saved views/actions inside the Lead Workspace; `/clients` is an Account Book view;
-  `/companies` redirects to `/accounts`.
+  `/companies` redirects to `/accounts`. Modules 02–05 use the same group + labelled-section pattern,
+  and the sidebar test checks every entry against the exported dashboard route inventory.
 - **Lead Workspace** — URL-backed All / My Leads / Unassigned / Team / Needs qualification / Aging /
   Ready to convert / Archived views over the existing scoped lead queries, with rating and urgency
   filters, a manager workload panel (open leads, overdue follow-ups, queue, per-rep load and bulk
@@ -136,7 +137,7 @@ dashboard and AI reports are cross-cutting presentation layers, not data modules
 
 | Module | Name | Depends on | Spec |
 | --- | --- | --- | --- |
-| 01 | Lead & Client Tracking | — | `01`–`09` **(baseline built)** + `16` refresh (S0–S8 built; S9–S19 planned) |
+| 01 | Lead & Client Tracking | — | `01`–`09` **(baseline built)** + `16` refresh (S0–S19 built) |
 | 02 | Opportunity Pipeline Visualization | `Opportunity` record (08) | `10` **(built)** |
 | 03 | Communication History Management | objects from 01–02 | `11` **(built)** |
 | 04 | Follow-up Reminder System | 03 + notifications | `12` **(built)** |

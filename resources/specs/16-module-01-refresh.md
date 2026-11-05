@@ -11,7 +11,8 @@ sign-in), plus 0004, 0005, 0007, 0010, 0013, 0014, 0016.
 > detail (built). S9 — delivery feed (built). S10 — deployment book (built). S11 — finance feed
 > (built). S12 — billing book (built). S13 — account health (built). S14 — manager dashboard
 > (built). S15 — public landing (built). S16 — sign-in modal (built).
-> S17 — public intake (built). S18 — CSV import (built).** S0 is this
+> S17 — public intake (built). S18 — CSV import (built). S19 — grouped sidebar pattern &
+> bookkeeping (built).** S0 is this
 > contract plus its ADRs; S1
 > shipped the grouped sidebar, canonical routes, redirects and canonical dashboard/AI hrefs; S2
 > shipped the saved views, manager workload panel and duplicate links; S3 shipped the scoped
@@ -60,8 +61,10 @@ sign-in), plus 0004, 0005, 0007, 0010, 0013, 0014, 0016.
 > preview that maps rows and reports validation errors and advisory duplicates, and a commit that
 > writes only the valid rows. A salesrep's imports are self-owned; a manager/admin import defaults to
 > the unassigned queue or a selected salesrep in scope, and the 500-row cap is enforced before any
-> write. S19 ships on its own `feature/module-01-*` branch and merges to `main` only after review.
-> The branch is deleted after merge, and the next slice starts from the updated `main`.
+> write. S19 finishes the pattern: modules 02–05 are grouped with labelled sections, the dashboard
+> route inventory is exported from one file, and the sidebar test proves every navigation entry
+> points at a registered route. The refresh is complete; each slice shipped on its own
+> `feature/module-01-*` branch and was merged to `main` after review.
 
 ## Purpose
 
@@ -590,11 +593,11 @@ names are suggestions; the `feature/module-01-*` prefix is required.
 | **S16** | `feature/module-01-login-modal` (built) | Accessible modal, `/login` redirect, `next` handling, 401 flow | `/login` opens modal; deep-link return; keyboard/escape/focus; tests |
 | **S17** | `feature/module-01-public-intake` (built) | Embedded form + public endpoint | 201 unassigned website lead; validation/throttle/honeypot; thank-you state |
 | **S18** | `feature/module-01-csv-import` (built) | Import page, template, preview/commit, all-role ownership | Salesrep self-owned; manager unassigned + selector; invalid rows skipped; 500 cap |
-| **S19** | `feature/module-01-sidebar-pattern` | Grouped sidebar for Modules 02–05, docs/bookkeeping | All existing module pages reachable; no dead links; no behavior change |
+| **S19** | `feature/module-01-sidebar-pattern` (built) | Grouped sidebar for Modules 02–05, shared route inventory, docs/bookkeeping | All existing module pages reachable; no dead links; no behavior change |
 
 **Dependency order:** S0 → S1 → S2/S3 → S4 → S5/S6 → S7 → S8/S9 → S10 → S11 → S12 → S13 → S14.
 S15 → S16/S17 are independent of the account chain; S18 depends on S2; S19 is last. Each slice waits
-for review and merge before the next begins.
+for review and merge before the next begins. **All nineteen slices are now merged.**
 
 **Review protocol:** each slice is pushed on its `feature/module-01-*` branch and opened as a PR to
 `main`. The agent does not start the next slice until the user has reviewed; after approval, the agent
