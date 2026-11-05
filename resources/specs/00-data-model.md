@@ -153,11 +153,17 @@ write path.
 | `stage_changed_at` | timestamp | | set on every stage move (module 02) |
 | `last_activity_at` | timestamp | | denormalised; refreshed on a logged activity (module 02) |
 | `next_step` | string | | free-text next action; scheduled tasks are the follow-up module (module 02) |
+| `estimated_headcount` | unsigned int | | requested workforce count (module 02 refresh, spec 18) |
+| `service_type` | string | | placement type: `temporary_staffing`, `contract_to_hire`, `direct_hire`, `project_based` (spec 18) |
+| `target_start_date` | date | | target worker deployment date (spec 18) |
+| `next_follow_up_at` | timestamp | | denormalised; refreshed on task changes (spec 18, module 04 sync) |
+| `win_note` | text | | captured close terms and deployment notes on won deals (spec 18) |
 
 Module 02 (pipeline) adds the deal list/board, stage moves (any-to-any with rules, ADR-0015) and the
-deal timeline; it adds only these columns — no new tables. Winning a deal is a record only: contract
-work happens in Core Transaction 3, and the CRM reads the resulting projection (ADR-0027); a won deal
-no longer creates a contract or triggers a handoff.
+deal timeline. Spec 18 (ADR-0029) grounds deals in the staffing domain (headcount, service type, target
+date), synchronizes follow-up timestamps, and adds won outcome capture. Winning a deal is a record only:
+contract work happens in Core Transaction 3, and the CRM reads the resulting projection (ADR-0027); a won
+deal never activates a company or uploads a contract.
 
 ## Activity (supporting, used in Phase 1)
 

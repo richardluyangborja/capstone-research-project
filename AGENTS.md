@@ -143,10 +143,10 @@ Laravel's own and is separate from `frontend/`.
   the account's rights; billing is manager-only. Events: `CompanyStatusChanged`, `ContractSigned`,
   `CompanyActivated`, `CompanyChurned`. **Not built here:** the deal pipeline, contract
   versioning/e-signature, renewal reminders and automatic aging (ADR-0013).
-- **Module 02 — Opportunity Pipeline Visualization:** the deal pipeline on the `Opportunity` record
-  (ADR-0014, ADR-0015). Flat `/api/v1/opportunities` (index/store/show/update/destroy +
-  `POST /{id}/restore`) with `filter[stage|owner|company|open|source|close_window]` + `search` and a
-  `summary` block; a deal is created directly on a visible company (owner = the creator) or by
+- **Module 02 — Opportunity Pipeline Visualization (baseline built; refresh planned — spec 18, ADR-0029):**
+  the deal pipeline on the `Opportunity` record (ADR-0014, ADR-0015). Flat `/api/v1/opportunities`
+  (index/store/show/update/destroy + `POST /{id}/restore`) with `filter[stage|owner|company|open|source|close_window]` +
+  `search` and a `summary` block; a deal is created directly on a visible company (owner = the creator) or by
   conversion, and the book is role-scoped (salesrep own, manager team, admin all). `POST
   /opportunities/{id}/stage` moves **any-to-any with rules** from `OpportunityStage::allowedTransitions()`
   — a self-move and terminal→terminal are 422, `lost` requires a reason, entering `won`/`lost` stamps
@@ -157,12 +157,14 @@ Laravel's own and is separate from `frontend/`.
   win rate, average deal, stalled count from `crm.pipeline.stuck_days`, default 21).
   `GET /opportunities/{id}/timeline` + `POST /opportunities/{id}/activities` are the deal timeline
   (logging a touch refreshes `last_activity_at`, so staleness tracks real work). **`won` does not hand
-  off to Service** — it currently surfaces **Create contract from deal**, which deep-links to the
-  company contract upload prefilled with `opportunity_id`; spec 17 T1 retires that action in favour of
-  a link to the read-only contract projection (ADR-0027). Events: `OpportunityStageChanged`,
-  `OpportunityWon`, `OpportunityLost` (`OpportunityCreated` now also fires on manual creation). The
-  dashboard read endpoints are covered under module 06 below, and AI Management Reports (spec `15`)
-  under module 07.
+  off to Service** — it surfaces a link to the read-only contract projection when one exists, and otherwise
+  states that contracts are managed in Contract Management (Core Transaction 3, ADR-0027). Spec `18`
+  (ADR-0029) refreshes Module 02 with drag handle interactivity, staffing demand attributes (`estimated_headcount`,
+  `service_type`, `target_start_date`), outcome governance (`WonConfirmDialog` / lost notes), follow-up
+  synchronization (`next_follow_up_at`), and unified workspace view switching. Events:
+  `OpportunityStageChanged`, `OpportunityWon`, `OpportunityLost` (`OpportunityCreated` now also fires on
+  manual creation). The dashboard read endpoints are covered under module 06 below, and AI Management
+  Reports (spec `15`) under module 07.
 - **Module 03 — Communication History Management (slices S1–S5 — log & history, email, attachments,
   threads, templates):** the detailed,
   channel-aware history record beside `Activity` (ADR-0017). Flat `/api/v1/communications`
