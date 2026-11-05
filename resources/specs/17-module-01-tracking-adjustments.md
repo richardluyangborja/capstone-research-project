@@ -4,9 +4,10 @@ Post-refresh adjustments to Module 01. Extends `16-module-01-refresh.md`, `09-cl
 and `00-data-model.md`. ADRs: **0027** (contracts are read-only), **0028** (the lead journey is derived),
 plus 0004, 0013, 0015, 0024 and 0025 where they remain relevant.
 
-> **Status: T1–T2 implemented; T3 planned.** T1 ships the read-only contract projection on
+> **Status: T1–T3 implemented.** T1 ships the read-only contract projection on
 > `feature/module-01-contracts-read-only`; T2 makes the pending-timesheet metric single-source on
-> `feature/module-01-delivery-metrics-consistency`; T3 adds the lead journey.
+> `feature/module-01-delivery-metrics-consistency`; T3 adds the derived lead journey on
+> `feature/module-01-lead-journey`.
 > The contract-write rules in specs `09` and `16`, and the Service-handoff trigger in `ADR-0013`/
 > `ADR-0015`, are superseded by ADR-0027 for the surfaces described here.
 
@@ -280,15 +281,15 @@ invent a completed step. The branch callout is separate from the linear stepper.
 
 ### Acceptance
 
-- [ ] Every lead status renders the correct step states and branch message.
-- [ ] A `new` lead explains that Contacted comes first and offers **Mark contacted**.
-- [ ] A `contacted` lead names missing criteria and only offers qualification when complete.
-- [ ] A `qualified` lead links to conversion; a `converted` lead links to the account and deal.
-- [ ] Nurture/disqualified/archived show a clear re-entry path and do not fake history.
-- [ ] Missing criteria use human-readable labels.
-- [ ] The existing Lifecycle dropdown/notes/archive controls remain available.
-- [ ] Frontend tests cover all states and the CTA calls.
-- [ ] No backend migration or new lead endpoint is added.
+- [x] Every lead status renders the correct step states and branch message.
+- [x] A `new` lead explains that Contacted comes first and offers **Mark contacted**.
+- [x] A `contacted` lead names missing criteria and only offers qualification when complete.
+- [x] A `qualified` lead links to conversion; a `converted` lead links to the account and deal.
+- [x] Nurture/disqualified/archived show a clear re-entry path and do not fake history.
+- [x] Missing criteria use human-readable labels.
+- [x] The existing Lifecycle dropdown/notes/archive controls remain available.
+- [x] Frontend tests cover all states and the CTA calls.
+- [x] No backend migration or new lead endpoint is added.
 
 ---
 

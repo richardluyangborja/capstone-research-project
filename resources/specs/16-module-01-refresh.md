@@ -66,7 +66,7 @@ sign-in), plus 0004, 0005, 0007, 0010, 0013, 0014, 0016.
 > points at a registered route. The refresh is complete; each slice shipped on its own
 > `feature/module-01-*` branch and was merged to `main` after review.
 
-> **Post-refresh adjustment (planned — spec 17, ADR-0027/0028).** The contract upload/edit/sign/
+> **Post-refresh adjustment (implemented — spec 17, ADR-0027/0028).** The contract upload/edit/sign/
 > renew/rate-card/document-write surfaces shipped in S6–S8 are retired: contracts become a read-only
 > projection of Core Transaction 3. The commercial fields, read-time totals, visibility split and
 > contract book/detail reads remain. The lead journey is a frontend-derived view. The rest of this

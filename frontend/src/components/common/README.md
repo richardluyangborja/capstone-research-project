@@ -27,7 +27,7 @@ check this list first:
 - `DataTable` — list/tables with filters slot, pagination, bulk actions — **done**
 - `ReportBody` — headline, narrative, three insight cards and four action links (module 06 dashboard
   summary + module 07 `/reports`) — **done** (spec 15)
-- `JourneyStepper` — read-only, derived account journey (module 01 refresh, Account 360) — **done**
+- `JourneyStepper` — read-only, derived account or lead journey (module 01 refresh, Account 360; spec 17 T3) — **done**
 - `RateCardTable` — read-only contract rate-card table with manager-only pay/margin columns (module 01
   refresh, Account 360 + contract detail) — **done**
 - `CompanyDeliveryPanel` — read-only Recruitment / Deployment / Timekeeping feed for Account 360's

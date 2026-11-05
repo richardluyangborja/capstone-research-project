@@ -48,14 +48,15 @@ Laravel's own and is separate from `frontend/`.
 `POST /api/v1/auth/login`, `GET /api/v1/auth/me`, `POST /api/v1/auth/logout`; teams + roles on
 `users` (seeded, no faker).
 
-> **Planned Module 01 tracking adjustments (spec `17`, ADR-0027/0028 — docs written, not built).**
+> **Module 01 tracking adjustments (spec `17`, ADR-0027/0028 — implemented).**
 > Contracts become a **read-only projection** owned by Core Transaction 3: no CRM upload/edit/sign/
 > renew/rate-card-write, no contract document storage/download, no signing-triggered account
 > activation or Service handoff. The dashboard and `/deployments` will share one pending-timesheet
 > metric (deployments with no current timesheet). The lead detail gains a derived
 > Captured → Contacted → Qualified → Converted journey with a next-action CTA; the state machine is
 > unchanged. T1 is implemented on `feature/module-01-contracts-read-only` and T2 is implemented on
-> `feature/module-01-delivery-metrics-consistency`; T3 remains planned. The historical
+> `feature/module-01-delivery-metrics-consistency`; T3 is implemented on
+> `feature/module-01-lead-journey`. The historical
 > contract-write details below are superseded by ADR-0027.
 
 - **Submodule 01 — Lead Capture & Intake:** `/api/v1/leads` (index/store/show/destroy +
@@ -742,6 +743,9 @@ or handoff retry; the frontend exposes the same read-only surface.
 T2 is implemented on `feature/module-01-delivery-metrics-consistency`: dashboard and deployment
 book pending-timesheet counts share `Http/Delivery/DeliverySnapshot`, with the filtered deployment
 view linked from the dashboard.
+T3 is implemented on `feature/module-01-lead-journey`: `/leads/:id` derives Captured → Contacted →
+Qualified → Converted from the lead and timeline, offers the next legal action with the existing
+status/conversion endpoints, and keeps the Lifecycle panel as the complete transition control.
 
 **Module 01 refresh (S0–S19 built — `specs/16`, ADR-0023–0026).** S0 is the planning contract and
 S1 is the shell: the sidebar is grouped by module, `/accounts` (plus `/accounts/new` and

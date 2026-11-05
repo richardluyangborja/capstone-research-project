@@ -24,8 +24,9 @@ const labelClass: Record<JourneyStepState, string> = {
 }
 
 /**
- * A read-only account journey: what has happened, what is next, and what was skipped.
- * The state is derived by the caller (spec 16 §Account 360) — the stepper never moves a record.
+ * A read-only journey: what has happened, what is next, and what was skipped.
+ * The state is derived by the caller (Account 360 and the lead journey) — the stepper never moves
+ * a record.
  */
 export default function JourneyStepper({
   steps,
@@ -41,6 +42,8 @@ export default function JourneyStepper({
         return (
           <li
             key={step.key}
+            data-step={step.key}
+            data-state={step.state}
             aria-current={step.state === 'current' ? 'step' : undefined}
             className="flex min-w-0 flex-1 items-start gap-2"
           >

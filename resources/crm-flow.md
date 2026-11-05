@@ -132,7 +132,7 @@ The refresh keeps the records above but consolidates the working surface:
 - **Public surface** — simple landing refresh, embedded request-staffing intake, modal sign-in and
   all-role CSV import with ownership rules (ADR-0026).
 
-### Module 01 tracking adjustments (planned — spec 17, ADR-0027/0028)
+### Module 01 tracking adjustments (built — spec 17, ADR-0027/0028)
 
 The post-refresh corrections keep the same objects but fix three boundaries:
 
@@ -153,7 +153,7 @@ dashboard and AI reports are cross-cutting presentation layers, not data modules
 
 | Module | Name | Depends on | Spec |
 | --- | --- | --- | --- |
-| 01 | Lead & Client Tracking | — | `01`–`09` **(baseline built)** + `16` refresh (S0–S19 built) + `17` adjustments (T1–T3 planned) |
+| 01 | Lead & Client Tracking | — | `01`–`09` **(baseline built)** + `16` refresh (S0–S19 built) + `17` adjustments (T1–T3 built) |
 | 02 | Opportunity Pipeline Visualization | `Opportunity` record (08) | `10` **(built)** |
 | 03 | Communication History Management | objects from 01–02 | `11` **(built)** |
 | 04 | Follow-up Reminder System | 03 + notifications | `12` **(built)** |
@@ -322,7 +322,7 @@ operational CRM tables. The former outbound Service handoff on signing is retire
 
 **Shipped before the refresh:** Service handoff status and a small Finance billing snapshot. **Spec 16
 consumes:** Recruitment job orders, Deployment status, Timekeeping summaries and an expanded Finance AR
-feed as read-only mocks. **Spec 17 (planned)** adds contracts as the read-only projection from Core
+feed as read-only mocks. **Spec 17 (built)** adds contracts as the read-only projection from Core
 Transaction 3 and retires the CRM contract write/handoff path. HR remains deferred.
 
 ## Decisions
