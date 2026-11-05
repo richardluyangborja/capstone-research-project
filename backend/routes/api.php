@@ -24,6 +24,7 @@ use App\Http\Controllers\Api\V1\FollowUpController;
 use App\Http\Controllers\Api\V1\LeadAssignmentController;
 use App\Http\Controllers\Api\V1\LeadController;
 use App\Http\Controllers\Api\V1\LeadConversionController;
+use App\Http\Controllers\Api\V1\LeadImportController;
 use App\Http\Controllers\Api\V1\LeadLifecycleController;
 use App\Http\Controllers\Api\V1\LeadQualificationController;
 use App\Http\Controllers\Api\V1\ManagementReportController;
@@ -88,6 +89,10 @@ Route::prefix('v1')->group(function (): void {
 
         // Leads — submodules 01–03. Static paths must precede the resource route.
         Route::get('leads/summary', [LeadController::class, 'summary']);
+        // Module 01 refresh S18 — fixed-template CSV import (spec 16 §CSV import).
+        Route::get('leads/import/template', [LeadImportController::class, 'template']);
+        Route::post('leads/import/preview', [LeadImportController::class, 'preview']);
+        Route::post('leads/import', [LeadImportController::class, 'store']);
         Route::post('leads/bulk-assign', [LeadAssignmentController::class, 'bulkAssign']);
         Route::post('leads/bulk-transfer', [LeadAssignmentController::class, 'bulkTransfer']);
         Route::post('leads/{id}/restore', [LeadController::class, 'restore']);

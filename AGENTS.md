@@ -814,6 +814,9 @@ clears the session and reopens the modal; `lib/authRedirect.ts` validates return
 (`components/public/PublicLeadForm.tsx`) and adds the throttled, honeypot-protected
 `POST /api/v1/public/leads`; it creates an unassigned `website` lead with `consent_at` stamped and
 returns only a friendly message, while the form handles field errors, retryable failures and a
-thank-you state. S18 adds all-role CSV import with ownership rules. Read
+thank-you state. S18 adds all-role CSV import: `/leads/import` downloads a fixed template, previews
+mapped rows with per-row errors and advisory duplicates, then commits only valid rows (500-row cap,
+`source_detail` naming the file); a salesrep's rows are self-owned while a manager/admin import
+defaults to the unassigned queue or a selected salesrep in scope. Read
 `resources/specs/16-module-01-refresh.md` before changing Module 01; the old `01`, `06` and `09` files
 remain the baseline for behavior the refresh does not replace.

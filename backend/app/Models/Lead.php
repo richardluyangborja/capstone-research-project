@@ -146,6 +146,47 @@ class Lead extends Model
         });
     }
 
+    /**
+     * Advisory duplicate detection (spec 01 rule 4). Hard blocking/merge is Phase 2
+     * (ADR-0006), so callers create the record anyway and report these matches.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<int, array<string, mixed>>
+     */
+    public static function findDuplicates(array $data): array
+    {
+        $company = mb_strtolower(trim((string) ($data['company_name'] ?? '')));
+        $email = $data['contact_email'] ?? null;
+        $phone = $data['contact_phone'] ?? null;
+
+        if ($company === '' && blank($email) && blank($phone)) {
+            return [];
+        }
+
+        return static::query()
+            ->where(function (Builder $query) use ($company, $email, $phone): void {
+                if ($company !== '') {
+                    $query->whereRaw('LOWER(company_name) = ?', [$company]);
+                }
+
+                if (filled($email)) {
+                    $query->orWhere('contact_email', $email);
+                }
+
+                if (filled($phone)) {
+                    $query->orWhere('contact_phone', $phone);
+                }
+            })
+            ->limit(10)
+            ->get(['id', 'reference', 'company_name'])
+            ->map(fn (Lead $lead): array => [
+                'id' => $lead->id,
+                'reference' => $lead->reference,
+                'company_name' => $lead->company_name,
+            ])
+            ->all();
+    }
+
     public function scopeSearch(Builder $query, ?string $term): Builder
     {
         if (! $term) {

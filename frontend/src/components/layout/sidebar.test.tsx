@@ -35,6 +35,10 @@ describe('Sidebar', () => {
 
     expect(screen.getByRole('link', { name: 'Lead Workspace' })).toHaveAttribute('href', '/leads')
     expect(screen.getByRole('link', { name: 'Capture Lead' })).toHaveAttribute('href', '/leads/new')
+    expect(screen.getByRole('link', { name: 'Import Leads' })).toHaveAttribute(
+      'href',
+      '/leads/import',
+    )
     expect(screen.getByRole('link', { name: 'Account Book' })).toHaveAttribute('href', '/accounts')
     expect(screen.getByRole('link', { name: 'Contact Book' })).toHaveAttribute('href', '/contacts')
   })

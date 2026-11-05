@@ -18,6 +18,7 @@ import {
   SquareKanban,
   Target,
   Truck,
+  Upload,
   UserPlus,
   Users,
   Wallet,
@@ -61,6 +62,7 @@ const groups: NavGroup[] = [
         items: [
           { to: '/leads', label: 'Lead Workspace', icon: Inbox, end: true },
           { to: '/leads/new', label: 'Capture Lead', icon: UserPlus },
+          { to: '/leads/import', label: 'Import Leads', icon: Upload },
         ],
       },
       {

@@ -93,7 +93,7 @@ class LeadController extends Controller
     {
         $data = $request->validated();
 
-        $duplicates = $this->findDuplicates($data);
+        $duplicates = Lead::findDuplicates($data);
 
         $lead = DB::transaction(function () use ($data, $request): Lead {
             if ($request->user()->role === Role::Salesrep) {
@@ -134,39 +134,5 @@ class LeadController extends Controller
         $lead->restore();
 
         return new LeadResource($lead->load('owner'));
-    }
-
-    /**
-     * Advisory duplicate detection (submodule 1). Hard blocking is Phase 2 (ADR-0006).
-     *
-     * @param  array<string, mixed>  $data
-     * @return array<int, array<string, mixed>>
-     */
-    private function findDuplicates(array $data): array
-    {
-        $company = mb_strtolower(trim((string) $data['company_name']));
-        $email = $data['contact_email'] ?? null;
-        $phone = $data['contact_phone'] ?? null;
-
-        return Lead::query()
-            ->where(function ($query) use ($company, $email, $phone): void {
-                $query->whereRaw('LOWER(company_name) = ?', [$company]);
-
-                if ($email) {
-                    $query->orWhere('contact_email', $email);
-                }
-
-                if ($phone) {
-                    $query->orWhere('contact_phone', $phone);
-                }
-            })
-            ->limit(10)
-            ->get(['id', 'reference', 'company_name'])
-            ->map(fn (Lead $lead): array => [
-                'id' => $lead->id,
-                'reference' => $lead->reference,
-                'company_name' => $lead->company_name,
-            ])
-            ->all();
     }
 }
