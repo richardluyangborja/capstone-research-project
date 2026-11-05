@@ -720,7 +720,7 @@ Dedup/merge and advanced/stored tier scoring are module-01 deferrals
 (ADR-0006), and automatic client aging stays one too (ADR-0018 §6). Other departments are consumed via
 **read-only mocked feeds** (ADR-0005, ADR-0025), not built here.
 
-**Module 01 refresh (S0–S16 built — `specs/16`, ADR-0023–0026).** S0 is the planning contract and
+**Module 01 refresh (S0–S19 built — `specs/16`, ADR-0023–0026).** S0 is the planning contract and
 S1 is the shell: the sidebar is grouped by module, `/accounts` (plus `/accounts/new` and
 `/accounts/:id`) is the canonical account surface, and `/companies*`, `/clients`, `/qualification`,
 `/assignment`, `/lifecycle` and `/conversion` redirect with their query strings preserved. Dashboard
@@ -817,6 +817,9 @@ returns only a friendly message, while the form handles field errors, retryable 
 thank-you state. S18 adds all-role CSV import: `/leads/import` downloads a fixed template, previews
 mapped rows with per-row errors and advisory duplicates, then commits only valid rows (500-row cap,
 `source_detail` naming the file); a salesrep's rows are self-owned while a manager/admin import
-defaults to the unassigned queue or a selected salesrep in scope. Read
+defaults to the unassigned queue or a selected salesrep in scope. S19 closes the refresh: modules
+02–05 keep their grouped, sectioned sidebar pattern, the dashboard route inventory lives in
+`frontend/src/routes/dashboardRoutes.tsx`, and the sidebar test checks every entry against it so a
+navigation link cannot point at a missing route. Read
 `resources/specs/16-module-01-refresh.md` before changing Module 01; the old `01`, `06` and `09` files
 remain the baseline for behavior the refresh does not replace.

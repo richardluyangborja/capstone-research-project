@@ -49,8 +49,9 @@ interface NavGroup {
 }
 
 // The CRM module map (resources/system-modules.md, spec 16 §Navigation and routes). Only
-// **implemented** destinations are listed; later slices add their entries as their pages land,
-// so the sidebar never carries a dead link.
+// **implemented** destinations are listed; modules 02–05 follow the same group + section pattern
+// as module 01. The sidebar test audits every entry against `routes/dashboardRoutes.tsx`, so the
+// sidebar never carries a dead link (S19).
 const primaryItems: NavItem[] = [{ to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard }]
 
 const groups: NavGroup[] = [

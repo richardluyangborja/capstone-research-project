@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { describe, expect, it, vi } from 'vitest'
+import { dashboardRoutes } from '../../routes/dashboardRoutes'
 import Sidebar from './Sidebar'
 
 vi.mock('../../lib/auth-context', () => ({
@@ -77,6 +78,23 @@ describe('Sidebar', () => {
     expect(screen.getByRole('button', { name: 'Follow-up Reminder System' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Client Satisfaction & Survey' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'AI Reports' })).toBeInTheDocument()
+
+    // Modules 02–05 use the same group + section pattern as module 01.
+    const sections = ['Pipeline', 'History', 'Templates', 'Worklist', 'Surveys', 'Feedback']
+    sections.forEach((section) => expect(screen.getByText(section)).toBeInTheDocument())
+  })
+
+  it('points every navigation entry at a registered dashboard route', () => {
+    renderSidebar()
+
+    const registered = dashboardRoutes.map((route) => route.path)
+    const hrefs = screen
+      .getAllByRole('link')
+      .map((link) => link.getAttribute('href'))
+      .filter((href): href is string => Boolean(href))
+
+    expect(new Set(registered).size).toBe(registered.length)
+    hrefs.forEach((href) => expect(registered).toContain(href))
   })
 
   it('hides the manager-only AR book from salesreps', () => {
