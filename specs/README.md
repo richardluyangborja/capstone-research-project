@@ -35,7 +35,7 @@ score or automatic lifecycle transition. These remain tracked module-01 deferral
 
 | File | Module |
 | --- | --- |
-| `10-opportunity-pipeline-visualization.md` | 2. Opportunity Pipeline Visualization *(baseline done; refresh planned in spec 18, ADR-0029)* |
+| `10-opportunity-pipeline-visualization.md` | 2. Opportunity Pipeline Visualization *(baseline done; refresh S1 built in spec 18, ADR-0029)* |
 | `11-communication-history.md` | 3. Communication History Management *(done — 5 slices)* |
 | `12-follow-up-reminders.md` | 4. Follow-up Reminder System *(done — 4 slices)* |
 | `13-client-satisfaction-survey.md` | 5. Client Satisfaction & Survey *(built — 4 slices, S1–S4)* |

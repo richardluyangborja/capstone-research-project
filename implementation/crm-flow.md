@@ -171,7 +171,8 @@ The refresh adds computed, explainable health flags, not automatic lifecycle mov
 
 ## Module 02 → submodules (built, ADR-0015)
 
-1. **Pipeline Board** — Kanban of open deals, drag-and-drop + accessible move menu, column totals.
+1. **Pipeline Board** — Kanban of open deals, a dedicated grip handle with tactile drag ghosting and dashed
+   column drop targets (spec 18 S1), plus the accessible move menu and column totals.
 2. **Deal Management** — flat `/opportunities` CRUD, deal list and detail page.
 3. **Deal Stage & Outcome** — any-to-any stage moves with rules, won/lost, reopen, stage history.
 4. **Deal Activity & Timeline** — log touches/next actions; the deal timeline.

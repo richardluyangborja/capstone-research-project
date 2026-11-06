@@ -3,7 +3,7 @@
 Module 2 (ADR-0014). Entities: `Opportunity`, `Company`, `Contact`, `Activity`, `Contract`, `User`.
 ADRs: 0002, 0004, 0007, 0012, 0015.
 
-> **Implemented (refresh planned — spec 18, ADR-0029).** The contract below is what shipped
+> **Implemented (refresh S1 built — spec 18, ADR-0029).** The contract below is what shipped
 > (see ADR-0015 for the choices made where the spec was open). It builds on the deal record submodule
 > 08 created (ADR-0012 §1). Spec `18` extends this baseline with dedicated drag handles, staffing demand
 > fields, won/lost governance dialogs, follow-up synchronization, and view ergonomics.
