@@ -15,7 +15,7 @@ import type { LostReason, Opportunity, OpportunityStage, PipelineBoard } from '.
 
 type OwnerFilter = '' | 'me' | 'team'
 
-/** Nested links and controls must never start a card drag (spec 18 §S1). */
+/** A link is natively draggable; keep it from starting a card drag (spec 18 §S1). */
 const stopDragStart = (event: DragEvent<HTMLElement>) => {
   event.preventDefault()
   event.stopPropagation()
@@ -455,13 +455,6 @@ function DealCard({
 
   return (
     <article
-      draggable={deal.can_change_stage}
-      onDragStart={(event) => {
-        event.dataTransfer.setData('text/plain', deal.id)
-        event.dataTransfer.effectAllowed = 'move'
-        setDragging(true)
-      }}
-      onDragEnd={() => setDragging(false)}
       className={`rounded-lg border border-border bg-card p-3 shadow-sm ${
         busy ? 'opacity-60' : ''
       } ${dragging ? 'opacity-50 ring-2 ring-primary/40' : ''}`}
@@ -472,6 +465,13 @@ function DealCard({
             title="Drag to change stage"
             aria-label="Drag to change stage"
             role="img"
+            draggable={deal.can_change_stage}
+            onDragStart={(event: DragEvent<HTMLSpanElement>) => {
+              event.dataTransfer.setData('text/plain', deal.id)
+              event.dataTransfer.effectAllowed = 'move'
+              setDragging(true)
+            }}
+            onDragEnd={() => setDragging(false)}
             className="mt-0.5 inline-flex shrink-0 cursor-grab items-center text-muted-foreground/60 hover:text-foreground active:cursor-grabbing"
           >
             <GripVertical className="h-4 w-4" aria-hidden="true" />
@@ -510,7 +510,7 @@ function DealCard({
 
       {deal.next_step && <p className="mt-2 text-xs text-foreground">Next: {deal.next_step}</p>}
 
-      <div className="mt-3" onDragStart={stopDragStart}>
+      <div className="mt-3">
         <StageMoveControl
           deal={deal}
           disabled={busy || !deal.can_change_stage}

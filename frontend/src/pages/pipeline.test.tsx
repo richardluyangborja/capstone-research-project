@@ -205,6 +205,9 @@ describe('Pipeline board', () => {
     const handle = within(card).getByTitle('Drag to change stage')
     expect(handle).toBeInTheDocument()
     expect(handle).toHaveClass('cursor-grab')
+    expect(handle).toHaveAttribute('draggable', 'true')
+    // Only the grip is draggable, so links, fields and the Move-to menu stay clickable.
+    expect(card).not.toHaveAttribute('draggable')
     expect(within(card).getByRole('img', { name: 'Drag to change stage' })).toBe(handle)
   })
 
