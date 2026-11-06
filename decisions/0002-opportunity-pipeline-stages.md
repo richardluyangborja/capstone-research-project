@@ -22,4 +22,4 @@ Run two pipelines:
 - **Won records the outcome and prompts the contract/upload step; the service-department handoff
   fires when the contract is signed**, not on `won` (refined by ADR-0013 §5 and ADR-0015 §4 — the
   original "won triggers the handoff" wording is superseded).
-- See `../resources/crm-flow.md`; the pipeline itself is module 02 (ADR-0014, ADR-0015).
+- See `../implementation/crm-flow.md`; the pipeline itself is module 02 (ADR-0014, ADR-0015).

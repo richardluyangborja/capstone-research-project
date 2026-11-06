@@ -12,7 +12,7 @@ The pipeline rules remain current; only the won-to-contract action and signing h
 
 ## Context
 
-Module 02 (`../resources/specs/10-opportunity-pipeline-visualization.md`, ADR-0014) builds the deal
+Module 02 (`../specs/10-opportunity-pipeline-visualization.md`, ADR-0014) builds the deal
 pipeline that submodule 08 deliberately left out: submodule 08 created the `Opportunity` record,
 stages and probability, but a salesrep still cannot move a deal, and `OpportunityPolicy` only polices
 viewing (ADR-0012 §1). Building the pipeline raised six questions:
@@ -51,7 +51,7 @@ viewing (ADR-0012 §1). Building the pipeline raised six questions:
    restore is **manager+**, force delete is admin.
 6. **Forecasting is a board header, not a report.** The board and `GET /opportunities` expose
    `meta` totals (open/weighted value, per-stage breakdown, win rate); the full dashboard and
-   management reports remain the AI module (`system-ai-feature.md`).
+   management reports remain the AI module (`../implementation/system-ai-feature.md`).
 
 ## Consequences
 
@@ -62,6 +62,6 @@ viewing (ADR-0012 §1). Building the pipeline raised six questions:
   `setAmount`, `delete`, `restore`, `forceDelete`. `OpportunityResource` gains `stage_changed_at`,
   `last_activity_at`, `next_step`, `days_in_stage`, `is_stale`, `allowed_transitions[]`,
   `can_*` flags and the linked-contract reference.
-- `resources/specs/README.md` moves `OpportunityWon` from "not built" to module 02.
+- `../specs/README.md` moves `OpportunityWon` from "not built" to module 02.
 - The deal detail page and the pipeline board are the two contracts 08 promised; the company
   Opportunities tab becomes interactive.

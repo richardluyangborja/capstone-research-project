@@ -24,10 +24,10 @@ Two constraints shape the decision:
 
 ## Decision
 
-1. **Ship the dashboard before module 05 S4.** S4 stays specified in `specs/13` and is deferred,
+1. **Ship the dashboard before module 05 S4.** S4 stays specified in `../specs/13` and is deferred,
    not dropped. The dashboard reads the attention flag S2 already stores and links to
    `/satisfaction/responses?attention=true`, so S4 lands later without a dashboard rewrite.
-   Delivery slices for this layer are declared in `specs/14`: **D1** dashboard home (this slice),
+   Delivery slices for this layer are declared in `../specs/14`: **D1** dashboard home (this slice),
    **D2** real endpoints, **D3** the AI service.
 
 2. **D1 is mock-first, behind one swap point.** Every dashboard number lives in
@@ -66,9 +66,9 @@ Two constraints shape the decision:
 8. **Every dashboard element is clickable, and links only to an existing page.** A KPI, chart legend
    entry, worklist row, alert, activity row, staff action and AI action all navigate; the dashboard
    itself duplicates no action (no inline status changes). This is an acceptance criterion in
-   `specs/14`, not a style preference.
+   `../specs/14`, not a style preference.
 
-9. **The data contract is the deliverable of D1.** `specs/14` §"Data contract" fixes the proposed
+9. **The data contract is the deliverable of D1.** `../specs/14` §"Data contract" fixes the proposed
    endpoints, per-KPI query rules, worklist composition and HR seam. D2 is expected to be mechanical;
    if a rule changes, the spec changes first.
 
@@ -91,8 +91,8 @@ Two constraints shape the decision:
   is deleted/emptied in D2, so it must not accumulate unrelated fixtures.
 - `DashboardHome` is rewritten; `StatCard` gains optional `to`, `icon`, `hint` and `trend` props
   (backwards compatible). The shared component list gains `ChartCard`, `LineChart`, `DonutChart`.
-- Module 05's completion order changes: **S4 after D1** (and possibly after D2). `specs/13` marks S4
-  as still specified; `AGENTS.md`, `specs/README.md`, `crm-flow.md` and ADR-0014 carry a note.
+- Module 05's completion order changes: **S4 after D1** (and possibly after D2). `../specs/13` marks S4
+  as still specified; `../AGENTS.md`, `../specs/README.md`, `../implementation/crm-flow.md` and ADR-0014 carry a note.
 - D1 ships without backend changes; the backend suite is unaffected.
 - D2 must add endpoint tests per role and reconcile at least one dashboard number against its
   module's list; D3 must prove the timeout fallback and the label.
@@ -119,7 +119,7 @@ fallback; the update below records its move to Module 07.
 ## Update — 2026-10-24 (D3 moved to Module 07)
 
 D3 is no longer a slice of this spec. The generated management reports now belong to **Module 07 — AI
-Management Reports** (`specs/15`, ADR-0021): its own `/reports` page and **AI Reports** sidebar group,
+Management Reports** (`../specs/15`, ADR-0021): its own `/reports` page and **AI Reports** sidebar group,
 three rules variants in S1 and an on-demand free Groq layer in S2. The dashboard's `ai` block stays
 the Laravel rules summary and gains a link to `/reports`; it never calls the provider. The dashboard
 contract and D1/D2 decisions above are unchanged.

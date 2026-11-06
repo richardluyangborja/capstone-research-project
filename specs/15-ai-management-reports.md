@@ -442,6 +442,6 @@ the new module owns the page, the variants and the provider seam.
 - `ai/` gains `POST /reports/dashboard`, the provider seam, shared-bearer auth (ADR-0022) and its
   tests. It stays FastAPI + `httpx` + Pydantic; no ML stack, no vector store.
 - No table, no migration and no change to modules 01–05.
-- `AGENTS.md`, `crm-flow.md`, `specs/README.md` and ADR-0021 record Module 07 and the D3 move.
+- `../AGENTS.md`, `../implementation/crm-flow.md`, `README.md` and ADR-0021 record Module 07 and the D3 move.
 - A future S3 (record summaries) and S4 (message drafting) reuse the same provider seam and the same
   PII rules; neither is implied by S1/S2.

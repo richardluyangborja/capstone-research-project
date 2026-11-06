@@ -5,7 +5,7 @@
 
 ## Context
 
-The Lead & Client Tracking module splits into nine submodules (`../resources/crm-flow.md`). We need
+The Lead & Client Tracking module splits into nine submodules (`../implementation/crm-flow.md`). We need
 a working end-to-end loop for the demo before depth.
 
 ## Decision

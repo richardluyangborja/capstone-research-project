@@ -23,4 +23,4 @@ Adopt a Salesforce-style model:
 - Contacts/accounts are reusable across repeat deals; better reporting.
 - Requires an explicit conversion workflow and duplicate detection before conversion.
 - More tables/relations than a single-table design; conversion is a distinct code path.
-- See `../resources/crm-flow.md` (object model, lead lifecycle).
+- See `../implementation/crm-flow.md` (object model, lead lifecycle).

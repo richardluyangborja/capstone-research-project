@@ -1,22 +1,40 @@
 # AGENTS.md
 
+## Main Planner Role
+
+The agent functions as the **Main Planner** in this project:
+- **Scope & Responsibility:** Manages and writes documentation, authors architectural decision records (`decisions/`), crafts implementation specifications (`specs/`), breaks down large features into incremental, reviewable delivery slices, and writes detailed implementation guides (`implementation/`).
+- **Code & Implementation Guardrail:** The Main Planner **does not write application code or implement features directly**. Another agent (the Implementing Agent) handles feature coding, testing, and formatting.
+- **Audit Reports:** The Main Planner reads and reviews reports in `audit reports/`. Another dedicated audit agent performs audits and populates that directory.
+
 ## Repository state
 
 Scaffolded monorepo (**no commits yet**): three separate apps — `backend/`, `frontend/`, `ai/` — plus
-spec/decision docs. There is no shared package; `frontend/` talks to `backend/` only over the
-`/api/v1` REST API. `resources/*.md` is the source of truth for requirements; update it when
-decisions change.
+spec/decision/implementation docs. There is no shared package; `frontend/` talks to `backend/` only over the
+`/api/v1` REST API. `implementation/*.md` and `specs/*.md` are the source of truth for requirements;
+update them when decisions change.
 
 `decisions/` holds decisions made as development progresses (see `decisions/README.md` for the
 `NNNN-title.md` + Proposed/Accepted convention). Read existing ADRs before proposing design changes,
 record new architectural/technical decisions there, and mirror anything that changes agent workflow
 into this file.
 
-## Stack & layout (from `resources/system-tech.md`)
+## Root Directory Structure
+
+- `specs/` — per-module implementation specs (data model, API, UI, acceptance criteria, and delivery slices)
+- `decisions/` — Architectural Decision Records (`NNNN-title.md`)
+- `implementation/` — implementation guides, design tokens, departmental instructions, and system flows
+- `audit reports/` — audit and verification reports (empty directory, read-only for the Main Planner)
+- `backend/` — Laravel 13 API (`/api/v1`)
+- `frontend/` — React 19 + Vite + TypeScript SPA
+- `ai/` — Python FastAPI AI/ML service
+- `resources/` — static graphic assets (logos, images)
+
+## Stack & layout (from `implementation/system-tech.md`)
 
 - `frontend/` — React 19 + Vite + TypeScript SPA (Tailwind, `react-router-dom`, `axios`, `lucide-react`)
 - `backend/` — Laravel 13 API; versioned REST under `/api/v1` (`routes/api.php`)
-- `ai/` — Python FastAPI service (lightweight) for AI/ML reports (`resources/system-ai-feature.md`)
+- `ai/` — Python FastAPI service (lightweight) for AI/ML reports (`implementation/system-ai-feature.md`)
 - `docker-compose.yml` at the root — local Postgres only (`db` service); the apps run on the host
 - Single git repo at the root tracks all three; remote `origin` is set
 
@@ -143,7 +161,7 @@ Laravel's own and is separate from `frontend/`.
   the account's rights; billing is manager-only. Events: `CompanyStatusChanged`, `ContractSigned`,
   `CompanyActivated`, `CompanyChurned`. **Not built here:** the deal pipeline, contract
   versioning/e-signature, renewal reminders and automatic aging (ADR-0013).
-- **Module 02 — Opportunity Pipeline Visualization (baseline built; refresh planned — spec 18, ADR-0029):**
+- **Module 02 — Opportunity Pipeline Visualization (baseline built; refresh S1 built — spec 18, ADR-0029):**
   the deal pipeline on the `Opportunity` record (ADR-0014, ADR-0015). Flat `/api/v1/opportunities`
   (index/store/show/update/destroy + `POST /{id}/restore`) with `filter[stage|owner|company|open|source|close_window]` +
   `search` and a `summary` block; a deal is created directly on a visible company (owner = the creator) or by
@@ -159,12 +177,14 @@ Laravel's own and is separate from `frontend/`.
   (logging a touch refreshes `last_activity_at`, so staleness tracks real work). **`won` does not hand
   off to Service** — it surfaces a link to the read-only contract projection when one exists, and otherwise
   states that contracts are managed in Contract Management (Core Transaction 3, ADR-0027). Spec `18`
-  (ADR-0029) refreshes Module 02 with drag handle interactivity, staffing demand attributes (`estimated_headcount`,
+  (ADR-0029) refreshes Module 02 with drag handle interactivity (S1 built), staffing demand attributes (`estimated_headcount`,
   `service_type`, `target_start_date`), outcome governance (`WonConfirmDialog` / lost notes), follow-up
   synchronization (`next_follow_up_at`), and unified workspace view switching. Events:
   `OpportunityStageChanged`, `OpportunityWon`, `OpportunityLost` (`OpportunityCreated` now also fires on
   manual creation). The dashboard read endpoints are covered under module 06 below, and AI Management
-  Reports (spec `15`) under module 07.
+  Reports (spec `15`) under module 07. **Spec 18 S1 (drag handle interactivity) is built** on
+  `feature/module-02-drag-handle`; S2–S5 (staffing fields, won/lost governance, follow-up sync and
+  workspace ergonomics) remain planned.
 - **Module 03 — Communication History Management (slices S1–S5 — log & history, email, attachments,
   threads, templates):** the detailed,
   channel-aware history record beside `Activity` (ADR-0017). Flat `/api/v1/communications`
@@ -382,7 +402,7 @@ Laravel's own and is separate from `frontend/`.
   `can_resolve`.
 
 - **Module 06 — Dashboard & Management Reports (D1 + D2 — built):** the cross-cutting read layer
-  over modules 01–05 (`resources/specs/14-dashboard-management-reports.md`, ADR-0020), shipped as
+  over modules 01–05 (`specs/14-dashboard-management-reports.md`, ADR-0020), shipped as
   D1 after module 05 S3 and before S4 for the presentation, then D2 in five phases. D2's read
   endpoints — `GET /dashboard` (scope, KPIs, charts, alerts, activity, rules-based `ai`),
   `GET /dashboard/worklist` and `GET /dashboard/staff-performance` — are role-scoped (salesrep →
@@ -399,7 +419,7 @@ Laravel's own and is separate from `frontend/`.
   `LineChart`, `DonutChart`; `StatCard` gained optional `to`/`icon`/`hint`/`trend`. The dashboard
   AI card links to Module 07; it does not call a provider.
 - **Module 07 — AI Management Reports (S1 + S2 built):** a read-only presentation module over the
-  dashboard data (`resources/specs/15-ai-management-reports.md`, ADR-0021, ADR-0022), with its own
+  dashboard data (`specs/15-ai-management-reports.md`, ADR-0021, ADR-0022), with its own
   `/reports` page and **AI Reports** sidebar group. **S1** ships the rules-based Executive, Pipeline
   and Client Health variants through `GET /reports/management` (`variant`, `range`; defaults
   executive/30 days), scoped like the dashboard, with no provider call. The response always carries
@@ -558,7 +578,7 @@ module-01 deferral, ADR-0006). `/leads/{id}/status` cannot reach `converted`; co
 path (ADR-0009). `Company::deletionBlockers()` carries both guards (open deal, signed contract) —
 ADR-0010 §6.
 
-**Module 04 is complete — S1–S4 built.** `resources/specs/12-follow-up-reminders.md` declares four
+**Module 04 is complete — S1–S4 built.** `specs/12-follow-up-reminders.md` declares four
 slices (S1–S4, ADR-0018) and all four have landed: **S1 (follow-up tasks + the worklist), S2
 (scheduled outbound messages + the due dispatch), S3 (notifications & the due run) and S4 (generated
 reminders)**. The module adds
@@ -659,8 +679,8 @@ Sunrise one as unresolved work through the real path — its answer raises the o
 
 ## Mandatory design system
 
-Announced in `resources/departamental-design-instruction.md` (agreed default, pending final client
-sign-off). Full color values: `resources/design-tokens.md`.
+Announced in `implementation/departamental-design-instruction.md` (agreed default, pending final client
+sign-off). Full color values: `implementation/design-tokens.md`.
 
 - Tokens live in `tailwind.config.js` and `index.css`. **No hardcoded hex or arbitrary px** —
   tokens/utility classes only. Light + dark mode values are both defined. Tokens are hex `var()`s,
@@ -668,7 +688,7 @@ sign-off). Full color values: `resources/design-tokens.md`.
   `tailwind.config.js` (Tailwind v3 cannot alpha a plain `var()` colour).
 - Fixed color mapping per data domain: **blue = counts, green = people, purple = activity,
   orange = cost.** Brand logo text uses `logo-brand`; lead rating uses `rating-hot|warm|cold` — all
-  documented in `resources/design-tokens.md`.
+  documented in `implementation/design-tokens.md`.
 - Shared components live in `frontend/src/components/common/` (required list in its `README.md`)
   and `frontend/src/components/layout/`. Reuse before creating; anything used by 2+ subsystems/roles
   belongs in `common/` — no duplicate implementations. Built so far: DashboardShell, Sidebar, Topbar,
@@ -680,7 +700,7 @@ sign-off). Full color values: `resources/design-tokens.md`.
   section (line + donut), then activity list + alerts list.
 - When generating/editing UI, supply the design-system context so output stays aligned.
 
-## Roles (`resources/system-roles.md`)
+## Roles (`implementation/system-roles.md`)
 
 `superadmin` (low-level/system access) > `admin` (app settings) > `manager` (oversees salesreps,
 view-heavy) > `salesrep` (main user, heavy operations; sensitive data hidden and must escalate).
@@ -688,37 +708,39 @@ view-heavy) > `salesrep` (main user, heavy operations; sensitive data hidden and
 ## Scope
 
 This repo implements the **Customer Relationship Management** subsystem (see
-`resources/system-modules.md`): lead/client tracking, communication history, client satisfaction &
-survey, follow-up reminders, opportunity pipeline visualization. `resources/list-of-departments.md`
+`implementation/system-modules.md`): lead/client tracking, communication history, client satisfaction &
+survey, follow-up reminders, opportunity pipeline visualization. `implementation/list-of-departments.md`
 lists the wider org systems for context — they are **not** in scope here.
 
 Design docs an agent should read before touching CRM features:
 
-- `resources/business-flow.md` — business context and end-to-end flow
-- `resources/crm-flow.md` — object model, pipelines, submodules, integrations, role visibility
-- `resources/specs/` — per-submodule implementation specs (data model, API, UI, acceptance criteria)
-- `resources/specs/16-module-01-refresh.md` — the Module 01 refresh delivery contract (ADR-0023–0026)
-- `resources/specs/17-module-01-tracking-adjustments.md` — read-only contracts, the shared
+- `implementation/business-flow.md` — business context and end-to-end flow
+- `implementation/crm-flow.md` — object model, pipelines, submodules, integrations, role visibility
+- `specs/` — per-submodule implementation specs (data model, API, UI, acceptance criteria)
+- `specs/16-module-01-refresh.md` — the Module 01 refresh delivery contract (ADR-0023–0026)
+- `specs/17-module-01-tracking-adjustments.md` — read-only contracts, the shared
   pending-timesheet metric and the derived lead journey (ADR-0027–0028)
+- `specs/18-module-02-refresh.md` — the Module 02 refresh delivery contract (ADR-0029)
 - `decisions/` — accepted design decisions (ADRs)
+- `implementation/` — design instructions, tokens, architecture guides
 - `DEPLOYMENT.md` — local vs deployed environment variables, Neon Postgres, per-app build/start
   commands, persistent storage and CORS
 
-Before implementing a submodule, read `resources/specs/README.md` (conventions) and
-`resources/specs/00-data-model.md` first; each submodule spec builds on them.
+Before implementing a submodule, read `specs/README.md` (conventions) and
+`specs/00-data-model.md` first; each submodule spec builds on them.
 
 **Modules 01 and 02** are built: module 01 (Lead & Client Tracking) covers lead capture,
 qualification, assignment, lifecycle, company/contact, lead→client conversion and client lifecycle;
 module 02 (Opportunity Pipeline Visualization) covers the deal book, the Kanban board, stage
 moves/won-lost and the board forecast. **Module 03** (Communication History) is **complete** — its five
 declared slices (S1 log & history, S2 mocked email send/retry, S3 attachments, S4 threading, S5 templates)
-are all built. **Module 04** (Follow-up Reminders) is **complete** — `resources/specs/12-follow-up-reminders.md`
+are all built. **Module 04** (Follow-up Reminders) is **complete** — `specs/12-follow-up-reminders.md`
 declares four slices (ADR-0018) and all four are built: **S1 (tasks + the worklist), S2 (scheduled
 outbound messages + the due dispatch), S3 (notifications & the due run) and S4 (generated renewals,
 check-ins and stale-lead nudges)**; its worklist
 reuses `Activity` and the reserved
 `CommunicationStatus.scheduled` rather than adding a table. **Module 05** (Client Satisfaction &
-Survey) is **complete** — `resources/specs/13-client-satisfaction-survey.md` declares four slices
+Survey) is **complete** — `specs/13-client-satisfaction-survey.md` declares four slices
 (ADR-0016, ADR-0019): **S1 survey library, S2 invitations + the tokenized public form, S3 responses
 & scoring, S4 closed-loop follow-through** — and all four are built. The module adds
 five tables (`surveys`,
@@ -852,7 +874,7 @@ defaults to the unassigned queue or a selected salesrep in scope. S19 closes the
 02–05 keep their grouped, sectioned sidebar pattern, the dashboard route inventory lives in
 `frontend/src/routes/dashboardRoutes.tsx`, and the sidebar test checks every entry against it so a
 navigation link cannot point at a missing route. Read
-`resources/specs/16-module-01-refresh.md` and the current
-`resources/specs/17-module-01-tracking-adjustments.md` before changing Module 01; the old `01`, `06`
+`specs/16-module-01-refresh.md` and the current
+`specs/17-module-01-tracking-adjustments.md` before changing Module 01; the old `01`, `06`
 and `09` files remain the baseline for behavior the refresh does not replace. The contract-write
 passages in `09` are historical once spec 17 T1 lands.

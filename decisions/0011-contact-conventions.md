@@ -5,7 +5,7 @@
 
 ## Context
 
-Submodule 07 (`../resources/specs/07-contact-management.md`) adds the people at a company — the
+Submodule 07 (`../specs/07-contact-management.md`) adds the people at a company — the
 decision-makers staffing work runs through. The spec fixed the fields and the "one primary per
 company" rule, but left open how permissions attach, what happens to the flag when the primary
 leaves, how a repeated email is treated, and which surfaces exist.

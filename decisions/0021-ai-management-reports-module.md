@@ -25,7 +25,7 @@ At the time this decision was drafted, the existing `ai/` service was a FastAPI 
 ## Decision
 
 1. **AI Management Reports is Module 07, with its own spec and page.** It is a read-only presentation
-   module over modules 01–06, owns no table, and lives in `specs/15`. It gets a **AI Reports** sidebar
+   module over modules 01–06, owns no table, and lives in `../specs/15`. It gets a **AI Reports** sidebar
    group and `/reports`; future AI submodules join the same group. It is not a data module and does
    not change any module's rules.
 
@@ -103,7 +103,7 @@ At the time this decision was drafted, the existing `ai/` service was a FastAPI 
 
 ## Consequences
 
-- `specs/15-ai-management-reports.md` owns S1/S2 and the future S3/S4 slots.
+- `../specs/15-ai-management-reports.md` owns S1/S2 and the future S3/S4 slots.
 - Spec `14` keeps D1 + D2; its D3 is a pointer to Module 07. The dashboard `ai` block remains the
   rules summary and gains a link to `/reports`.
 - New frontend route `/reports` and a sidebar **AI Reports** group. No new backend table, no

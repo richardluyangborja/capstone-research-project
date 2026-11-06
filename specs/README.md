@@ -1,8 +1,8 @@
 # Specs — CRM modules
 
-Implementation specs for the CRM modules (`../system-modules.md`, `../crm-flow.md`). Read
+Implementation specs for the CRM modules (`../implementation/system-modules.md`, `../implementation/crm-flow.md`). Read
 `00-data-model.md` first — all specs share its entities, enums, and conventions. Decisions referenced
-as ADR live in `../../decisions/`. The roadmap (module order + numbering) is ADR-0014: `00` is the
+as ADR live in `../decisions/`. The roadmap (module order + numbering) is ADR-0014: `00` is the
 shared data model, `01`–`09` are module 01's submodules, and `10+` is **one file per later module**,
 with that module's **delivery slices** declared in the file (ADR-0016).
 
@@ -35,7 +35,7 @@ score or automatic lifecycle transition. These remain tracked module-01 deferral
 
 | File | Module |
 | --- | --- |
-| `10-opportunity-pipeline-visualization.md` | 2. Opportunity Pipeline Visualization *(baseline done; refresh planned in spec 18, ADR-0029)* |
+| `10-opportunity-pipeline-visualization.md` | 2. Opportunity Pipeline Visualization *(baseline done; refresh S1 built in spec 18, ADR-0029)* |
 | `11-communication-history.md` | 3. Communication History Management *(done — 5 slices)* |
 | `12-follow-up-reminders.md` | 4. Follow-up Reminder System *(done — 4 slices)* |
 | `13-client-satisfaction-survey.md` | 5. Client Satisfaction & Survey *(built — 4 slices, S1–S4)* |
@@ -110,7 +110,7 @@ records are visible to manager+.
 
 ## Frontend conventions
 
-- All CRM pages render inside the shared `DashboardShell` (ADR + `../departamental-design-instruction.md`).
+- All CRM pages render inside the shared `DashboardShell` (ADR + `../implementation/departamental-design-instruction.md`).
 - Reuse shared components: `DataTable`, `FormCard`, `PageHeader`, `StatusBadge`, `StatCard`,
   `EmptyState`, `AlertItem`. Never hardcode colors — use tokens.
 - Domain color mapping: counts=blue, people=green, activity=purple, cost=orange.

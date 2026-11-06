@@ -624,7 +624,7 @@ Every slice runs its narrow backend/frontend tests plus the existing suite befor
 - Frontend: `npm run lint`, `npm run test`, `npm run build` in `frontend/`.
 - Seed the demo database (`php artisan migrate:fresh --seed`) and walk the slice demo path.
 - No dead links, no unreachable sidebar entries, no placeholder-only screens.
-- Update `AGENTS.md` and the spec index when a slice changes module bookkeeping.
+- Update `../AGENTS.md` and the spec index when a slice changes module bookkeeping.
 
 ## Not built here
 

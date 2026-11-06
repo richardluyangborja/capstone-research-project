@@ -1,18 +1,21 @@
 # Primepower — CRM subsystem
 
 Capstone project: the **Customer Relationship Management** subsystem for Primepower Manpower
-Service (a manpower/staffing agency). See `resources/` for business context and specs, and
-`decisions/` for accepted design decisions.
+Service (a manpower/staffing agency). See `specs/` for module specifications, `decisions/` for
+accepted architecture decisions, and `implementation/` for technical guides and design standards.
 
 ## Layout
 
 | Path | What |
 | --- | --- |
-| `backend/` | Laravel API (`/api/v1`), Postgres, JWT (planned) |
+| `backend/` | Laravel API (`/api/v1`), Postgres, JWT |
 | `frontend/` | React + Vite + TypeScript SPA (Tailwind design tokens) |
 | `ai/` | Python FastAPI AI/ML service (lightweight) |
-| `resources/` | Business context, CRM flow, and per-submodule specs |
+| `specs/` | Per-module implementation specs and delivery slice contracts |
 | `decisions/` | Architecture decision records (ADRs) |
+| `implementation/` | Implementation guidelines, design tokens, and system flows |
+| `audit reports/` | Verification and audit reports (inspected by main planner) |
+| `resources/` | Static project assets (logos, graphic resources) |
 | `DEPLOYMENT.md` / `AGENTS.md` | Deployment and agent/contributor guidance |
 
 ## Quickstart

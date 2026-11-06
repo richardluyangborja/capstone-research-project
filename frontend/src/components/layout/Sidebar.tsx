@@ -48,7 +48,7 @@ interface NavGroup {
   sections: NavSection[]
 }
 
-// The CRM module map (resources/system-modules.md, spec 16 §Navigation and routes). Only
+// The CRM module map (implementation/system-modules.md, spec 16 §Navigation and routes). Only
 // **implemented** destinations are listed; modules 02–05 follow the same group + section pattern
 // as module 01. The sidebar test audits every entry against `routes/dashboardRoutes.tsx`, so the
 // sidebar never carries a dead link (S19).

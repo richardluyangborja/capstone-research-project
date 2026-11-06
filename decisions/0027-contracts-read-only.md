@@ -10,7 +10,7 @@ rate-card replacement, `mark-signed`, renewal creation, retirement and document 
 also activates the account and triggers the mocked Service handoff (`ADR-0013`, `ADR-0024`).
 
 That is the wrong system boundary. Core Transaction 3 owns **document and contract management** and
-**legal and compliance** (`../resources/list-of-departments.md`). The CRM's job is to track the client
+**legal and compliance** (`../implementation/list-of-departments.md`). The CRM's job is to track the client
 relationship, not to author, sign, store or renew the legal agreement. Keeping a second contract
 workflow in the CRM creates duplicate ownership and makes the CRM look like the source of truth when
 it is not.
@@ -82,5 +82,5 @@ communications and delivery tracking. Removing the record entirely would break t
 - The mock feeds that derive from contracts continue to work; replacing the projection with a real
   sync is a driver change, not a UI change.
 - Historical `ADR-0013`, `ADR-0015`, `ADR-0024` and `ADR-0025` are amended/superseded where they
-  describe CRM-owned contract writes or signing-triggered handoff. `specs/17` is the current
+  describe CRM-owned contract writes or signing-triggered handoff. `../specs/17` is the current
   implementation contract.

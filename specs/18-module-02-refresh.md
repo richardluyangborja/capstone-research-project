@@ -5,10 +5,11 @@ Refresh of Module 02 (Opportunity Pipeline Visualization). Extends `00-data-mode
 ADRs: **0029** (pipeline refresh & staffing domain alignment), **0015** (pipeline conventions),
 **0027** (contracts are read-only), and **0018** (follow-up reminders).
 
-> **Status: planned.** This spec declares 5 reviewable delivery slices (S1–S5). It elevates the deal
-> pipeline to mirror real-world manpower and staffing agency workflows, adds tactile drag-and-drop
-> affordances, captures staffing headcount demand, enforces proper Won/Lost outcome governance,
-> synchronizes follow-up tasks, and connects cross-department seams.
+> **Status: S1 built; S2–S5 planned.** S1 (dedicated grip handle, drag ghosting and dashed column drop
+> targets) shipped on `feature/module-02-drag-handle`. This spec declares 5 reviewable delivery slices
+> (S1–S5). It elevates the deal pipeline to mirror real-world manpower and staffing agency workflows,
+> adds tactile drag-and-drop affordances, captures staffing headcount demand, enforces proper Won/Lost
+> outcome governance, synchronizes follow-up tasks, and connects cross-department seams.
 
 ---
 
@@ -100,11 +101,11 @@ This refresh resolves these issues through 5 incremental, reviewable slices.
    - `StageMoveControl` remains fully accessible for keyboard/screen-reader navigation.
 
 #### Acceptance Criteria
-- [ ] Each deal card renders a visible `GripVertical` drag handle icon.
-- [ ] Dragging can be initiated cleanly via the handle or card.
-- [ ] Columns display a distinct dashed primary drop indicator when hovering a dragged card.
-- [ ] Card links and the Move-to menu remain clickable without triggering drag.
-- [ ] Automated tests in `pipeline.test.tsx` pass.
+- [x] Each deal card renders a visible `GripVertical` drag handle icon.
+- [x] Dragging can be initiated cleanly via the handle or card.
+- [x] Columns display a distinct dashed primary drop indicator when hovering a dragged card.
+- [x] Card links and the Move-to menu remain clickable without triggering drag.
+- [x] Automated tests in `pipeline.test.tsx` pass.
 
 ---
 
@@ -250,8 +251,8 @@ Add additive columns to `opportunities`:
 ## Documentation and Bookkeeping
 
 When this refresh lands, update:
-- `AGENTS.md` — summarize Module 02 refresh capabilities and reference spec 18 & ADR-0029.
-- `resources/crm-flow.md` — update Opportunity object model and pipeline flow.
-- `resources/specs/00-data-model.md` — record additive opportunity columns.
-- `resources/specs/10-opportunity-pipeline-visualization.md` — add banner referencing spec 18.
-- `resources/specs/README.md` — index spec 18.
+- `../AGENTS.md` — summarize Module 02 refresh capabilities and reference spec 18 & ADR-0029.
+- `../implementation/crm-flow.md` — update Opportunity object model and pipeline flow.
+- `00-data-model.md` — record additive opportunity columns.
+- `10-opportunity-pipeline-visualization.md` — add banner referencing spec 18.
+- `README.md` — index spec 18.

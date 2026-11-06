@@ -5,7 +5,7 @@
 
 ## Context
 
-Roles are superadmin / admin / manager / salesrep (`../resources/system-roles.md`). Salesreps must
+Roles are superadmin / admin / manager / salesrep (`../implementation/system-roles.md`). Salesreps must
 not see sensitive business data; managers oversee a team.
 
 ## Decision
@@ -20,7 +20,7 @@ Enforced **server-side**; ownership/team scoping is required on lead, company, c
 
 - Requires an ownership + team model and policy enforcement in the API layer.
 - Reporting is scoped by role.
-- See `../resources/crm-flow.md` (role visibility).
+- See `../implementation/crm-flow.md` (role visibility).
 
 ## Clarification — shared unassigned queue (submodule 03)
 

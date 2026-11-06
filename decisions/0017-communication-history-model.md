@@ -6,7 +6,7 @@
 ## Context
 
 Module 03 (Communication History Management) is the next module (ADR-0014 §1) and the first that has to
-sit *alongside* something module 01 already built. `specs/00-data-model.md` reserved the shape early —
+sit *alongside* something module 01 already built. `../specs/00-data-model.md` reserved the shape early —
 "Full **communication history** (rich email/phone bodies) is module 03 with its own `communications`
 table" — and spec 04 §Implementation notes admits that `POST /leads/{id}/activities` is "a minimal
 slice of the deferred communication-history module".
@@ -57,7 +57,7 @@ communication, so the model has to leave room for that without building it.
    communication" writes a communication). Merging them would mean rewriting module 01/02 timeline
    endpoints and their tests for no user-visible gain.
 8. **Attachments arrive as their own slice**, implementing the polymorphic `attachments` table that
-   `specs/00-data-model.md` deferred; until then a communication has no files and the detail screen says
+   `../specs/00-data-model.md` deferred; until then a communication has no files and the detail screen says
    nothing about them.
 9. **Threading arrives as its own slice** (`thread_id` + `in_reply_to_id` on the communication), because a
    flat merged feed is genuinely useful on its own and grouping is a display concern over the same rows.

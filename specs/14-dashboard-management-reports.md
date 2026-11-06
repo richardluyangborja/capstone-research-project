@@ -264,7 +264,7 @@ scoped numbers and never calls an external provider, so the dashboard stays fast
 report always exists.
 
 The generated report variants, Groq provider, cache, fallback alert and `/reports` page are
-**Module 07** (`resources/specs/15-ai-management-reports.md`, ADR-0021). The dashboard card links to
+**Module 07** (`15-ai-management-reports.md`, ADR-0021). The dashboard card links to
 that page; it does not generate a second narrative.
 
 The dashboard block keeps the same shape it has had since D2, so the existing `AiReportPanel` needs
@@ -350,7 +350,7 @@ Implementation notes:
 
 ### D3 — moved to Module 07
 
-D3's generation work is specified and tracked in `resources/specs/15-ai-management-reports.md` as
+D3's generation work is specified and tracked in `15-ai-management-reports.md` as
 Module 07 S1/S2 (ADR-0021). The dashboard's existing rules `ai` block is unchanged and is the
 fallback the module reuses.
 
@@ -368,7 +368,7 @@ fallback the module reuses.
   filtered book, so the closed loop landed without a dashboard rewrite.
 - `frontend/src/mocks/` is removed; D1's fixture file no longer exists. The D2 adapter in
   `frontend/src/lib/dashboard.ts` is the only place the wire contract is translated.
-- Module 07 (`specs/15`, ADR-0021) owns generated management reports and the `/reports` page. The
+- Module 07 (`15`, ADR-0021) owns generated management reports and the `/reports` page. The
   dashboard AI card links there; it does not call a provider.
 - The design system gains `ChartCard`, `LineChart` and `DonutChart` in `components/common/`
   (usable by any later report page).

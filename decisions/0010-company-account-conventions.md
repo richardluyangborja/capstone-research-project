@@ -5,7 +5,7 @@
 
 ## Context
 
-Submodule 06 (`../resources/specs/06-company-account-management.md`) introduces the `Company`
+Submodule 06 (`../specs/06-company-account-management.md`) introduces the `Company`
 record every lead converts into and every client is built on. Its spec left three things open or
 spread thinly: who may create a company manually, how branches relate to their parent, and what the
 detail page may roll up before contacts, opportunities and contracts exist (submodules 07–09).
@@ -53,4 +53,4 @@ detail page may roll up before contacts, opportunities and contracts exist (subm
   `signed` contract (submodule 09). Spec 06's acceptance criterion "deleting a company with an active
   contract returns 422" is satisfied by the same method.
 - Roll-up widgets for contracts arrived with submodule 09 (the Contracts tab and `counts.contracts`);
-  spec 06, spec 09 and `AGENTS.md` record it.
+  spec 06, spec 09 and `../AGENTS.md` record it.

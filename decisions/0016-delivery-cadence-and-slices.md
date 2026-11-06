@@ -48,5 +48,5 @@ opposite — inventing submodule boundaries for a module whose work is genuinely
   be updated per slice rather than once per module.
 - Slices must be declared up front. If a module's true shape only emerges mid-build, the spec is edited
   first and the change is visible, rather than the boundary being decided in a commit.
-- `AGENTS.md` mirrors this: the delivery unit is the slice, and each slice updates the module bookkeeping
+- `../AGENTS.md` mirrors this: the delivery unit is the slice, and each slice updates the module bookkeeping
   as it lands.

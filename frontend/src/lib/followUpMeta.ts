@@ -3,7 +3,7 @@ import type { ActivityStatus, FollowUpDueStateName, FollowUpKind } from '../type
 
 // Follow-up reminders (module 04, spec 12). Lateness is a problem (danger), today is the work
 // in hand (warm), anything further out waits quietly (neutral) — the same token vocabulary the
-// communication book uses, never a hardcoded colour (resources/design-tokens.md).
+// communication book uses, never a hardcoded colour (implementation/design-tokens.md).
 export const followUpDueMeta: Record<FollowUpDueStateName, { label: string; tone: Tone }> = {
   overdue: { label: 'Overdue', tone: 'danger' },
   today: { label: 'Due today', tone: 'warm' },

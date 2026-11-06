@@ -1,7 +1,7 @@
 # AI/ML service
 
 Lightweight FastAPI service for AI/ML dashboards, management reports, and action suggestions
-(`resources/system-ai-feature.md`). Laravel calls it over HTTP locally and HTTPS in deployment for
+(`../implementation/system-ai-feature.md`). Laravel calls it over HTTP locally and HTTPS in deployment for
 module 07's on-demand management report. The platform may expose it publicly, so
 `/reports/dashboard` requires the shared `AI_SERVICE_TOKEN` bearer credential. The service also
 holds the Groq provider key.

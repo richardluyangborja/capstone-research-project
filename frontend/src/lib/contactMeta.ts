@@ -2,7 +2,7 @@ import type { Tone } from '../components/common/StatusBadge'
 import type { ContactRoleType, ContactStatus } from '../types'
 
 // Decision-maker types are people-domain (green); `other` stays neutral so a generic
-// contact never reads as a decision-maker (resources/design-tokens.md).
+// contact never reads as a decision-maker (implementation/design-tokens.md).
 export const contactRoleMeta: Record<ContactRoleType, { label: string; tone: Tone }> = {
   hiring_manager: { label: 'Hiring manager', tone: 'people' },
   hr: { label: 'HR', tone: 'people' },
