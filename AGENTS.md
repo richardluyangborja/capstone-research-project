@@ -161,7 +161,7 @@ Laravel's own and is separate from `frontend/`.
   the account's rights; billing is manager-only. Events: `CompanyStatusChanged`, `ContractSigned`,
   `CompanyActivated`, `CompanyChurned`. **Not built here:** the deal pipeline, contract
   versioning/e-signature, renewal reminders and automatic aging (ADR-0013).
-- **Module 02 — Opportunity Pipeline Visualization (baseline built; refresh S2–S5 planned, S1 omitted — spec 18, ADR-0029):**
+- **Module 02 — Opportunity Pipeline Visualization (baseline built; refresh S2–S5 planned — spec 18, ADR-0029):**
   the deal pipeline on the `Opportunity` record (ADR-0014, ADR-0015). Flat `/api/v1/opportunities`
   (index/store/show/update/destroy + `POST /{id}/restore`) with `filter[stage|owner|company|open|source|close_window]` +
   `search` and a `summary` block; a deal is created directly on a visible company (owner = the creator) or by
@@ -182,8 +182,7 @@ Laravel's own and is separate from `frontend/`.
   synchronization (`next_follow_up_at`), and unified workspace view switching. Events:
   `OpportunityStageChanged`, `OpportunityWon`, `OpportunityLost` (`OpportunityCreated` now also fires on
   manual creation). The dashboard read endpoints are covered under module 06 below, and AI Management
-  Reports (spec `15`) under module 07. **Spec 18 S1 (dedicated drag handle) was omitted** and reverted
-  to the baseline whole-card drag; S2–S5 (staffing fields, won/lost governance, follow-up sync and
+  Reports (spec `15`) under module 07. S2–S5 (staffing fields, won/lost governance, follow-up sync and
   workspace ergonomics) remain planned.
 - **Module 03 — Communication History Management (slices S1–S5 — log & history, email, attachments,
   threads, templates):** the detailed,

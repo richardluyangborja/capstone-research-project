@@ -5,11 +5,10 @@ Refresh of Module 02 (Opportunity Pipeline Visualization). Extends `00-data-mode
 ADRs: **0029** (pipeline refresh & staffing domain alignment), **0015** (pipeline conventions),
 **0027** (contracts are read-only), and **0018** (follow-up reminders).
 
-> **Status: S1 omitted; S2–S5 planned.** The dedicated drag-handle slice was reverted to the baseline
-> whole-card drag-and-drop after review. This spec declares four remaining reviewable delivery slices
-> (S2–S5). It elevates the deal pipeline to mirror real-world manpower and staffing agency workflows,
-> captures staffing headcount demand, enforces proper Won/Lost outcome governance, synchronizes follow-up
-> tasks, and connects cross-department seams.
+> **Status: S2–S5 planned.** This spec declares four reviewable delivery slices (S2–S5). It elevates the
+> deal pipeline to mirror real-world manpower and staffing agency workflows, captures staffing headcount
+> demand, enforces proper Won/Lost outcome governance, synchronizes follow-up tasks, and connects
+> cross-department seams.
 
 ---
 
@@ -18,28 +17,24 @@ ADRs: **0029** (pipeline refresh & staffing domain alignment), **0015** (pipelin
 Module 02 established the core Kanban board and deal records, but operational use identified key areas
 for improvement:
 
-1. **Drag-and-drop affordance (S1, omitted):** Deal cards lacked an explicit drag handle icon. The
-   proposed handle slice was reverted after review; the baseline whole-card drag remains in place.
-2. **Staffing domain alignment:** Opportunities tracked generic financial lump sums without requested
+1. **Staffing domain alignment:** Opportunities tracked generic financial lump sums without requested
    headcount, staffing service placement types, or target start dates. When leads converted, their
    headcount demand was lost.
-3. **Stage governance & ADR-0027 alignment:** Moving to `Won` was silent and displayed an outdated prompt
+2. **Stage governance & ADR-0027 alignment:** Moving to `Won` was silent and displayed an outdated prompt
    (“Create its contract to activate the client”) that contradicted ADR-0027. Moving to `Lost` lacked a notes
    field.
-4. **Follow-up tracking gap:** Deals lacked follow-up synchronization with Module 04, leaving reps without
+3. **Follow-up tracking gap:** Deals lacked follow-up synchronization with Module 04, leaving reps without
    visibility into overdue touches or unscheduled deals.
-5. **Cross-department visibility & ergonomics:** Won deals did not surface linked contract projections, and
+4. **Cross-department visibility & ergonomics:** Won deals did not surface linked contract projections, and
    users lacked a unified view switcher (Board vs List) and visual funnel analytics.
 
-The remaining refresh resolves these issues through four incremental, reviewable slices (S2–S5). S1
-(drag handle interactivity) is omitted.
+This refresh resolves these issues through four incremental, reviewable slices (S2–S5).
 
 ---
 
 ## Scope
 
 - **In:**
-  - Baseline whole-card drag-and-drop and the keyboard-accessible Move-to menu, unchanged.
   - Staffing demand fields on `Opportunity`: `estimated_headcount`, `service_type`, `target_start_date`, and `win_note`.
   - Lead-to-Client conversion mapping preserving staffing demand.
   - Celebratory `WonConfirmDialog` confirming close date, won value, win notes, and external contract/recruitment context.
@@ -53,8 +48,6 @@ The remaining refresh resolves these issues through four incremental, reviewable
   - Visual Stage Funnel Progress Bar showing stage volume and value distribution.
   - Quick Deal Peek Drawer for rapid deal review without leaving the board.
 - **Out:**
-  - A dedicated drag handle, custom drag ghosting or custom drop-target styling (S1 omitted; the baseline
-    whole-card drag remains).
   - Automatic stage movement based on external feeds.
   - Re-creating Recruitment or Contract Management operational CRUD inside CRM.
   - Breaking changes to existing stage transitions (`OpportunityStage::allowedTransitions()` remains unchanged).
@@ -69,7 +62,7 @@ The remaining refresh resolves these issues through four incremental, reviewable
 | **0015** | Stage moves are any-to-any with rules; board has drag-and-drop plus accessible Move-to menu; scoping by owner/team/all |
 | **0027** | Contracts are read-only projections owned by Core Transaction 3; won deals link to projections and never activate accounts or upload contracts |
 | **0018** | Follow-up tasks are Activities with `type = task` and `due_at`; subjects keep `next_follow_up_at` synchronized |
-| **0029** | Opportunity pipeline refresh: staffing demand fields, won/lost governance, follow-up sync and view switcher (S1 drag handle omitted) |
+| **0029** | Opportunity pipeline refresh: staffing demand fields, won/lost governance, follow-up sync and view switcher |
 
 ---
 
@@ -77,7 +70,6 @@ The remaining refresh resolves these issues through four incremental, reviewable
 
 | Slice | Name | Focus | Key Deliverables |
 | --- | --- | --- | --- |
-| **S1** | ~~Drag & Drop Interactivity~~ | ~~Frontend UX~~ | **Omitted** — reverted to the baseline whole-card drag; no dedicated handle or custom drop styling |
 | **S2** | **Staffing Domain Scope** | Data Model & Conversion | `estimated_headcount`, `service_type`, `target_start_date` on `opportunities`, `LeadConversionController` mapping, form inputs & card badges |
 | **S3** | **Stage Governance & Outcomes** | Outcomes & ADR-0027 | `WonConfirmDialog`, enhanced `LostReasonDialog` with notes, contract projection badge on won cards, retirement of outdated contract prompt |
 | **S4** | **Follow-up Integration** | Module 04 Integration | `next_follow_up_at` column, `Opportunity::syncNextFollowUpAt()`, follow-up status badges & unscheduled warnings on cards |
@@ -86,15 +78,6 @@ The remaining refresh resolves these issues through four incremental, reviewable
 ---
 
 ## Detailed Slice Specifications
-
-### Slice S1 — Omitted
-
-The dedicated `GripVertical` handle and custom drag feedback were reverted to the baseline whole-card
-drag-and-drop after review. `Pipeline.tsx` and `pipeline.test.tsx` are restored to their pre-S1 state;
-no S1 acceptance criteria are in force. The baseline board still drags between columns and keeps the
-keyboard-accessible Move-to menu.
-
----
 
 ### Slice S2 — Staffing Domain Scope & Lead Conversion Continuity
 
