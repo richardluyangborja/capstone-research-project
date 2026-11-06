@@ -5,7 +5,7 @@
 
 ## Context
 
-Auth strategy is **JWT, not cookies** (see `system-tech.md` / AGENTS.md): the SPA and API are on
+Auth strategy is **JWT, not cookies** (see `../implementation/system-tech.md` / `../AGENTS.md`): the SPA and API are on
 different origins. Laravel 13 is new, so the package must explicitly support it.
 
 ## Decision

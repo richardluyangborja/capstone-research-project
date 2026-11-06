@@ -69,6 +69,6 @@ without opening each one.
 - No table is added for account health or the dashboard strip.
 - Account 360 fetches its tabs independently, so a heavy tab does not block the overview.
 - Billing remains manager+; the owner-facing risk flag is deliberately less detailed.
-- `resources/specs/16-module-01-refresh.md` is the delivery contract; `01`, `06` and `09` remain the
+- `../specs/16-module-01-refresh.md` is the delivery contract; `01`, `06` and `09` remain the
   baseline for the original submodule behavior and point to spec 16 where the refresh supersedes them.
 - Tests cover redirects, tab permissions, health explanations, redaction and assignment notifications.

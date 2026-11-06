@@ -2,7 +2,7 @@ import type { Tone } from '../components/common/StatusBadge'
 import type { LostReason, OpportunityStage } from '../types'
 
 // Deal pipeline (ADR-0002). Pipeline work reads as activity (purple), the commercial
-// outcome as people (green, won) or danger (lost) — see resources/design-tokens.md.
+// outcome as people (green, won) or danger (lost) — see implementation/design-tokens.md.
 export const opportunityStageMeta: Record<OpportunityStage, { label: string; tone: Tone }> = {
   new_inquiry: { label: 'New inquiry', tone: 'neutral' },
   qualified: { label: 'Qualified', tone: 'counts' },

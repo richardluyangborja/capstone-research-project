@@ -5,7 +5,7 @@
 
 ## Context
 
-Submodule 08 (`../resources/specs/08-lead-to-client-conversion.md`) turns a qualified lead into a
+Submodule 08 (`../specs/08-lead-to-client-conversion.md`) turns a qualified lead into a
 company, its first contact(s) and a first deal, and it introduces the `Opportunity` record that
 submodule 09 (contracts, client lifecycle) and the later pipeline module build on. Building it
 raised five questions the spec left open or answered only loosely:

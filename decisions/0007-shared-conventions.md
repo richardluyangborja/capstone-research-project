@@ -6,7 +6,7 @@
 ## Context
 
 Before scaffolding, the specs need one agreed set of shared conventions so every subsystem behaves
-consistently. Details: `../resources/specs/README.md` and `../resources/specs/00-data-model.md`.
+consistently. Details: `../specs/README.md` and `../specs/00-data-model.md`.
 
 ## Decision
 
@@ -28,6 +28,6 @@ consistently. Details: `../resources/specs/README.md` and `../resources/specs/00
 
 ## Consequences
 
-- Route model binding is by ULID; seed data uses fixed PH sample data (no faker — see `system-tech.md`).
+- Route model binding is by ULID; seed data uses fixed PH sample data (no faker — see `../implementation/system-tech.md`).
 - Single currency keeps money handling simple; revisit only if multi-currency is ever required.
-- Enum/field names in `00-data-model.md` are the contract for migrations, API resources, and UI.
+- Enum/field names in `../specs/00-data-model.md` are the contract for migrations, API resources, and UI.

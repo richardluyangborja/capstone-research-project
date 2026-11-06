@@ -5,11 +5,11 @@ agents can pick up context quickly. Read existing entries before proposing chang
 
 ## Convention
 
-- One decision per file, named `NNNN-short-title.md` (e.g. `0001-lead-object-model.md`),
+- One decision per file, named `NNNN-short-title.md` (e.g. `0001-lead-client-object-model.md`),
   numbered sequentially. Use `git mv`/increment to keep numbers stable.
 - Status is one of: **Proposed**, **Accepted**, **Superseded by NNNN**, **Rejected**.
-- Keep entries short: context → decision → consequences. Link to `../resources/*.md` rather than
-  duplicating details.
+- Keep entries short: context → decision → consequences. Link to `../implementation/*.md` and
+  `../specs/*.md` rather than duplicating details.
 - Supersede, don't delete: mark the old entry and point to the replacement.
 - When a decision changes how agents should work, also reflect it in `../AGENTS.md`.
 

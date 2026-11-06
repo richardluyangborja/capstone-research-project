@@ -5,9 +5,9 @@
 
 ## Context
 
-Module 05 (Client Satisfaction & Survey, `specs/13`) is the last CRM module before the AI reports
-(ADR-0014). Nothing in the data model was reserved for it: `00-data-model.md` has no survey entity,
-and the pain point in `business-flow.md` is simply "no structured client satisfaction capture". The
+Module 05 (Client Satisfaction & Survey, `../specs/13`) is the last CRM module before the AI reports
+(ADR-0014). Nothing in the data model was reserved for it: `../specs/00-data-model.md` has no survey entity,
+and the pain point in `../implementation/business-flow.md` is simply "no structured client satisfaction capture". The
 module has to answer three questions the rest of the CRM cannot: *who do we ask*, *what did they say*,
 and *does anybody act on it*.
 

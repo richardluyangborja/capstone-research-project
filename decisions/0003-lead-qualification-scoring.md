@@ -19,4 +19,4 @@ Qualify leads with a staffing-specific checklist plus a rating:
 ## Consequences
 
 - Qualification fields drive filtering, assignment priority, and conversion readiness.
-- See `../resources/crm-flow.md` (submodule 2).
+- See `../implementation/crm-flow.md` (submodule 2).

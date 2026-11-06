@@ -3,7 +3,7 @@
 Reusable components live here (`components/common/`) and in `components/layout/`. **Reuse before
 creating** — anything used by 2+ subsystems/roles belongs here (design system rule, no duplicates).
 
-Required shared set (from `resources/departamental-design-instruction.md`). Build only when needed;
+Required shared set (from `implementation/departamental-design-instruction.md`). Build only when needed;
 check this list first:
 
 - `DashboardShell`, `Sidebar`, `Topbar` — **done** (`../layout/`)

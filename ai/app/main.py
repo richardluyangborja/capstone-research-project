@@ -1,7 +1,7 @@
 """Primepower AI/ML service.
 
 Lightweight FastAPI service for AI/ML-driven dashboards, management reports, and action
-suggestions (see resources/system-ai-feature.md). The backend calls it over HTTP locally and HTTPS
+suggestions (see ../implementation/system-ai-feature.md). The backend calls it over HTTP locally and HTTPS
 in deployment; the platform may expose it publicly, so every report call requires the shared
 `AI_SERVICE_TOKEN`.
 """

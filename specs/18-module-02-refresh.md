@@ -250,8 +250,8 @@ Add additive columns to `opportunities`:
 ## Documentation and Bookkeeping
 
 When this refresh lands, update:
-- `AGENTS.md` — summarize Module 02 refresh capabilities and reference spec 18 & ADR-0029.
-- `resources/crm-flow.md` — update Opportunity object model and pipeline flow.
-- `resources/specs/00-data-model.md` — record additive opportunity columns.
-- `resources/specs/10-opportunity-pipeline-visualization.md` — add banner referencing spec 18.
-- `resources/specs/README.md` — index spec 18.
+- `../AGENTS.md` — summarize Module 02 refresh capabilities and reference spec 18 & ADR-0029.
+- `../implementation/crm-flow.md` — update Opportunity object model and pipeline flow.
+- `00-data-model.md` — record additive opportunity columns.
+- `10-opportunity-pipeline-visualization.md` — add banner referencing spec 18.
+- `README.md` — index spec 18.

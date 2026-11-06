@@ -5,7 +5,7 @@
 
 ## Context
 
-Submodule 4 (`../resources/specs/04-lead-lifecycle-status.md`) adds a status state machine, an aging
+Submodule 4 (`../specs/04-lead-lifecycle-status.md`) adds a status state machine, an aging
 flag, and archiving. Building it raised four choices the spec left open or implied:
 
 1. Are the aging thresholds (proposed 14/30/60 days) fixed or configurable?

@@ -4,11 +4,11 @@
 - Date: 2026-11-05
 
 Extends `0015-opportunity-pipeline-conventions.md`, `0027-contracts-read-only.md`, and
-`0018-follow-up-reminder-model.md`. Implemented by `../resources/specs/18-module-02-refresh.md`.
+`0018-follow-up-reminder-model.md`. Implemented by `../specs/18-module-02-refresh.md`.
 
 ## Context
 
-Module 02 (`resources/specs/10-opportunity-pipeline-visualization.md`, ADR-0015) delivered the baseline
+Module 02 (`../specs/10-opportunity-pipeline-visualization.md`, ADR-0015) delivered the baseline
 deal pipeline: an open-stage Kanban board (`/pipeline`), the flat deal book (`/opportunities`), any-to-any
 stage moves with rules, deal timeline touches, and forecast summaries.
 
@@ -65,7 +65,7 @@ However, real-world operation and comparison with Module 01's workspace refresh 
 
 ## Consequences
 
-- Delivered in 5 reviewable slices defined in `resources/specs/18-module-02-refresh.md` (S1–S5).
+- Delivered in 5 reviewable slices defined in `../specs/18-module-02-refresh.md` (S1–S5).
 - All existing API endpoints remain backward-compatible; new fields are strictly additive.
 - Preserves the ADR-0015 any-to-any stage transition rules and ADR-0004 role-based scoping (salesrep own,
   manager team, admin all).

@@ -10,7 +10,7 @@ import type {
 
 // Communication history (module 03, spec 11). Correspondence reads as activity (purple),
 // calls and meetings as people work (green), delivery problems as danger — never a
-// hardcoded colour (resources/design-tokens.md).
+// hardcoded colour (implementation/design-tokens.md).
 export const communicationChannelMeta: Record<CommunicationChannel, { label: string; tone: Tone }> =
   {
     email: { label: 'Email', tone: 'activity' },

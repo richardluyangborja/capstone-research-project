@@ -309,16 +309,16 @@ The docs branch is separate and may merge before T1.
 
 When T1 lands, update:
 
-- `AGENTS.md` — contract boundary, read-only projection, new spec/ADR links, module 01 adjustment note.
-- `resources/crm-flow.md` — Contract object, department feeds, won-deal wording, roadmap/decisions.
-- `resources/business-flow.md` — contract ownership and the end-to-end flow.
-- `resources/specs/00-data-model.md` — projection metadata, deprecated documents, rate-card reads.
-- `resources/specs/09-client-account-lifecycle.md` — mark the contract-write/sign/handoff rules
+- `../AGENTS.md` — contract boundary, read-only projection, new spec/ADR links, module 01 adjustment note.
+- `../implementation/crm-flow.md` — Contract object, department feeds, won-deal wording, roadmap/decisions.
+- `../implementation/business-flow.md` — contract ownership and the end-to-end flow.
+- `00-data-model.md` — projection metadata, deprecated documents, rate-card reads.
+- `09-client-account-lifecycle.md` — mark the contract-write/sign/handoff rules
   superseded; lifecycle rules remain.
-- `resources/specs/14-dashboard-management-reports.md` — the shared pending-timesheet definition.
-- `resources/specs/16-module-01-refresh.md` — note that S6–S8 write surfaces are retired by spec 17;
+- `14-dashboard-management-reports.md` — the shared pending-timesheet definition.
+- `16-module-01-refresh.md` — note that S6–S8 write surfaces are retired by spec 17;
   do not rewrite their historical status.
-- `resources/specs/README.md` — index spec 17 and update the documents/event conventions.
+- `README.md` — index spec 17 and update the documents/event conventions.
 - Historical ADRs 0013/0015/0024/0025 — amend/supersede the affected sections.
 
 ## Impact on other specs

@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Design tokens — values from resources/design-tokens.md (single source of truth).
+/* Design tokens — values from implementation/design-tokens.md (single source of truth).
    Never hardcode hex values in components; use these tokens / Tailwind utilities. */
 :root {
   --background: #f2f7fc;

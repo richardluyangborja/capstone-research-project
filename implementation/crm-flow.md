@@ -1,9 +1,9 @@
 # CRM System Flow — Lead & Client Tracking
 
 > System-level flow for the CRM subsystem. Business context: `business-flow.md`.
-> Module inventory: `system-modules.md`. Decisions: `decisions/`.
+> Module inventory: `system-modules.md`. Decisions: `../decisions/`.
 > Items marked *(assumed)* are still-open assumptions. Confirmed design choices are recorded as ADRs
-> in `decisions/` and linked inline.
+> in `../decisions/` and linked inline.
 
 ## Purpose & boundary
 
@@ -64,7 +64,7 @@ Tiers (A/B/C) and health/status are used for prioritization and reporting *(assu
 ## "Lead & Client Tracking" module → submodules
 
 Module 01 splits into the following submodules. All of them except duplicate detection/merge (5) and
-advanced tiers/health are **built** (ADR-0006). Detailed implementation specs live in `specs/`
+advanced tiers/health are **built** (ADR-0006). Detailed implementation specs live in `../specs/`
 (numbered to match).
 
 1. **Lead Capture & Intake** — intake from channels (walk-in, email, phone, referral, website,
@@ -188,7 +188,7 @@ contract creation and signing, and the CRM does not hand off to Service (ADR-002
 2. **S2 Email compose, send & retry** *(built)* — email is a **mocked** gateway (`EmailGateway` + `MockEmailGateway`,
    `CRM_EMAIL_SIMULATE_FAILURE` forces failure); inbound is pulled by a sync command, never live.
 3. **S3 Attachments** *(built)* — implements the polymorphic `attachments` table deferred in
-   `00-data-model.md`: up to 5 files of 10 MB (pdf/png/jpeg) per message on a private disk, downloaded
+   `../specs/00-data-model.md`: up to 5 files of 10 MB (pdf/png/jpeg) per message on a private disk, downloaded
    only through an authorized endpoint. Files obey the message's state — changeable while it is still
    editable or never delivered, fixed once `sent`/`received`.
 4. **S4 Threading** *(built)* — a reply joins the message it answers (`thread_id` = the conversation's
@@ -253,7 +253,7 @@ Automatic sends (on signing/renewal/churn) and reminder emails are deliberately 
 
 ## Dashboard (D1 + D2 built — ADR-0020)
 
-The cross-cutting read layer over modules 01–05 (`specs/14`, ADR-0020), shipped as D1 after module 05
+The cross-cutting read layer over modules 01–05 (`../specs/14`, ADR-0020), shipped as D1 after module 05
 S3 and before S4 for the presentation. **D1** shipped `/dashboard` with simulated data from one
 deterministic fixture module, recorded in spec 14 / ADR-0020 rather than shown on the page. **D2**
 replaced it with the real read endpoints:
@@ -270,7 +270,7 @@ rule change.
 
 ## Module 07 → AI Management Reports (S1 + S2 built — ADR-0021)
 
-A read-only presentation module over the dashboard data (`specs/15`). It owns the `/reports` page and
+A read-only presentation module over the dashboard data (`../specs/15`). It owns the `/reports` page and
 an **AI Reports** sidebar group, and adds no table. **S1** ships `GET /reports/management` and the
 standard rules reports for three variants — Executive, Pipeline and Client Health — scoped like the
 dashboard. The report always carries its source, model, timestamp, cached flag and fallback, with
@@ -327,33 +327,33 @@ Transaction 3 and retires the CRM contract write/handoff path. HR remains deferr
 
 ## Decisions
 
-Recorded as ADRs in `decisions/` (read them before changing the design):
+Recorded as ADRs in `../decisions/` (read them before changing the design):
 
-- `decisions/0001-lead-client-object-model.md` — object model & conversion
-- `decisions/0002-opportunity-pipeline-stages.md` — pipeline stages
-- `decisions/0003-lead-qualification-scoring.md` — qualification & rating
-- `decisions/0004-role-data-visibility.md` — role visibility/ownership
-- `decisions/0005-mocked-integrations.md` — integration mock strategy
-- `decisions/0006-phase-1-scope.md` — Phase-1 submodule scope
-- `decisions/0014-crm-module-roadmap.md` — module order & spec numbering
-- `decisions/0015-opportunity-pipeline-conventions.md` — pipeline stage moves, board, won→contract
-- `decisions/0016-delivery-cadence-and-slices.md` — module specs ship as declared delivery slices
-- `decisions/0017-communication-history-model.md` — `Communication` vs `Activity`, mocked email, scoping
-- `decisions/0018-follow-up-reminder-model.md` — follow-ups as tasks + scheduled messages, on-demand dispatch
-- `decisions/0019-client-satisfaction-conventions.md` — surveys as templates, tokenized public form, CSAT/NPS, closed loop
-- `decisions/0023-module-01-workspace-consolidation.md` — grouped sidebar, Lead Workspace, Account 360, computed health
-- `decisions/0024-contract-rate-cards.md` — commercial header, rate cards, billing units, margin visibility
-- `decisions/0025-read-only-external-feeds.md` — job orders, deployments, timekeeping and Finance as read-only feeds
-- `decisions/0026-public-acquisition-and-sign-in.md` — landing refresh, public intake, modal sign-in, all-role CSV import
-- `decisions/0027-contracts-read-only.md` — contracts owned by Core Transaction 3; CRM projection is read-only
-- `decisions/0028-lead-journey-derived.md` — the lead journey stepper is a derived view, not a stored state
+- `../decisions/0001-lead-client-object-model.md` — object model & conversion
+- `../decisions/0002-opportunity-pipeline-stages.md` — pipeline stages
+- `../decisions/0003-lead-qualification-scoring.md` — qualification & rating
+- `../decisions/0004-role-data-visibility.md` — role visibility/ownership
+- `../decisions/0005-mocked-integrations.md` — integration mock strategy
+- `../decisions/0006-phase-1-scope.md` — Phase-1 submodule scope
+- `../decisions/0014-crm-module-roadmap.md` — module order & spec numbering
+- `../decisions/0015-opportunity-pipeline-conventions.md` — pipeline stage moves, board, won→contract
+- `../decisions/0016-delivery-cadence-and-slices.md` — module specs ship as declared delivery slices
+- `../decisions/0017-communication-history-model.md` — `Communication` vs `Activity`, mocked email, scoping
+- `../decisions/0018-follow-up-reminder-model.md` — follow-ups as tasks + scheduled messages, on-demand dispatch
+- `../decisions/0019-client-satisfaction-conventions.md` — surveys as templates, tokenized public form, CSAT/NPS, closed loop
+- `../decisions/0023-module-01-workspace-consolidation.md` — grouped sidebar, Lead Workspace, Account 360, computed health
+- `../decisions/0024-contract-rate-cards.md` — commercial header, rate cards, billing units, margin visibility
+- `../decisions/0025-read-only-external-feeds.md` — job orders, deployments, timekeeping and Finance as read-only feeds
+- `../decisions/0026-public-acquisition-and-sign-in.md` — landing refresh, public intake, modal sign-in, all-role CSV import
+- `../decisions/0027-contracts-read-only.md` — contracts owned by Core Transaction 3; CRM projection is read-only
+- `../decisions/0028-lead-journey-derived.md` — the lead journey stepper is a derived view, not a stored state
 
 Still open / to be decided later: dedup/merge rules (module-01 deferrals). The satisfaction survey
-structure is settled by `specs/13-client-satisfaction-survey.md` (ADR-0019). Follow-up/reminder rules
-are settled by `specs/12-follow-up-reminders.md` (ADR-0018), except automatic client aging (still
-deferred). The contract boundary is settled by `specs/17-module-01-tracking-adjustments.md`
+structure is settled by `../specs/13-client-satisfaction-survey.md` (ADR-0019). Follow-up/reminder rules
+are settled by `../specs/12-follow-up-reminders.md` (ADR-0018), except automatic client aging (still
+deferred). The contract boundary is settled by `../specs/17-module-01-tracking-adjustments.md`
 (ADR-0027): contracts are a read-only projection of Core Transaction 3, while the commercial fields
-and rate-card formulas from `specs/16-module-01-refresh.md` (ADR-0024) remain. The lead journey is
+and rate-card formulas from `../specs/16-module-01-refresh.md` (ADR-0024) remain. The lead journey is
 derived (ADR-0028). The deal pipeline is specified in
-`specs/10-opportunity-pipeline-visualization.md` (ADR-0015). The external feeds are read-only and add
+`../specs/10-opportunity-pipeline-visualization.md` (ADR-0015). The external feeds are read-only and add
 no operational tables (ADR-0025).

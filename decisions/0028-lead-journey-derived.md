@@ -6,7 +6,7 @@
 ## Context
 
 The lead state machine intentionally requires `new → contacted → qualified → converted` and rejects
-`new → qualified` (`resources/specs/04-lead-lifecycle-status.md`). That rule is sound, but the current
+`new → qualified` (`../specs/04-lead-lifecycle-status.md`). That rule is sound, but the current
 lead detail page exposes only a status dropdown in the right-hand Lifecycle card. A user who wants to
 qualify a fresh lead sees no explanation that the lead must be contacted first, and the missing
 checklist criteria are shown as raw field keys.

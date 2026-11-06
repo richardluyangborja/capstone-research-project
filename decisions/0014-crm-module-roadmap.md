@@ -5,14 +5,14 @@
 
 ## Context
 
-Module 01 (Lead & Client Tracking) is complete (`specs/01`–`09`, ADR-0006). `resources/system-modules.md`
-lists four more CRM modules, and `resources/specs/README.md` / `resources/crm-flow.md` had started
+Module 01 (Lead & Client Tracking) is complete (`../specs/01`–`09`, ADR-0006). `../implementation/system-modules.md`
+lists four more CRM modules, and `../specs/README.md` / `../implementation/crm-flow.md` had started
 calling them "Phase 2" — the same label used for the dedup/merge and advanced-tier deferrals *inside*
 module 01. That overloaded term makes "what is left?" ambiguous as we plan the next module.
 
 ## Decision
 
-1. **The CRM has five modules** (from `resources/system-modules.md`). Module 01 is done; the roadmap
+1. **The CRM has five modules** (from `../implementation/system-modules.md`). Module 01 is done; the roadmap
    order for the rest is:
 
    | Module | Name | Spec |
@@ -23,7 +23,7 @@ module 01. That overloaded term makes "what is left?" ambiguous as we plan the n
    | 04 | Follow-up Reminder System | `12` |
    | 05 | Client Satisfaction & Survey | `13` |
 
-   The AI service (dashboard + management reports + suggestions, `resources/system-ai-feature.md`) is
+   The AI service (dashboard + management reports + suggestions, `../implementation/system-ai-feature.md`) is
    **cross-cutting**, not a sixth module: it consumes the data modules 01–05 produce and is built last.
    **ADR-0020** pulls its dashboard layer (spec `14`, D1) ahead of module 05 S4 for the presentation
    and defers S4; the Python service itself stays last (D3).
@@ -36,7 +36,7 @@ module 01. That overloaded term makes "what is left?" ambiguous as we plan the n
    (a follow-up *is* a scheduled communication) and are expected to be sequenced back-to-back;
    Satisfaction (05) is an end-of-loop retention layer and comes last.
 
-3. **Spec numbering is a global index, not a submodule id.** `specs/NN-slug.md`: `00` is the shared
+3. **Spec numbering is a global index, not a submodule id.** `../specs/NN-slug.md`: `00` is the shared
    data model, `01`–`09` are module 01's submodules, `10+` is **one file per subsequent module**, with
    that module's submodules as sections inside the file.
 
@@ -45,7 +45,7 @@ module 01. That overloaded term makes "what is left?" ambiguous as we plan the n
 
 ## Consequences
 
-- `resources/specs/README.md` re-indexes the specs and drops the "Phase 2" wording; `crm-flow.md`
+- `../specs/README.md` re-indexes the specs and drops the "Phase 2" wording; `../implementation/crm-flow.md`
   gets a module roadmap instead of a single "Lead & Client Tracking" group.
 - The sidebar groups by module (module 01 keeps its submodule children; module 02 adds a new group).
 - This ADR changes only planning/terminology — no code. The pipeline itself is ADR-0015.

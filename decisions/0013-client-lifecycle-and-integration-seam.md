@@ -7,7 +7,7 @@
 > transitions, billing and the read-only feed seam remain current. Contract upload, editing,
 > `mark-signed`, document storage/download, signing-triggered activation and the Service handoff
 > retry are retired: Core Transaction 3 owns the contract, and the CRM keeps a read-only projection.
-> See `0027-contracts-read-only.md` and `resources/specs/17-module-01-tracking-adjustments.md`.
+> See `0027-contracts-read-only.md` and `../specs/17-module-01-tracking-adjustments.md`.
 
 The contract-write and signing workflow in the historical decision below is retained to explain the
 original Phase-1 implementation. It is not current guidance; ADR-0027 and spec 17 govern all
@@ -15,7 +15,7 @@ contract behavior going forward.
 
 ## Context
 
-Submodule 09 (`../resources/specs/09-client-account-lifecycle.md`) is the last Phase-1 piece: it
+Submodule 09 (`../specs/09-client-account-lifecycle.md`) is the last Phase-1 piece: it
 turns a `prospect` account into a paying client and keeps it there. Building it raised questions the
 spec left open:
 
@@ -113,5 +113,5 @@ spec left open:
   signed contract whose handoff failed (the retry banner), one out for signature, a terminated
   churned account and a draft.
 - Deferred and **not** stubbed: the pipeline module, contract versioning/e-signature, renewal
-  reminders and automatic aging. `resources/specs/06-company-account-management.md` records that the
-  Contracts tab now exists; `AGENTS.md` records the `app/Integrations/` seam.
+  reminders and automatic aging. `../specs/06-company-account-management.md` records that the
+  Contracts tab now exists; `../AGENTS.md` records the `app/Integrations/` seam.

@@ -23,7 +23,7 @@ forecast.
 ## Pipeline stages
 
 Stages are `OpportunityStage` (`new_inquiry, qualified, discovery, proposal_sent, negotiation, won,
-lost, on_hold` — ADR-0002, `specs/00-data-model.md`). The board shows the **open** stages as columns
+lost, on_hold` — ADR-0002, `00-data-model.md`). The board shows the **open** stages as columns
 (`new_inquiry` … `negotiation`, `on_hold`); `won`/`lost` are terminal and are shown in a separate
 **Closed** view, not as columns.
 

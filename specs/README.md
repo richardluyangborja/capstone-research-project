@@ -1,8 +1,8 @@
 # Specs — CRM modules
 
-Implementation specs for the CRM modules (`../system-modules.md`, `../crm-flow.md`). Read
+Implementation specs for the CRM modules (`../implementation/system-modules.md`, `../implementation/crm-flow.md`). Read
 `00-data-model.md` first — all specs share its entities, enums, and conventions. Decisions referenced
-as ADR live in `../../decisions/`. The roadmap (module order + numbering) is ADR-0014: `00` is the
+as ADR live in `../decisions/`. The roadmap (module order + numbering) is ADR-0014: `00` is the
 shared data model, `01`–`09` are module 01's submodules, and `10+` is **one file per later module**,
 with that module's **delivery slices** declared in the file (ADR-0016).
 
@@ -110,7 +110,7 @@ records are visible to manager+.
 
 ## Frontend conventions
 
-- All CRM pages render inside the shared `DashboardShell` (ADR + `../departamental-design-instruction.md`).
+- All CRM pages render inside the shared `DashboardShell` (ADR + `../implementation/departamental-design-instruction.md`).
 - Reuse shared components: `DataTable`, `FormCard`, `PageHeader`, `StatusBadge`, `StatCard`,
   `EmptyState`, `AlertItem`. Never hardcode colors — use tokens.
 - Domain color mapping: counts=blue, people=green, activity=purple, cost=orange.

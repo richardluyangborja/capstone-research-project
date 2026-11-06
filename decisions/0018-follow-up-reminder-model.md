@@ -5,10 +5,10 @@
 
 ## Context
 
-Module 04 (Follow-up Reminder System, `specs/12`) is next. Three seams were left for it in earlier
+Module 04 (Follow-up Reminder System, `../specs/12`) is next. Three seams were left for it in earlier
 work, and they do not agree on what a "follow-up" is:
 
-- `00-data-model.md` gave `Activity` a `due_at` and an `open`/`done`/`cancelled` status
+- `../specs/00-data-model.md` gave `Activity` a `due_at` and an `open`/`done`/`cancelled` status
   ("tasks/reminders") and gave `Lead` a `next_follow_up_at` "used by follow-up module later".
 - ADR-0017 §3 reserved `CommunicationStatus.scheduled` and said "follow-ups will create
   communications with a due time rather than inventing a second scheduling table".
