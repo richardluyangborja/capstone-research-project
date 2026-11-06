@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState, type DragEvent } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { GripVertical, List, Plus, Search } from 'lucide-react'
+import { List, Plus, Search } from 'lucide-react'
 import PageHeader from '../components/common/PageHeader'
 import StatCard from '../components/common/StatCard'
 import StatusBadge from '../components/common/StatusBadge'
@@ -14,12 +14,6 @@ import { formatCurrency, formatDate } from '../lib/format'
 import type { LostReason, Opportunity, OpportunityStage, PipelineBoard } from '../types'
 
 type OwnerFilter = '' | 'me' | 'team'
-
-/** A link is natively draggable; keep it from starting a card drag (spec 18 §S1). */
-const stopDragStart = (event: DragEvent<HTMLElement>) => {
-  event.preventDefault()
-  event.stopPropagation()
-}
 
 // Module 02 §1 — the pipeline board. Columns are the open stages; deals drag between them,
 // every card also carries a Move-to menu (keyboard) and won/lost live in the Closed column.
@@ -99,7 +93,7 @@ export default function Pipeline() {
     <div>
       <PageHeader
         title="Opportunity pipeline"
-        description="Every open deal, by stage. Drag a card by its grip handle, or use its Move-to menu."
+        description="Every open deal, by stage. Drag a card, or use its Move-to menu."
         actions={
           <>
             <Link
@@ -299,18 +293,14 @@ function BoardColumn({
         event.preventDefault()
         setOver(true)
       }}
-      onDragLeave={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOver(false)
-      }}
+      onDragLeave={() => setOver(false)}
       onDrop={(event) => {
         event.preventDefault()
         setOver(false)
         onDropDeal(event.dataTransfer.getData('text/plain'))
       }}
-      className={`flex w-72 shrink-0 flex-col rounded-lg ${
-        over
-          ? 'border-2 border-dashed border-primary bg-primary/5 transition-colors'
-          : 'border border-border bg-card/50'
+      className={`flex w-72 shrink-0 flex-col rounded-lg border bg-card/50 ${
+        over ? 'border-primary' : 'border-border'
       }`}
     >
       <header className="border-b border-border px-3 py-2">
@@ -327,9 +317,7 @@ function BoardColumn({
 
       <div className="flex flex-col gap-2 p-2">
         {deals.length === 0 ? (
-          <p className="px-1 py-4 text-center text-xs text-muted-foreground">
-            {over ? `Drop here to move to ${opportunityStageMeta[stage].label}` : 'No deals'}
-          </p>
+          <p className="px-1 py-4 text-center text-xs text-muted-foreground">No deals</p>
         ) : (
           deals.map((deal) => (
             <DealCard
@@ -363,82 +351,41 @@ function ClosedColumn({
       {(['won', 'lost'] as const).map((stage) => {
         const deals = stage === 'won' ? won : lost
         return (
-          <ClosedStageColumn
+          <div
             key={stage}
-            stage={stage}
-            deals={deals}
-            busyId={busyId}
-            onRequestMove={onRequestMove}
-            onDropDeal={onDropDeal}
-          />
+            onDragOver={(event) => event.preventDefault()}
+            onDrop={(event) => {
+              event.preventDefault()
+              onDropDeal(event.dataTransfer.getData('text/plain'), stage)
+            }}
+            className="rounded-lg border border-border bg-card/50"
+          >
+            <header className="flex items-center justify-between border-b border-border px-3 py-2">
+              <StatusBadge tone={opportunityStageMeta[stage].tone}>
+                {opportunityStageMeta[stage].label}
+              </StatusBadge>
+              <span className="text-xs text-muted-foreground">{deals.length}</span>
+            </header>
+            <div className="flex flex-col gap-2 p-2">
+              {deals.length === 0 ? (
+                <p className="px-1 py-3 text-center text-xs text-muted-foreground">
+                  Drag a deal here
+                </p>
+              ) : (
+                deals.map((deal) => (
+                  <DealCard
+                    key={deal.id}
+                    deal={deal}
+                    busy={busyId === deal.id}
+                    onRequestMove={onRequestMove}
+                  />
+                ))
+              )}
+            </div>
+          </div>
         )
       })}
     </section>
-  )
-}
-
-function ClosedStageColumn({
-  stage,
-  deals,
-  busyId,
-  onRequestMove,
-  onDropDeal,
-}: {
-  stage: 'won' | 'lost'
-  deals: Opportunity[]
-  busyId: string | null
-  onRequestMove: (deal: Opportunity, stage: OpportunityStage) => void
-  onDropDeal: (dealId: string, stage: OpportunityStage) => void
-}) {
-  const [over, setOver] = useState(false)
-
-  return (
-    <div
-      role="region"
-      aria-label={`${opportunityStageMeta[stage].label} column`}
-      onDragOver={(event) => {
-        event.preventDefault()
-        setOver(true)
-      }}
-      onDragLeave={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOver(false)
-      }}
-      onDrop={(event) => {
-        event.preventDefault()
-        setOver(false)
-        onDropDeal(event.dataTransfer.getData('text/plain'), stage)
-      }}
-      className={`rounded-lg ${
-        over
-          ? 'border-2 border-dashed border-primary bg-primary/5 transition-colors'
-          : 'border border-border bg-card/50'
-      }`}
-    >
-      <header className="flex items-center justify-between border-b border-border px-3 py-2">
-        <StatusBadge tone={opportunityStageMeta[stage].tone}>
-          {opportunityStageMeta[stage].label}
-        </StatusBadge>
-        <span className="text-xs text-muted-foreground">{deals.length}</span>
-      </header>
-      <div className="flex flex-col gap-2 p-2">
-        {deals.length === 0 ? (
-          <p className="px-1 py-3 text-center text-xs text-muted-foreground">
-            {over
-              ? `Drop here to move to ${opportunityStageMeta[stage].label}`
-              : 'Drag a deal here'}
-          </p>
-        ) : (
-          deals.map((deal) => (
-            <DealCard
-              key={deal.id}
-              deal={deal}
-              busy={busyId === deal.id}
-              onRequestMove={onRequestMove}
-            />
-          ))
-        )}
-      </div>
-    </div>
   )
 }
 
@@ -451,40 +398,22 @@ function DealCard({
   busy: boolean
   onRequestMove: (deal: Opportunity, stage: OpportunityStage) => void
 }) {
-  const [dragging, setDragging] = useState(false)
-
   return (
     <article
-      className={`rounded-lg border border-border bg-card p-3 shadow-sm ${
-        busy ? 'opacity-60' : ''
-      } ${dragging ? 'opacity-50 ring-2 ring-primary/40' : ''}`}
+      draggable={deal.can_change_stage}
+      onDragStart={(event) => {
+        event.dataTransfer.setData('text/plain', deal.id)
+        event.dataTransfer.effectAllowed = 'move'
+      }}
+      className={`rounded-lg border border-border bg-card p-3 shadow-sm ${busy ? 'opacity-60' : ''}`}
     >
       <div className="flex items-start justify-between gap-2">
-        <div className="flex min-w-0 items-start gap-2">
-          <span
-            title="Drag to change stage"
-            aria-label="Drag to change stage"
-            role="img"
-            draggable={deal.can_change_stage}
-            onDragStart={(event: DragEvent<HTMLSpanElement>) => {
-              event.dataTransfer.setData('text/plain', deal.id)
-              event.dataTransfer.effectAllowed = 'move'
-              setDragging(true)
-            }}
-            onDragEnd={() => setDragging(false)}
-            className="mt-0.5 inline-flex shrink-0 cursor-grab items-center text-muted-foreground/60 hover:text-foreground active:cursor-grabbing"
-          >
-            <GripVertical className="h-4 w-4" aria-hidden="true" />
-          </span>
-          <Link
-            to={`/opportunities/${deal.id}`}
-            draggable={false}
-            onDragStart={stopDragStart}
-            className="text-sm font-medium text-foreground hover:underline"
-          >
-            {deal.name}
-          </Link>
-        </div>
+        <Link
+          to={`/opportunities/${deal.id}`}
+          className="text-sm font-medium text-foreground hover:underline"
+        >
+          {deal.name}
+        </Link>
         {deal.is_stale && <StatusBadge tone="warm">Stale</StatusBadge>}
       </div>
 

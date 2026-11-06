@@ -5,11 +5,11 @@ Refresh of Module 02 (Opportunity Pipeline Visualization). Extends `00-data-mode
 ADRs: **0029** (pipeline refresh & staffing domain alignment), **0015** (pipeline conventions),
 **0027** (contracts are read-only), and **0018** (follow-up reminders).
 
-> **Status: S1 built; S2–S5 planned.** S1 (dedicated grip handle, drag ghosting and dashed column drop
-> targets) shipped on `feature/module-02-drag-handle`. This spec declares 5 reviewable delivery slices
-> (S1–S5). It elevates the deal pipeline to mirror real-world manpower and staffing agency workflows,
-> adds tactile drag-and-drop affordances, captures staffing headcount demand, enforces proper Won/Lost
-> outcome governance, synchronizes follow-up tasks, and connects cross-department seams.
+> **Status: S1 omitted; S2–S5 planned.** The dedicated drag-handle slice was reverted to the baseline
+> whole-card drag-and-drop after review. This spec declares four remaining reviewable delivery slices
+> (S2–S5). It elevates the deal pipeline to mirror real-world manpower and staffing agency workflows,
+> captures staffing headcount demand, enforces proper Won/Lost outcome governance, synchronizes follow-up
+> tasks, and connects cross-department seams.
 
 ---
 
@@ -18,8 +18,8 @@ ADRs: **0029** (pipeline refresh & staffing domain alignment), **0015** (pipelin
 Module 02 established the core Kanban board and deal records, but operational use identified key areas
 for improvement:
 
-1. **Drag-and-drop affordance:** Deal cards lacked an explicit drag handle icon, creating ambiguity over
-   interactivity and risking accidental drag triggers during text selection or navigation.
+1. **Drag-and-drop affordance (S1, omitted):** Deal cards lacked an explicit drag handle icon. The
+   proposed handle slice was reverted after review; the baseline whole-card drag remains in place.
 2. **Staffing domain alignment:** Opportunities tracked generic financial lump sums without requested
    headcount, staffing service placement types, or target start dates. When leads converted, their
    headcount demand was lost.
@@ -31,14 +31,15 @@ for improvement:
 5. **Cross-department visibility & ergonomics:** Won deals did not surface linked contract projections, and
    users lacked a unified view switcher (Board vs List) and visual funnel analytics.
 
-This refresh resolves these issues through 5 incremental, reviewable slices.
+The remaining refresh resolves these issues through four incremental, reviewable slices (S2–S5). S1
+(drag handle interactivity) is omitted.
 
 ---
 
 ## Scope
 
 - **In:**
-  - Dedicated drag handle icon (`GripVertical`) with tactile grab states and column drop target highlighting.
+  - Baseline whole-card drag-and-drop and the keyboard-accessible Move-to menu, unchanged.
   - Staffing demand fields on `Opportunity`: `estimated_headcount`, `service_type`, `target_start_date`, and `win_note`.
   - Lead-to-Client conversion mapping preserving staffing demand.
   - Celebratory `WonConfirmDialog` confirming close date, won value, win notes, and external contract/recruitment context.
@@ -52,6 +53,8 @@ This refresh resolves these issues through 5 incremental, reviewable slices.
   - Visual Stage Funnel Progress Bar showing stage volume and value distribution.
   - Quick Deal Peek Drawer for rapid deal review without leaving the board.
 - **Out:**
+  - A dedicated drag handle, custom drag ghosting or custom drop-target styling (S1 omitted; the baseline
+    whole-card drag remains).
   - Automatic stage movement based on external feeds.
   - Re-creating Recruitment or Contract Management operational CRUD inside CRM.
   - Breaking changes to existing stage transitions (`OpportunityStage::allowedTransitions()` remains unchanged).
@@ -66,7 +69,7 @@ This refresh resolves these issues through 5 incremental, reviewable slices.
 | **0015** | Stage moves are any-to-any with rules; board has drag-and-drop plus accessible Move-to menu; scoping by owner/team/all |
 | **0027** | Contracts are read-only projections owned by Core Transaction 3; won deals link to projections and never activate accounts or upload contracts |
 | **0018** | Follow-up tasks are Activities with `type = task` and `due_at`; subjects keep `next_follow_up_at` synchronized |
-| **0029** | Opportunity pipeline refresh: drag handle icon, staffing demand fields, won/lost governance, follow-up sync, and view switcher |
+| **0029** | Opportunity pipeline refresh: staffing demand fields, won/lost governance, follow-up sync and view switcher (S1 drag handle omitted) |
 
 ---
 
@@ -74,7 +77,7 @@ This refresh resolves these issues through 5 incremental, reviewable slices.
 
 | Slice | Name | Focus | Key Deliverables |
 | --- | --- | --- | --- |
-| **S1** | **Drag & Drop Interactivity** | Frontend UX | Dedicated `GripVertical` handle icon, `cursor-grab` states, drag ghosting, dashed primary column drop target highlights |
+| **S1** | ~~Drag & Drop Interactivity~~ | ~~Frontend UX~~ | **Omitted** — reverted to the baseline whole-card drag; no dedicated handle or custom drop styling |
 | **S2** | **Staffing Domain Scope** | Data Model & Conversion | `estimated_headcount`, `service_type`, `target_start_date` on `opportunities`, `LeadConversionController` mapping, form inputs & card badges |
 | **S3** | **Stage Governance & Outcomes** | Outcomes & ADR-0027 | `WonConfirmDialog`, enhanced `LostReasonDialog` with notes, contract projection badge on won cards, retirement of outdated contract prompt |
 | **S4** | **Follow-up Integration** | Module 04 Integration | `next_follow_up_at` column, `Opportunity::syncNextFollowUpAt()`, follow-up status badges & unscheduled warnings on cards |
@@ -84,28 +87,12 @@ This refresh resolves these issues through 5 incremental, reviewable slices.
 
 ## Detailed Slice Specifications
 
-### Slice S1 — Drag & Drop Interactivity & Visual Handle
+### Slice S1 — Omitted
 
-**Branch:** `feature/module-02-drag-handle`
-
-#### Implementation
-1. **Handle Icon & Styling:**
-   - Add `GripVertical` from `lucide-react` on each `DealCard`.
-   - Apply `cursor-grab active:cursor-grabbing text-muted-foreground/60 hover:text-foreground` and `title="Drag to change stage"`.
-   - Ensure nested links (`/opportunities/:id`, `/accounts/:id`) and `StageMoveControl` stop event propagation so navigation and selection do not trigger drag.
-2. **Tactile Drag Feedback:**
-   - Card in drag gains subtle opacity and border cue (`opacity-50 ring-2 ring-primary/40`).
-   - Board columns highlight on `dragOver` with `border-2 border-dashed border-primary bg-primary/5 transition-colors`.
-   - Empty column drop zone displays clear helper text: *“Drop here to move to [Stage]”*.
-3. **Accessibility:**
-   - `StageMoveControl` remains fully accessible for keyboard/screen-reader navigation.
-
-#### Acceptance Criteria
-- [x] Each deal card renders a visible `GripVertical` drag handle icon.
-- [x] Dragging can be initiated cleanly via the handle or card.
-- [x] Columns display a distinct dashed primary drop indicator when hovering a dragged card.
-- [x] Card links and the Move-to menu remain clickable without triggering drag.
-- [x] Automated tests in `pipeline.test.tsx` pass.
+The dedicated `GripVertical` handle and custom drag feedback were reverted to the baseline whole-card
+drag-and-drop after review. `Pipeline.tsx` and `pipeline.test.tsx` are restored to their pre-S1 state;
+no S1 acceptance criteria are in force. The baseline board still drags between columns and keeps the
+keyboard-accessible Move-to menu.
 
 ---
 

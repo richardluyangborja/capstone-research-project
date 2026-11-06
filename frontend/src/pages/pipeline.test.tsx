@@ -196,71 +196,6 @@ describe('Pipeline board', () => {
     expect(screen.getByText('Stalled deals')).toBeInTheDocument()
   })
 
-  it('renders a dedicated grip handle on every deal card', async () => {
-    renderBoard()
-
-    const link = await screen.findByRole('link', { name: 'Sunrise Foods — warehouse staffing' })
-    const card = link.closest('article') as HTMLElement
-
-    const handle = within(card).getByTitle('Drag to change stage')
-    expect(handle).toBeInTheDocument()
-    expect(handle).toHaveClass('cursor-grab')
-    expect(handle).toHaveAttribute('draggable', 'true')
-    // Only the grip is draggable, so links, fields and the Move-to menu stay clickable.
-    expect(card).not.toHaveAttribute('draggable')
-    expect(within(card).getByRole('img', { name: 'Drag to change stage' })).toBe(handle)
-  })
-
-  it('shows a drag cue on the card and a dashed drop target on the hovered column', async () => {
-    renderBoard()
-
-    const link = await screen.findByRole('link', { name: 'Sunrise Foods — warehouse staffing' })
-    const card = link.closest('article') as HTMLElement
-    const handle = within(card).getByTitle('Drag to change stage')
-    const target = screen.getByRole('region', { name: 'Qualified column' })
-
-    fireEvent.dragStart(handle, {
-      dataTransfer: { setData: vi.fn(), effectAllowed: 'none' },
-    })
-
-    await waitFor(() => {
-      expect(card).toHaveClass('opacity-50', 'ring-2', 'ring-primary/40')
-    })
-
-    fireEvent.dragOver(target)
-
-    await waitFor(() => {
-      expect(target).toHaveClass(
-        'border-2',
-        'border-dashed',
-        'border-primary',
-        'bg-primary/5',
-        'transition-colors',
-      )
-    })
-    expect(within(target).getByText('Drop here to move to Qualified')).toBeInTheDocument()
-
-    fireEvent.dragLeave(target)
-
-    await waitFor(() => expect(target).not.toHaveClass('border-dashed'))
-    expect(within(target).getByText('No deals')).toBeInTheDocument()
-  })
-
-  it('does not start a card drag from the deal link or the Move-to menu', async () => {
-    renderBoard()
-
-    const link = await screen.findByRole('link', { name: 'Sunrise Foods — warehouse staffing' })
-    const card = link.closest('article') as HTMLElement
-    const select = within(card).getByLabelText('Move OPP-2026-0001 to another stage')
-    const dataTransfer = { setData: vi.fn(), effectAllowed: 'none' }
-
-    fireEvent.dragStart(link, { dataTransfer })
-    fireEvent.dragStart(select, { dataTransfer })
-
-    expect(card).not.toHaveClass('opacity-50')
-    expect(dataTransfer.setData).not.toHaveBeenCalled()
-  })
-
   it('offers only the legal target stages in the Move-to menu', async () => {
     renderBoard()
 
@@ -377,9 +312,7 @@ describe('Deal detail', () => {
     renderDetail()
 
     expect(
-      await screen.findByText(
-        'No linked projection — contracts are managed in Contract Management.',
-      ),
+      await screen.findByText('No linked projection — contracts are managed in Contract Management.'),
     ).toBeInTheDocument()
   })
 })

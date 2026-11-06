@@ -2,9 +2,13 @@
 
 - Status: Accepted
 - Date: 2026-11-05
+- Amended: 2026-11-06 (S1 drag handle omitted)
 
 Extends `0015-opportunity-pipeline-conventions.md`, `0027-contracts-read-only.md`, and
 `0018-follow-up-reminder-model.md`. Implemented by `../specs/18-module-02-refresh.md`.
+
+> **Amendment (2026-11-06):** Decision 1 (dedicated drag handle and custom drop feedback) is withdrawn.
+> Slice S1 was reverted to the baseline whole-card drag-and-drop; S2–S5 remain in force.
 
 ## Context
 
@@ -36,10 +40,10 @@ However, real-world operation and comparison with Module 01's workspace refresh 
 
 ## Decision
 
-1. **Explicit drag handle icon and tactile drop feedback.** Every deal card gains a dedicated `GripVertical`
-   handle icon with `cursor-grab active:cursor-grabbing` and an accessible `title="Drag to change stage"`.
-   Columns highlight with dashed accent borders (`border-2 border-dashed border-primary bg-primary/5`) when
-   dragged over. The keyboard-accessible `StageMoveControl` remains intact.
+1. **Explicit drag handle icon and tactile drop feedback.** *(Withdrawn — see amendment; the baseline
+   whole-card drag and keyboard-accessible `StageMoveControl` remain.)* The original proposal gave every
+   deal card a dedicated `GripVertical` handle icon with `cursor-grab active:cursor-grabbing` and an
+   accessible `title="Drag to change stage"`, with dashed accent borders on columns dragged over.
 2. **Ground opportunities in the staffing domain.** Add additive columns to `opportunities`:
    `estimated_headcount` (unsigned integer), `service_type` (string enum: `temporary_staffing`,
    `contract_to_hire`, `direct_hire`, `project_based`), `target_start_date` (date), and `win_note` (text).
@@ -65,7 +69,7 @@ However, real-world operation and comparison with Module 01's workspace refresh 
 
 ## Consequences
 
-- Delivered in 5 reviewable slices defined in `../specs/18-module-02-refresh.md` (S1–S5).
+- Delivered in four reviewable slices defined in `../specs/18-module-02-refresh.md` (S2–S5); S1 is omitted.
 - All existing API endpoints remain backward-compatible; new fields are strictly additive.
 - Preserves the ADR-0015 any-to-any stage transition rules and ADR-0004 role-based scoping (salesrep own,
   manager team, admin all).
