@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { SquareKanban, Plus, Search } from 'lucide-react'
 import PageHeader from '../components/common/PageHeader'
 import StatusBadge from '../components/common/StatusBadge'
+import StaffingBadge from '../components/common/StaffingBadge'
 import EmptyState from '../components/common/EmptyState'
 import AlertItem from '../components/common/AlertItem'
 import StatCard from '../components/common/StatCard'
@@ -36,6 +37,16 @@ const columns: DataTableColumn<Opportunity>[] = [
       ) : (
         '—'
       ),
+  },
+  {
+    key: 'staffing',
+    header: 'Staffing',
+    render: (deal) => (
+      <StaffingBadge
+        estimatedHeadcount={deal.estimated_headcount}
+        serviceType={deal.service_type}
+      />
+    ),
   },
   {
     key: 'stage',

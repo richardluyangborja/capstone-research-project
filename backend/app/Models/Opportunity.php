@@ -46,6 +46,10 @@ class Opportunity extends Model
         'primary_contact_id',
         'owner_id',
         'lost_reason',
+        'estimated_headcount',
+        'service_type',
+        'target_start_date',
+        'win_note',
     ];
 
     /**
@@ -60,6 +64,8 @@ class Opportunity extends Model
             'amount' => 'decimal:2',
             'expected_close_date' => 'date',
             'actual_close_date' => 'date',
+            'target_start_date' => 'date',
+            'estimated_headcount' => 'integer',
             'stage_changed_at' => 'datetime',
             'last_activity_at' => 'datetime',
         ];

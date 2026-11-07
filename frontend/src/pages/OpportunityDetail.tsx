@@ -9,6 +9,7 @@ import StatusBadge from '../components/common/StatusBadge'
 import StatCard from '../components/common/StatCard'
 import StageMoveControl from '../components/common/StageMoveControl'
 import LostReasonDialog from '../components/common/LostReasonDialog'
+import StaffingBadge from '../components/common/StaffingBadge'
 import {
   deleteOpportunity,
   getOpportunity,
@@ -19,7 +20,12 @@ import {
 } from '../lib/opportunities'
 import { listCompanyContacts } from '../lib/contacts'
 import { getAssignableUsers, parseValidationError } from '../lib/leads'
-import { opportunityStageMeta, lostReasonLabels } from '../lib/opportunityMeta'
+import {
+  opportunityStageMeta,
+  lostReasonLabels,
+  serviceTypeLabel,
+  serviceTypeOptions,
+} from '../lib/opportunityMeta'
 import { activityTypeMeta } from '../lib/leadMeta'
 import { followUpDueMeta } from '../lib/followUpMeta'
 import { formatCurrency, formatDate, formatDateTime } from '../lib/format'
@@ -43,6 +49,9 @@ interface DealForm {
   next_step: string
   primary_contact_id: string
   owner_id: string
+  estimated_headcount: string
+  service_type: string
+  target_start_date: string
 }
 
 const formFromDeal = (deal: Opportunity): DealForm => ({
@@ -53,6 +62,10 @@ const formFromDeal = (deal: Opportunity): DealForm => ({
   next_step: deal.next_step ?? '',
   primary_contact_id: deal.primary_contact_id ?? '',
   owner_id: String(deal.owner_id),
+  estimated_headcount:
+    deal.estimated_headcount === null ? '' : String(deal.estimated_headcount),
+  service_type: deal.service_type ?? '',
+  target_start_date: deal.target_start_date ?? '',
 })
 
 // Module 02 §2–4 — one deal: edit it, move its stage, log the activity around it, and hand
@@ -135,9 +148,17 @@ export default function OpportunityDetail() {
       const payload: Record<string, unknown> = {
         name: form.name.trim(),
         expected_close_date: form.expected_close_date === '' ? null : form.expected_close_date,
+        target_start_date: form.target_start_date === '' ? null : form.target_start_date,
         next_step: form.next_step.trim() === '' ? null : form.next_step.trim(),
         probability: form.probability === '' ? null : Number(form.probability),
+        estimated_headcount:
+          form.estimated_headcount === '' ? null : Number(form.estimated_headcount),
         primary_contact_id: form.primary_contact_id === '' ? null : form.primary_contact_id,
+      }
+      // A converted lead may carry a free-text service interest that is not one of the
+      // placement types. Leave it untouched unless the user actually changes the field.
+      if (form.service_type !== (deal.service_type ?? '')) {
+        payload.service_type = form.service_type === '' ? null : form.service_type
       }
       if (deal.can_set_amount) payload.amount = form.amount === '' ? null : Number(form.amount)
       if (deal.can_assign) payload.owner_id = Number(form.owner_id)
@@ -240,6 +261,10 @@ export default function OpportunityDetail() {
             <StatusBadge tone={opportunityStageMeta[deal.stage].tone}>
               {opportunityStageMeta[deal.stage].label}
             </StatusBadge>
+            <StaffingBadge
+              estimatedHeadcount={deal.estimated_headcount}
+              serviceType={deal.service_type}
+            />
             {deal.can_update && (
               <Link
                 to={`/follow-ups/new?subject_type=opportunity&subject_id=${deal.id}`}
@@ -311,6 +336,17 @@ export default function OpportunityDetail() {
                 />
               </Field>
 
+              <Field label="Target start date" error={errors.target_start_date}>
+                <input
+                  type="date"
+                  value={form.target_start_date}
+                  onChange={(event) =>
+                    setForm({ ...form, target_start_date: event.target.value })
+                  }
+                  className={inputClass}
+                />
+              </Field>
+
               <Field label="Probability (%)" error={errors.probability}>
                 <input
                   type="number"
@@ -320,6 +356,41 @@ export default function OpportunityDetail() {
                   onChange={(event) => setForm({ ...form, probability: event.target.value })}
                   className={inputClass}
                 />
+              </Field>
+
+              <Field label="Estimated headcount" error={errors.estimated_headcount}>
+                <input
+                  type="number"
+                  min={1}
+                  max={10000}
+                  value={form.estimated_headcount}
+                  onChange={(event) =>
+                    setForm({ ...form, estimated_headcount: event.target.value })
+                  }
+                  placeholder="e.g. 25 workers"
+                  className={inputClass}
+                />
+              </Field>
+
+              <Field label="Service type" error={errors.service_type}>
+                <select
+                  value={form.service_type}
+                  onChange={(event) => setForm({ ...form, service_type: event.target.value })}
+                  className={inputClass}
+                >
+                  <option value="">Not set</option>
+                  {form.service_type &&
+                    !serviceTypeOptions.some((option) => option.value === form.service_type) && (
+                      <option value={form.service_type}>
+                        {serviceTypeLabel(form.service_type)}
+                      </option>
+                    )}
+                  {serviceTypeOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
               </Field>
 
               <Field

@@ -39,6 +39,11 @@ class OpportunityResource extends JsonResource
             'currency' => $this->currency,
             'expected_close_date' => $this->expected_close_date?->toDateString(),
             'actual_close_date' => $this->actual_close_date?->toDateString(),
+            // Staffing demand carried from the lead or captured on the deal (spec 18 S2).
+            'estimated_headcount' => $this->estimated_headcount,
+            'service_type' => $this->service_type,
+            'target_start_date' => $this->target_start_date?->toDateString(),
+            'win_note' => $this->win_note,
             'next_step' => $this->next_step,
             'source' => $this->source,
             'primary_contact_id' => $this->primary_contact_id,

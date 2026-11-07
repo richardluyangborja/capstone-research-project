@@ -50,6 +50,10 @@ class ConvertLeadRequest extends FormRequest
             'opportunity.amount' => ['nullable', 'numeric', 'min:0'],
             'opportunity.probability' => ['nullable', 'integer', 'min:0', 'max:100'],
             'opportunity.expected_close_date' => ['nullable', 'date'],
+            // Staffing demand may be confirmed/overridden while converting (spec 18 S2).
+            'opportunity.estimated_headcount' => ['nullable', 'integer', 'min:1', 'max:10000'],
+            'opportunity.service_type' => ['nullable', Rule::in(['temporary_staffing', 'contract_to_hire', 'direct_hire', 'project_based'])],
+            'opportunity.target_start_date' => ['nullable', 'date'],
         ];
     }
 

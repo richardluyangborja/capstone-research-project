@@ -118,6 +118,41 @@ class LeadConversionTest extends TestCase
         Event::assertDispatched(LeadConverted::class);
     }
 
+    public function test_conversion_carries_the_leads_staffing_demand_onto_the_deal(): void
+    {
+        $rep = User::factory()->salesrep()->create();
+        $lead = $this->qualifiedLead($rep, [
+            'estimated_headcount' => 25,
+            'target_start_date' => '2026-12-01',
+            'service_interest' => 'temporary_staffing',
+        ]);
+
+        $this->actingAs($rep, 'api')
+            ->postJson("/api/v1/leads/{$lead->id}/convert", $this->payload())
+            ->assertCreated()
+            ->assertJsonPath('data.opportunity.estimated_headcount', 25)
+            ->assertJsonPath('data.opportunity.service_type', 'temporary_staffing')
+            ->assertJsonPath('data.opportunity.target_start_date', '2026-12-01');
+
+        $opportunity = Opportunity::firstOrFail();
+        $this->assertSame(25, $opportunity->estimated_headcount);
+        $this->assertSame('temporary_staffing', $opportunity->service_type);
+        $this->assertSame('2026-12-01', $opportunity->target_start_date?->toDateString());
+    }
+
+    public function test_conversion_defaults_the_service_type_when_the_lead_has_none(): void
+    {
+        $rep = User::factory()->salesrep()->create();
+        $lead = $this->qualifiedLead($rep, ['service_interest' => null]);
+
+        $this->actingAs($rep, 'api')
+            ->postJson("/api/v1/leads/{$lead->id}/convert", $this->payload())
+            ->assertCreated()
+            ->assertJsonPath('data.opportunity.service_type', 'temporary_staffing');
+
+        $this->assertSame('temporary_staffing', Opportunity::firstOrFail()->service_type);
+    }
+
     public function test_conversion_records_a_system_activity_on_the_lead_timeline(): void
     {
         $rep = User::factory()->salesrep()->create();

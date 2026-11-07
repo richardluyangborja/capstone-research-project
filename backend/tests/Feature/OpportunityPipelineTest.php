@@ -212,6 +212,59 @@ class OpportunityPipelineTest extends TestCase
         $this->assertSame(1, Opportunity::count());
     }
 
+    public function test_a_deal_can_be_created_with_staffing_demand(): void
+    {
+        $rep = User::factory()->salesrep()->create();
+        $company = Company::factory()->ownedBy($rep)->create();
+
+        $this->actingAs($rep, 'api')
+            ->postJson('/api/v1/opportunities', [
+                'company_id' => $company->id,
+                'name' => 'Sunrise Foods Inc — holiday packers',
+                'estimated_headcount' => 25,
+                'service_type' => 'temporary_staffing',
+                'target_start_date' => '2026-12-01',
+                'win_note' => 'Deployment starts on the first Monday of December.',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.estimated_headcount', 25)
+            ->assertJsonPath('data.service_type', 'temporary_staffing')
+            ->assertJsonPath('data.target_start_date', '2026-12-01')
+            ->assertJsonPath('data.win_note', 'Deployment starts on the first Monday of December.');
+
+        $deal = Opportunity::firstOrFail();
+        $this->assertSame(25, $deal->estimated_headcount);
+        $this->assertSame('temporary_staffing', $deal->service_type);
+        $this->assertSame('2026-12-01', $deal->target_start_date?->toDateString());
+    }
+
+    public function test_staffing_demand_can_be_updated_and_is_validated(): void
+    {
+        $rep = User::factory()->salesrep()->create();
+        $deal = $this->dealFor($rep, OpportunityStage::ProposalSent);
+
+        $this->actingAs($rep, 'api')
+            ->patchJson("/api/v1/opportunities/{$deal->id}", [
+                'estimated_headcount' => 40,
+                'service_type' => 'contract_to_hire',
+                'target_start_date' => '2027-01-15',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.estimated_headcount', 40)
+            ->assertJsonPath('data.service_type', 'contract_to_hire')
+            ->assertJsonPath('data.target_start_date', '2027-01-15');
+
+        $this->actingAs($rep, 'api')
+            ->patchJson("/api/v1/opportunities/{$deal->id}", ['estimated_headcount' => 0])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('estimated_headcount');
+
+        $this->actingAs($rep, 'api')
+            ->patchJson("/api/v1/opportunities/{$deal->id}", ['service_type' => 'permanent'])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('service_type');
+    }
+
     public function test_a_deal_cannot_be_created_on_an_out_of_scope_company(): void
     {
         $rep = User::factory()->salesrep()->create();

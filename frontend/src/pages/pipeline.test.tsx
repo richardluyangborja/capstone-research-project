@@ -24,6 +24,10 @@ const { deal, wonDeal, board, history } = vi.hoisted(() => {
     currency: 'PHP',
     expected_close_date: '2026-11-30',
     actual_close_date: null,
+    estimated_headcount: 25,
+    service_type: 'temporary_staffing',
+    target_start_date: '2026-11-15',
+    win_note: null,
     next_step: 'Book the site visit',
     source: 'walk_in',
     primary_contact_id: null,
@@ -189,6 +193,7 @@ describe('Pipeline board', () => {
 
     const column = screen.getByRole('region', { name: 'Discovery column' })
     expect(within(column).getByText('Stale')).toBeInTheDocument()
+    expect(within(column).getByText('25 workers · Temporary Staffing')).toBeInTheDocument()
     expect(within(column).getAllByText(/450,000/).length).toBeGreaterThan(0)
 
     expect(screen.getByText('Open pipeline')).toBeInTheDocument()
@@ -284,6 +289,7 @@ describe('Deals list', () => {
     expect(within(row).getByText('OPP-2026-0001')).toBeInTheDocument()
     expect(within(row).getByRole('link', { name: 'Sunrise Foods Inc' })).toBeInTheDocument()
     expect(within(row).getByText('Discovery')).toBeInTheDocument()
+    expect(within(row).getByText('25 workers · Temporary Staffing')).toBeInTheDocument()
   })
 })
 
@@ -305,6 +311,15 @@ describe('Deal detail', () => {
     expect(
       screen.queryByRole('link', { name: /create contract from deal/i }),
     ).not.toBeInTheDocument()
+  })
+
+  it('shows and edits the deal staffing demand', async () => {
+    renderDetail()
+
+    expect(await screen.findByLabelText('Estimated headcount')).toHaveValue(25)
+    expect(screen.getByLabelText('Service type')).toHaveValue('temporary_staffing')
+    expect(screen.getByLabelText('Target start date')).toHaveValue('2026-11-15')
+    expect(screen.getByText('25 workers · Temporary Staffing')).toBeInTheDocument()
   })
 
   it('explains that contracts are managed by the external contract system', async () => {

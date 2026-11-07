@@ -96,6 +96,11 @@ class OpportunityController extends Controller
                 'probability' => $data['probability'] ?? null,
                 'expected_close_date' => $data['expected_close_date'] ?? null,
                 'next_step' => $data['next_step'] ?? null,
+                // Staffing demand (spec 18 S2).
+                'estimated_headcount' => $data['estimated_headcount'] ?? null,
+                'service_type' => $data['service_type'] ?? null,
+                'target_start_date' => $data['target_start_date'] ?? null,
+                'win_note' => $data['win_note'] ?? null,
                 'source' => $data['source'] ?? $company->sourceLead?->source?->value,
                 'primary_contact_id' => $data['primary_contact_id'] ?? null,
                 'owner_id' => $data['owner_id'] ?? $user->id,
