@@ -6,6 +6,7 @@ import type {
   OpportunitiesPage,
   PipelineBoard,
   CompanyOpportunities,
+  ServiceType,
 } from '../types'
 
 /**
@@ -41,6 +42,10 @@ export interface CreateOpportunityInput {
   probability?: number | null
   expected_close_date?: string | null
   next_step?: string | null
+  estimated_headcount?: number | null
+  service_type?: ServiceType | null
+  target_start_date?: string | null
+  win_note?: string | null
   source?: string | null
   primary_contact_id?: string | null
   owner_id?: number | null

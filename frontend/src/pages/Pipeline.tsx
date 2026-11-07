@@ -4,6 +4,7 @@ import { List, Plus, Search } from 'lucide-react'
 import PageHeader from '../components/common/PageHeader'
 import StatCard from '../components/common/StatCard'
 import StatusBadge from '../components/common/StatusBadge'
+import StaffingBadge from '../components/common/StaffingBadge'
 import AlertItem from '../components/common/AlertItem'
 import EmptyState from '../components/common/EmptyState'
 import StageMoveControl from '../components/common/StageMoveControl'
@@ -420,6 +421,15 @@ function DealCard({
       <p className="mt-1 text-xs text-muted-foreground">
         {deal.company?.name ?? '—'} · <span className="font-mono">{deal.reference}</span>
       </p>
+
+      {(deal.estimated_headcount || deal.service_type) && (
+        <div className="mt-2">
+          <StaffingBadge
+            estimatedHeadcount={deal.estimated_headcount}
+            serviceType={deal.service_type}
+          />
+        </div>
+      )}
 
       <p className="mt-2 text-sm font-semibold text-cost">{formatCurrency(deal.amount)}</p>
 

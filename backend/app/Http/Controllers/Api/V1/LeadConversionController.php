@@ -222,6 +222,10 @@ class LeadConversionController extends Controller
                 : null,
             'probability' => $attributes['probability'] ?? OpportunityStage::Qualified->defaultProbability(),
             'expected_close_date' => $attributes['expected_close_date'] ?? $lead->target_start_date,
+            // Staffing demand survives the conversion (spec 18 S2).
+            'estimated_headcount' => $attributes['estimated_headcount'] ?? $lead->estimated_headcount,
+            'target_start_date' => $attributes['target_start_date'] ?? $lead->target_start_date,
+            'service_type' => $attributes['service_type'] ?? ($lead->service_interest ?? 'temporary_staffing'),
             'source' => $lead->source,
             'primary_contact_id' => $primaryContact?->id,
             'owner_id' => $lead->owner_id ?? $actor->id,
@@ -262,6 +266,9 @@ class LeadConversionController extends Controller
             'currency' => 'PHP',
             'probability' => OpportunityStage::Qualified->defaultProbability(),
             'expected_close_date' => $lead->target_start_date?->toDateString(),
+            'estimated_headcount' => $lead->estimated_headcount,
+            'target_start_date' => $lead->target_start_date?->toDateString(),
+            'service_type' => $lead->service_interest ?? 'temporary_staffing',
             'source' => $lead->source,
             'owner_id' => $owner->id,
         ];

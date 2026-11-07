@@ -8,7 +8,8 @@ import { listCompanies } from '../lib/companies'
 import { listCompanyContacts } from '../lib/contacts'
 import { getAssignableUsers, parseValidationError } from '../lib/leads'
 import { useAuth } from '../lib/auth-context'
-import type { AssignmentTarget, Company, Contact } from '../types'
+import { serviceTypeOptions } from '../lib/opportunityMeta'
+import type { AssignmentTarget, Company, Contact, ServiceType } from '../types'
 
 interface DealForm {
   company_id: string
@@ -19,6 +20,9 @@ interface DealForm {
   amount: string
   primary_contact_id: string
   owner_id: string
+  estimated_headcount: string
+  service_type: string
+  target_start_date: string
 }
 
 const emptyForm: DealForm = {
@@ -30,6 +34,9 @@ const emptyForm: DealForm = {
   amount: '',
   primary_contact_id: '',
   owner_id: '',
+  estimated_headcount: '',
+  service_type: '',
+  target_start_date: '',
 }
 
 // Module 02 §2 — a deal can be opened directly on an account (not only by conversion).
@@ -162,6 +169,15 @@ export default function NewOpportunity() {
               />
             </Field>
 
+            <Field label="Target start date" error={errors.target_start_date}>
+              <input
+                type="date"
+                value={form.target_start_date}
+                onChange={(event) => update('target_start_date', event.target.value)}
+                className={inputClass}
+              />
+            </Field>
+
             <Field label="Probability (%)" error={errors.probability}>
               <input
                 type="number"
@@ -172,6 +188,33 @@ export default function NewOpportunity() {
                 placeholder="Stage default"
                 className={inputClass}
               />
+            </Field>
+
+            <Field label="Estimated headcount" error={errors.estimated_headcount}>
+              <input
+                type="number"
+                min={1}
+                max={10000}
+                value={form.estimated_headcount}
+                onChange={(event) => update('estimated_headcount', event.target.value)}
+                placeholder="e.g. 25 workers"
+                className={inputClass}
+              />
+            </Field>
+
+            <Field label="Service type" error={errors.service_type}>
+              <select
+                value={form.service_type}
+                onChange={(event) => update('service_type', event.target.value)}
+                className={inputClass}
+              >
+                <option value="">Not set</option>
+                {serviceTypeOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
             </Field>
 
             {isManagerOrAbove && (
@@ -274,8 +317,11 @@ function toInput(form: DealForm, includeCommercial: boolean): CreateOpportunityI
     company_id: form.company_id,
     name: form.name.trim(),
     expected_close_date: trimmed(form.expected_close_date),
+    target_start_date: trimmed(form.target_start_date),
     next_step: trimmed(form.next_step),
     probability: form.probability === '' ? null : Number(form.probability),
+    estimated_headcount: form.estimated_headcount === '' ? null : Number(form.estimated_headcount),
+    service_type: form.service_type === '' ? null : (form.service_type as ServiceType),
     primary_contact_id: trimmed(form.primary_contact_id),
   }
 

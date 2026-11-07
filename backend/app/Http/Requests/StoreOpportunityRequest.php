@@ -34,6 +34,11 @@ class StoreOpportunityRequest extends FormRequest
             'probability' => ['nullable', 'integer', 'min:0', 'max:100'],
             'expected_close_date' => ['nullable', 'date'],
             'next_step' => ['nullable', 'string', 'max:255'],
+            // Staffing demand (spec 18 S2).
+            'estimated_headcount' => ['nullable', 'integer', 'min:1', 'max:10000'],
+            'service_type' => ['nullable', 'string', Rule::in(['temporary_staffing', 'contract_to_hire', 'direct_hire', 'project_based'])],
+            'target_start_date' => ['nullable', 'date'],
+            'win_note' => ['nullable', 'string'],
             'source' => ['nullable', Rule::enum(LeadSource::class)],
             'primary_contact_id' => ['nullable', 'string', 'exists:contacts,id'],
             // Reassignment is manager+ (module 02 §3); a salesrep is always made the owner.

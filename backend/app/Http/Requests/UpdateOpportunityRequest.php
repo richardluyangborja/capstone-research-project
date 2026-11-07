@@ -33,6 +33,11 @@ class UpdateOpportunityRequest extends FormRequest
             'probability' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:100'],
             'expected_close_date' => ['sometimes', 'nullable', 'date'],
             'next_step' => ['sometimes', 'nullable', 'string', 'max:255'],
+            // Staffing demand (spec 18 S2).
+            'estimated_headcount' => ['sometimes', 'nullable', 'integer', 'min:1', 'max:10000'],
+            'service_type' => ['sometimes', 'nullable', 'string', Rule::in(['temporary_staffing', 'contract_to_hire', 'direct_hire', 'project_based'])],
+            'target_start_date' => ['sometimes', 'nullable', 'date'],
+            'win_note' => ['sometimes', 'nullable', 'string'],
             'source' => ['sometimes', 'nullable', Rule::enum(LeadSource::class)],
             'primary_contact_id' => ['sometimes', 'nullable', 'string', 'exists:contacts,id'],
             'owner_id' => ['sometimes', 'integer', 'exists:users,id', Rule::prohibitedIf(fn (): bool => $this->user()?->role === Role::Salesrep)],

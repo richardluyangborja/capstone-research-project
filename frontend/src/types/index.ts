@@ -315,6 +315,13 @@ export type OpportunityStage =
 
 export type LostReason = 'price' | 'competitor' | 'no_budget' | 'timing' | 'no_decision' | 'other'
 
+/** Staffing placement type on a deal (spec 18 S2). */
+export type ServiceType =
+  | 'temporary_staffing'
+  | 'contract_to_hire'
+  | 'direct_hire'
+  | 'project_based'
+
 export interface OpportunityCompanyRef {
   id: string
   reference: string
@@ -341,6 +348,11 @@ export interface Opportunity {
   currency: string
   expected_close_date: string | null
   actual_close_date: string | null
+  /** Staffing demand (spec 18 S2). */
+  estimated_headcount: number | null
+  service_type: string | null
+  target_start_date: string | null
+  win_note: string | null
   next_step: string | null
   source: LeadSource | null
   primary_contact_id: string | null
@@ -421,6 +433,10 @@ export interface OpportunityInput {
   probability?: number | null
   expected_close_date?: string | null
   next_step?: string | null
+  estimated_headcount?: number | null
+  service_type?: ServiceType | null
+  target_start_date?: string | null
+  win_note?: string | null
   source?: LeadSource | null
   primary_contact_id?: string | null
 }
@@ -484,6 +500,9 @@ export interface ConversionPreview {
     currency: string
     probability: number
     expected_close_date: string | null
+    estimated_headcount: number | null
+    service_type: string | null
+    target_start_date: string | null
     source: LeadSource | null
     owner_id: number
   }
@@ -509,6 +528,9 @@ export interface ConversionInput {
     amount?: number | null
     probability?: number | null
     expected_close_date?: string | null
+    estimated_headcount?: number | null
+    service_type?: ServiceType | null
+    target_start_date?: string | null
   }
 }
 
