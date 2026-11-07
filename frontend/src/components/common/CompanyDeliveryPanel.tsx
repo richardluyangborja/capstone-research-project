@@ -6,15 +6,15 @@ import FormCard from './FormCard'
 import StatCard from './StatCard'
 import StatusBadge, { type Tone } from './StatusBadge'
 import { getCompanyDelivery } from '../../lib/deliveries'
-import { deploymentMeta, formatHours, timesheetMeta } from '../../lib/deliveryMeta'
+import {
+  deploymentMeta,
+  formatHours,
+  jobOrderMeta,
+  priorityMeta,
+  timesheetMeta,
+} from '../../lib/deliveryMeta'
 import { formatDate, formatDateTime } from '../../lib/format'
-import type {
-  CompanyDelivery,
-  DeliveryDeployment,
-  DeliveryJobOrder,
-  DeliveryPriority,
-  JobOrderStatus,
-} from '../../types'
+import type { CompanyDelivery, DeliveryDeployment, DeliveryJobOrder } from '../../types'
 
 interface CompanyDeliveryPanelProps {
   companyId: string
@@ -26,20 +26,6 @@ const handoffMeta: Record<'sent' | 'failed' | 'none', { label: string; tone: Ton
   sent: { label: 'Accepted', tone: 'success' },
   failed: { label: 'Failed', tone: 'danger' },
   none: { label: 'Not requested', tone: 'neutral' },
-}
-
-const jobOrderMeta: Record<JobOrderStatus, { label: string; tone: Tone }> = {
-  open: { label: 'Open', tone: 'counts' },
-  partially_filled: { label: 'Partially filled', tone: 'warm' },
-  filled: { label: 'Filled', tone: 'success' },
-  closed: { label: 'Closed', tone: 'neutral' },
-  cancelled: { label: 'Cancelled', tone: 'danger' },
-}
-
-const priorityMeta: Record<DeliveryPriority, { label: string; tone: Tone }> = {
-  high: { label: 'High', tone: 'hot' },
-  medium: { label: 'Medium', tone: 'warm' },
-  low: { label: 'Low', tone: 'cold' },
 }
 
 const jobOrderColumns: DataTableColumn<DeliveryJobOrder>[] = [

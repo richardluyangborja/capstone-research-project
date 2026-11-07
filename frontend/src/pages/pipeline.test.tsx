@@ -5,11 +5,12 @@ import Opportunities from './Opportunities'
 import OpportunityDetail from './OpportunityDetail'
 import Pipeline from './Pipeline'
 import * as opportunityApi from '../lib/opportunities'
-import type { Activity, Opportunity, PipelineBoard } from '../types'
+import * as deliveryApi from '../lib/deliveries'
+import type { Activity, CompanyDelivery, Opportunity, PipelineBoard } from '../types'
 
 // `vi.mock` factories are hoisted above the imports, so the fixtures they close over
 // must be created with `vi.hoisted`.
-const { deal, wonDeal, board, history } = vi.hoisted(() => {
+const { deal, wonDeal, board, history, delivery } = vi.hoisted(() => {
   const base = {
     id: 'opp-1',
     reference: 'OPP-2026-0001',
@@ -132,7 +133,43 @@ const { deal, wonDeal, board, history } = vi.hoisted(() => {
     ],
   }
 
-  return { deal, wonDeal, board, history }
+  const delivery: CompanyDelivery = {
+    data: {
+      handoff: {
+        status: 'sent',
+        reference: 'SVC-CON-2026-0001',
+        error: null,
+        requested_at: '2026-10-01T08:00:00+00:00',
+      },
+      job_orders: [
+        {
+          reference: 'JO-2026-0014',
+          role: 'Warehouse associate',
+          requested: 25,
+          filled: 10,
+          status: 'partially_filled',
+          priority: 'high',
+          target_start_date: '2026-11-15',
+          recruiter: 'Recruitment (mocked)',
+          last_updated_at: '2026-10-17T08:00:00+00:00',
+        },
+      ],
+      deployments: [],
+      timesheets: {
+        approved_hours: 0,
+        pending_hours: 0,
+        deployments_pending: 0,
+        pending_timesheets: 0,
+      },
+    },
+    meta: {
+      source: 'Recruitment / Deployment / Timekeeping (mocked, read-only)',
+      read_only: true,
+      as_of: '2026-10-31T08:00:00+00:00',
+    },
+  }
+
+  return { deal, wonDeal, board, history, delivery }
 })
 
 vi.mock('../lib/opportunities', () => ({
@@ -158,7 +195,12 @@ vi.mock('../lib/leads', () => ({
   parseValidationError: vi.fn().mockReturnValue(null),
 }))
 
+vi.mock('../lib/deliveries', () => ({
+  getCompanyDelivery: vi.fn(),
+}))
+
 beforeEach(() => {
+  vi.mocked(deliveryApi.getCompanyDelivery).mockResolvedValue(delivery)
   vi.mocked(opportunityApi.getPipeline).mockResolvedValue(board)
   vi.mocked(opportunityApi.getOpportunityTimeline).mockResolvedValue({
     data: history.data,
@@ -260,6 +302,52 @@ describe('Pipeline board', () => {
     renderBoard()
 
     expect(await screen.findByText('No follow-up scheduled')).toBeInTheDocument()
+  })
+
+  it('switches between the board, table and funnel without losing filters', async () => {
+    renderBoard()
+
+    await screen.findByRole('link', { name: 'Sunrise Foods — warehouse staffing' })
+    fireEvent.change(screen.getByLabelText('Owner filter'), { target: { value: 'me' } })
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Table' }))
+    expect(await screen.findByRole('columnheader', { name: 'Account' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Owner filter')).toHaveValue('me')
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Funnel' }))
+    expect(await screen.findByRole('region', { name: 'Pipeline funnel' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Owner filter')).toHaveValue('me')
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Board' }))
+    expect(
+      await screen.findByRole('region', { name: 'Discovery column' }),
+    ).toBeInTheDocument()
+    expect(screen.getByLabelText('Owner filter')).toHaveValue('me')
+  })
+
+  it('shows the open-stage share in the funnel bar', async () => {
+    renderBoard()
+
+    expect(
+      await screen.findByRole('img', { name: '1 open deal worth ₱450,000.00' }),
+    ).toBeInTheDocument()
+    expect(screen.getByText(/Discovery · 1 ·/)).toBeInTheDocument()
+  })
+
+  it('opens a quick peek drawer with the deal timeline', async () => {
+    renderBoard()
+
+    fireEvent.click(
+      await screen.findByLabelText('Quick look: Sunrise Foods — warehouse staffing'),
+    )
+
+    const drawer = await screen.findByRole('dialog', { name: 'Sunrise Foods — warehouse staffing' })
+    expect(within(drawer).getByText('OPP-2026-0001')).toBeInTheDocument()
+    expect(within(drawer).getByText('25 workers · Temporary Staffing')).toBeInTheDocument()
+    expect(await within(drawer).findByText('Stage changed to Discovery')).toBeInTheDocument()
+
+    fireEvent.keyDown(document, { key: 'Escape' })
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
   })
 
   it('asks for a reason — and optional notes — before marking a deal lost', async () => {
@@ -527,5 +615,18 @@ describe('Deal detail', () => {
         'No linked projection — contracts are managed in Contract Management (Core Transaction 3).',
       ),
     ).toBeInTheDocument()
+  })
+
+  it('shows the account’s read-only recruitment context', async () => {
+    renderDetail()
+
+    expect(await screen.findByText('Staffing & Recruitment Context')).toBeInTheDocument()
+    expect(await screen.findByText('Warehouse associate')).toBeInTheDocument()
+    expect(screen.getByText('10 / 25 filled')).toBeInTheDocument()
+    expect(screen.getByText('High priority')).toBeInTheDocument()
+    expect(screen.getByText(/Recruitment \/ Deployment \/ Timekeeping/)).toBeInTheDocument()
+    expect(
+      screen.getByRole('link', { name: 'Account delivery' }),
+    ).toHaveAttribute('href', '/accounts/company-1?tab=delivery')
   })
 })
