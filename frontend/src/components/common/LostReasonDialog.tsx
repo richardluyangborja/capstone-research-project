@@ -5,7 +5,8 @@ import { lostReasonLabels } from '../../lib/opportunityMeta'
 interface LostReasonDialogProps {
   dealName: string
   busy?: boolean
-  onConfirm: (reason: LostReason) => void
+  /** Receives the required reason and the optional note (spec 18 S3). */
+  onConfirm: (reason: LostReason, note?: string) => void
   onCancel: () => void
 }
 
@@ -20,6 +21,7 @@ export default function LostReasonDialog({
   onCancel,
 }: LostReasonDialogProps) {
   const [reason, setReason] = useState<LostReason>('price')
+  const [note, setNote] = useState('')
 
   return (
     <div
@@ -47,6 +49,17 @@ export default function LostReasonDialog({
           </select>
         </label>
 
+        <label className="mt-3 block text-sm font-medium text-foreground">
+          Notes <span className="font-normal text-muted-foreground">(optional)</span>
+          <textarea
+            rows={3}
+            value={note}
+            onChange={(event) => setNote(event.target.value)}
+            placeholder="Competitor details, client feedback, anything worth remembering"
+            className="mt-1 w-full rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground outline-none focus:ring-2 focus:ring-ring"
+          />
+        </label>
+
         <div className="mt-5 flex justify-end gap-2">
           <button
             type="button"
@@ -58,7 +71,7 @@ export default function LostReasonDialog({
           <button
             type="button"
             disabled={busy}
-            onClick={() => onConfirm(reason)}
+            onClick={() => onConfirm(reason, note.trim() === '' ? undefined : note.trim())}
             className="rounded-md bg-destructive px-3 py-2 text-sm font-medium text-destructive-foreground disabled:opacity-60"
           >
             {busy ? 'Saving…' : 'Mark lost'}

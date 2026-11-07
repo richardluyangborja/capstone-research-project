@@ -3,11 +3,13 @@
 namespace Tests\Feature;
 
 use App\Enums\CompanyStatus;
+use App\Enums\ContractStatus;
 use App\Enums\LostReason;
 use App\Enums\OpportunityStage;
 use App\Events\OpportunityWon;
 use App\Integrations\ServiceHandoff;
 use App\Models\Company;
+use App\Models\Contract;
 use App\Models\Opportunity;
 use App\Models\Team;
 use App\Models\User;
@@ -393,5 +395,105 @@ class OpportunityPipelineTest extends TestCase
             ->getJson('/api/v1/pipeline')
             ->assertOk()
             ->assertJsonPath('meta.stale_count', 1);
+    }
+
+    public function test_winning_a_deal_can_carry_close_date_win_note_and_manager_amount(): void
+    {
+        $manager = User::factory()->manager()->create();
+        $deal = $this->dealFor($manager, OpportunityStage::Negotiation);
+        $closeDate = now()->subDays(2)->toDateString();
+
+        $this->actingAs($manager, 'api')
+            ->postJson("/api/v1/opportunities/{$deal->id}/stage", [
+                'stage' => 'won',
+                'actual_close_date' => $closeDate,
+                'win_note' => 'Client signed after the site visit; 25 forklift operators.',
+                'amount' => 1500000,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.is_won', true)
+            ->assertJsonPath('data.actual_close_date', $closeDate)
+            ->assertJsonPath('data.win_note', 'Client signed after the site visit; 25 forklift operators.')
+            ->assertJsonPath('data.amount', '1500000.00');
+
+        $deal->refresh();
+        $this->assertSame($closeDate, $deal->actual_close_date?->toDateString());
+        $this->assertSame('1500000.00', $deal->amount);
+        $this->assertSame('Client signed after the site visit; 25 forklift operators.', $deal->win_note);
+    }
+
+    public function test_a_salesrep_winning_a_deal_cannot_set_the_amount(): void
+    {
+        $rep = User::factory()->salesrep()->create();
+        $deal = $this->dealFor($rep, OpportunityStage::Negotiation);
+
+        $this->actingAs($rep, 'api')
+            ->postJson("/api/v1/opportunities/{$deal->id}/stage", [
+                'stage' => 'won',
+                'amount' => 999999,
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('amount');
+
+        $this->assertSame(OpportunityStage::Negotiation, $deal->refresh()->stage);
+    }
+
+    public function test_a_won_move_without_the_dialog_fields_keeps_the_previous_behavior(): void
+    {
+        $rep = User::factory()->salesrep()->create();
+        $deal = $this->dealFor($rep, OpportunityStage::ProposalSent);
+
+        $this->actingAs($rep, 'api')
+            ->postJson("/api/v1/opportunities/{$deal->id}/stage", ['stage' => 'won'])
+            ->assertOk()
+            ->assertJsonPath('data.is_won', true);
+
+        $deal->refresh();
+        $this->assertSame(now()->toDateString(), $deal->actual_close_date?->toDateString());
+        $this->assertNull($deal->win_note);
+    }
+
+    public function test_losing_a_deal_can_carry_a_note(): void
+    {
+        $rep = User::factory()->salesrep()->create();
+        $deal = $this->dealFor($rep, OpportunityStage::ProposalSent);
+
+        $this->actingAs($rep, 'api')
+            ->postJson("/api/v1/opportunities/{$deal->id}/stage", [
+                'stage' => 'lost',
+                'lost_reason' => 'competitor',
+                'note' => 'Client chose a competitor offering a 10% lower rate card.',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.is_lost', true)
+            ->assertJsonPath('data.lost_reason', 'competitor');
+
+        $this->assertDatabaseHas('activities', [
+            'subject_type' => Opportunity::class,
+            'subject_id' => $deal->id,
+            'subject' => 'Stage changed proposal_sent → lost',
+        ]);
+    }
+
+    public function test_the_board_carries_the_contract_projection_on_won_deals(): void
+    {
+        $rep = User::factory()->salesrep()->create();
+        $company = Company::factory()->ownedBy($rep)->create();
+
+        $won = Opportunity::factory()->forCompany($company)->ownedBy($rep)->stage(OpportunityStage::Won)->create();
+        Contract::factory()->forCompany($company)->create([
+            'opportunity_id' => $won->id,
+            'status' => ContractStatus::Signed,
+        ]);
+        Opportunity::factory()->forCompany($company)->ownedBy($rep)->stage(OpportunityStage::Discovery)->create();
+
+        $response = $this->actingAs($rep, 'api')->getJson('/api/v1/pipeline')->assertOk();
+
+        $closed = collect($response->json('data.closed'));
+        $wonRow = $closed->firstWhere('id', $won->id);
+        $this->assertNotNull($wonRow);
+        $this->assertCount(1, $wonRow['contracts']);
+        $this->assertSame('signed', $wonRow['contracts'][0]['status']);
+        $this->assertMatchesRegularExpression('/^CON-\d{4}-\d{4}$/', $wonRow['contracts'][0]['reference']);
     }
 }

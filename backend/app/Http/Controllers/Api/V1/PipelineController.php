@@ -28,7 +28,7 @@ class PipelineController extends Controller
         $search = $request->string('search')->toString() ?: null;
 
         $base = fn () => Opportunity::query()
-            ->with(['owner:id,name', 'company'])
+            ->with(['owner:id,name', 'company', 'contracts:id,opportunity_id,reference,title,status'])
             ->visibleTo($user)
             ->search($search)
             ->when($filters['source'] ?? null, fn ($query, $source) => $query->where('source', $source))

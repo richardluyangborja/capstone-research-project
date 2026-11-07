@@ -9,6 +9,7 @@ import StatusBadge from '../components/common/StatusBadge'
 import StatCard from '../components/common/StatCard'
 import StageMoveControl from '../components/common/StageMoveControl'
 import LostReasonDialog from '../components/common/LostReasonDialog'
+import WonConfirmDialog, { type WonOutcome } from '../components/common/WonConfirmDialog'
 import StaffingBadge from '../components/common/StaffingBadge'
 import {
   deleteOpportunity,
@@ -86,6 +87,7 @@ export default function OpportunityDetail() {
   const [alertVariant, setAlertVariant] = useState<'success' | 'danger'>('success')
   const [errors, setErrors] = useState<Record<string, string[]>>({})
   const [pendingLost, setPendingLost] = useState(false)
+  const [pendingWon, setPendingWon] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -174,19 +176,30 @@ export default function OpportunityDetail() {
     }
   }
 
-  const submitMove = async (stage: OpportunityStage, reason?: LostReason) => {
+  const submitMove = async (
+    stage: OpportunityStage,
+    options: { reason?: LostReason; note?: string; outcome?: WonOutcome } = {},
+  ) => {
     if (!deal) return
     setBusy(true)
     setErrors({})
     try {
-      const updated = await moveOpportunityStage(deal.id, { stage, lost_reason: reason ?? null })
+      const updated = await moveOpportunityStage(deal.id, {
+        stage,
+        lost_reason: options.reason ?? null,
+        note: options.note || undefined,
+        actual_close_date: options.outcome?.actual_close_date,
+        win_note: options.outcome?.win_note,
+        amount: options.outcome?.amount,
+      })
       setDeal(updated)
       setForm(formFromDeal(updated))
       setPendingLost(false)
+      setPendingWon(false)
       await refreshTimeline()
       showSuccess(
         stage === 'won'
-          ? 'Deal won — create its contract to activate the client.'
+          ? 'Deal won — contracts are managed in Contract Management (Core Transaction 3).'
           : `Deal moved to ${opportunityStageMeta[stage].label.toLowerCase()}.`,
       )
     } catch (error) {
@@ -570,6 +583,7 @@ export default function OpportunityDetail() {
                 disabled={busy || !deal.can_change_stage}
                 onRequestMove={(stage) => {
                   if (stage === 'lost') setPendingLost(true)
+                  else if (stage === 'won') setPendingWon(true)
                   else void submitMove(stage)
                 }}
               />
@@ -604,8 +618,8 @@ export default function OpportunityDetail() {
             {linkedContracts.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 {deal.is_won
-                  ? 'No linked projection — contracts are managed in Contract Management.'
-                  : 'A contract is created once the deal is won.'}
+                  ? 'No linked projection — contracts are managed in Contract Management (Core Transaction 3).'
+                  : 'When the deal is won, Legal & Compliance (Core Transaction 3) prepares the contract — the CRM never creates one.'}
               </p>
             ) : (
               <ul className="flex flex-col gap-2">
@@ -628,7 +642,18 @@ export default function OpportunityDetail() {
           dealName={deal.name}
           busy={busy}
           onCancel={() => setPendingLost(false)}
-          onConfirm={(reason) => void submitMove('lost', reason)}
+          onConfirm={(reason, note) => void submitMove('lost', { reason, note })}
+        />
+      )}
+
+      {pendingWon && (
+        <WonConfirmDialog
+          dealName={deal.name}
+          canSetAmount={deal.can_set_amount}
+          amount={deal.amount}
+          busy={busy}
+          onCancel={() => setPendingWon(false)}
+          onConfirm={(outcome) => void submitMove('won', { outcome })}
         />
       )}
     </div>

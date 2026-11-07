@@ -211,7 +211,7 @@ describe('Pipeline board', () => {
     expect(within(select).queryByRole('option', { name: 'Discovery' })).not.toBeInTheDocument()
   })
 
-  it('asks for a reason before marking a deal lost', async () => {
+  it('asks for a reason — and optional notes — before marking a deal lost', async () => {
     vi.mocked(opportunityApi.moveOpportunityStage).mockResolvedValue(deal)
     renderBoard()
 
@@ -223,14 +223,130 @@ describe('Pipeline board', () => {
     expect(within(dialog).getByText(/Sunrise Foods — warehouse staffing/)).toBeInTheDocument()
 
     fireEvent.change(within(dialog).getByLabelText('Reason'), { target: { value: 'price' } })
+    fireEvent.change(within(dialog).getByLabelText(/Notes/), {
+      target: { value: 'Client chose a competitor 10% cheaper.' },
+    })
     fireEvent.click(within(dialog).getByRole('button', { name: 'Mark lost' }))
 
     await waitFor(() =>
       expect(opportunityApi.moveOpportunityStage).toHaveBeenCalledWith('opp-1', {
         stage: 'lost',
         lost_reason: 'price',
+        note: 'Client chose a competitor 10% cheaper.',
       }),
     )
+  })
+
+  it('confirms the won outcome through the WonConfirmDialog', async () => {
+    const wonWithContract: Opportunity = {
+      ...wonDeal,
+      contracts: [
+        {
+          id: 'con-1',
+          reference: 'CON-2026-0007',
+          title: 'Warehouse staffing agreement',
+          status: 'signed',
+        },
+      ],
+    }
+    vi.mocked(opportunityApi.moveOpportunityStage).mockResolvedValue(wonWithContract)
+    renderBoard()
+
+    fireEvent.change(await screen.findByLabelText('Move OPP-2026-0001 to another stage'), {
+      target: { value: 'won' },
+    })
+
+    const dialog = await screen.findByRole('dialog', { name: 'Confirm won deal' })
+    expect(within(dialog).getByText(/Core Transaction 3/)).toBeInTheDocument()
+    expect(within(dialog).getByText(/Core Transaction 2/)).toBeInTheDocument()
+
+    const closeDate = new Date().toISOString().slice(0, 10)
+    fireEvent.change(within(dialog).getByLabelText('Actual close date'), {
+      target: { value: closeDate },
+    })
+    fireEvent.change(within(dialog).getByLabelText(/Win notes/), {
+      target: { value: 'Signed after the site visit; 25 operators.' },
+    })
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Mark won' }))
+
+    await waitFor(() =>
+      expect(opportunityApi.moveOpportunityStage).toHaveBeenCalledWith('opp-1', {
+        stage: 'won',
+        lost_reason: null,
+        actual_close_date: closeDate,
+        win_note: 'Signed after the site visit; 25 operators.',
+        amount: 450000,
+      }),
+    )
+
+    // ADR-0027 — the won notice links the read-only contract projection, never creation.
+    expect(
+      await screen.findByText(/Linked contract:/),
+    ).toBeInTheDocument()
+    const contractLink = screen.getByRole('link', { name: 'CON-2026-0007 (Signed)' })
+    expect(contractLink).toHaveAttribute('href', '/contracts/con-1')
+    expect(screen.queryByText(/Create its contract/i)).not.toBeInTheDocument()
+  })
+
+  it('points a won deal without a projection at Contract Management', async () => {
+    vi.mocked(opportunityApi.moveOpportunityStage).mockResolvedValue(wonDeal)
+    renderBoard()
+
+    fireEvent.change(await screen.findByLabelText('Move OPP-2026-0001 to another stage'), {
+      target: { value: 'won' },
+    })
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Mark won', }),
+    )
+
+    // A manager+ caller confirms the pre-filled amount; the note fields stay unset.
+    await waitFor(() =>
+      expect(opportunityApi.moveOpportunityStage).toHaveBeenCalledWith(
+        'opp-1',
+        expect.objectContaining({
+          stage: 'won',
+          lost_reason: null,
+          actual_close_date: new Date().toISOString().slice(0, 10),
+          amount: 450000,
+        }),
+      ),
+    )
+    expect(
+      await screen.findByText(
+        /is won\. Contracts are managed in Contract Management \(Core Transaction 3\)\./,
+      ),
+    ).toBeInTheDocument()
+  })
+
+  it('shows the read-only contract badge on a won card in the Closed column', async () => {
+    const wonOnBoard: PipelineBoard = {
+      ...board,
+      data: {
+        ...board.data,
+        closed: [
+          {
+            ...wonDeal,
+            contracts: [
+              {
+                id: 'con-1',
+                reference: 'CON-2026-0007',
+                title: 'Warehouse staffing agreement',
+                status: 'signed',
+              },
+            ],
+          },
+        ],
+      },
+      meta: { ...board.meta, won_count: 1, won_value: 450000 },
+    }
+    vi.mocked(opportunityApi.getPipeline).mockResolvedValue(wonOnBoard)
+    renderBoard()
+
+    const closed = await screen.findByRole('region', { name: 'Closed deals column' })
+    const badge = await within(closed).findByRole('link', {
+      name: 'CON-2026-0007 · Signed',
+    })
+    expect(badge).toHaveAttribute('href', '/contracts/con-1')
   })
 
   it('moves a deal to another open stage without a prompt', async () => {
@@ -327,7 +443,9 @@ describe('Deal detail', () => {
     renderDetail()
 
     expect(
-      await screen.findByText('No linked projection — contracts are managed in Contract Management.'),
+      await screen.findByText(
+        'No linked projection — contracts are managed in Contract Management (Core Transaction 3).',
+      ),
     ).toBeInTheDocument()
   })
 })

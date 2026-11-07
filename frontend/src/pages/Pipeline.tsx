@@ -9,12 +9,20 @@ import AlertItem from '../components/common/AlertItem'
 import EmptyState from '../components/common/EmptyState'
 import StageMoveControl from '../components/common/StageMoveControl'
 import LostReasonDialog from '../components/common/LostReasonDialog'
+import WonConfirmDialog, { type WonOutcome } from '../components/common/WonConfirmDialog'
+import { contractStatusMeta } from '../lib/contractMeta'
 import { getPipeline, moveOpportunityStage, type OpportunityFilters } from '../lib/opportunities'
 import { opportunityStageMeta, openStageOrder } from '../lib/opportunityMeta'
 import { formatCurrency, formatDate } from '../lib/format'
 import type { LostReason, Opportunity, OpportunityStage, PipelineBoard } from '../types'
 
 type OwnerFilter = '' | 'me' | 'team'
+
+interface MoveOptions {
+  reason?: LostReason
+  note?: string
+  outcome?: WonOutcome
+}
 
 // Module 02 §1 — the pipeline board. Columns are the open stages; deals drag between them,
 // every card also carries a Move-to menu (keyboard) and won/lost live in the Closed column.
@@ -27,6 +35,7 @@ export default function Pipeline() {
   const [error, setError] = useState('')
   const [busyId, setBusyId] = useState<string | null>(null)
   const [pendingLost, setPendingLost] = useState<Opportunity | null>(null)
+  const [pendingWon, setPendingWon] = useState<Opportunity | null>(null)
   const [wonNotice, setWonNotice] = useState<Opportunity | null>(null)
 
   const filters: OpportunityFilters = {
@@ -51,24 +60,42 @@ export default function Pipeline() {
     void load({ owner: undefined, close_window: undefined, search: undefined })
   }, [load])
 
-  const submitMove = async (deal: Opportunity, stage: OpportunityStage, reason?: LostReason) => {
+  const submitMove = async (
+    deal: Opportunity,
+    stage: OpportunityStage,
+    { reason, note, outcome }: MoveOptions = {},
+  ) => {
     setBusyId(deal.id)
     setError('')
     try {
-      await moveOpportunityStage(deal.id, { stage, lost_reason: reason ?? null })
-      setWonNotice(stage === 'won' ? deal : null)
+      const updated = await moveOpportunityStage(deal.id, {
+        stage,
+        lost_reason: reason ?? null,
+        note: note || undefined,
+        actual_close_date: outcome?.actual_close_date,
+        win_note: outcome?.win_note,
+        amount: outcome?.amount,
+      })
+      // ADR-0027 — a won deal reports its read-only contract projection (if any) and
+      // never prompts contract creation (spec 18 S3).
+      setWonNotice(stage === 'won' ? updated : null)
       await load(filters)
     } catch {
       setError('Could not move the deal. Please try again.')
     } finally {
       setBusyId(null)
       setPendingLost(null)
+      setPendingWon(null)
     }
   }
 
   const requestMove = (deal: Opportunity, stage: OpportunityStage) => {
     if (stage === 'lost') {
       setPendingLost(deal)
+      return
+    }
+    if (stage === 'won') {
+      setPendingWon(deal)
       return
     }
     void submitMove(deal, stage)
@@ -135,16 +162,26 @@ export default function Pipeline() {
       {wonNotice && (
         <div className="mb-4">
           <AlertItem variant="success">
-            <p>
-              “{wonNotice.name}” is won.{' '}
-              <Link
-                to={`/opportunities/${wonNotice.id}`}
-                className="font-medium text-foreground underline"
-              >
-                Create its contract
-              </Link>{' '}
-              to activate the client.
-            </p>
+            {wonNotice.contracts && wonNotice.contracts.length > 0 ? (
+              <p>
+                “{wonNotice.name}” is won. Linked contract:{' '}
+                {wonNotice.contracts.map((contract) => (
+                  <Link
+                    key={contract.id}
+                    to={`/contracts/${contract.id}`}
+                    className="font-medium text-foreground underline"
+                  >
+                    {contract.reference} ({contractStatusMeta[contract.status].label})
+                  </Link>
+                ))}
+                .
+              </p>
+            ) : (
+              <p>
+                “{wonNotice.name}” is won. Contracts are managed in Contract Management (Core
+                Transaction 3).
+              </p>
+            )}
           </AlertItem>
         </div>
       )}
@@ -257,7 +294,18 @@ export default function Pipeline() {
           dealName={pendingLost.name}
           busy={busyId === pendingLost.id}
           onCancel={() => setPendingLost(null)}
-          onConfirm={(reason) => void submitMove(pendingLost, 'lost', reason)}
+          onConfirm={(reason, note) => void submitMove(pendingLost, 'lost', { reason, note })}
+        />
+      )}
+
+      {pendingWon && (
+        <WonConfirmDialog
+          dealName={pendingWon.name}
+          canSetAmount={pendingWon.can_set_amount}
+          amount={pendingWon.amount}
+          busy={busyId === pendingWon.id}
+          onCancel={() => setPendingWon(null)}
+          onConfirm={(outcome) => void submitMove(pendingWon, 'won', { outcome })}
         />
       )}
     </div>
@@ -428,6 +476,21 @@ function DealCard({
             estimatedHeadcount={deal.estimated_headcount}
             serviceType={deal.service_type}
           />
+        </div>
+      )}
+
+      {/* ADR-0027 — a won deal surfaces its read-only contract projection, if any (spec 18 S3). */}
+      {deal.is_won && deal.contracts && deal.contracts.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1">
+          {deal.contracts.map((contract) => (
+            <Link
+              key={contract.id}
+              to={`/contracts/${contract.id}`}
+              className="inline-flex items-center rounded-full bg-people/15 px-2 py-0.5 text-xs font-medium text-people hover:underline"
+            >
+              {contract.reference} · {contractStatusMeta[contract.status].label}
+            </Link>
+          ))}
         </div>
       )}
 

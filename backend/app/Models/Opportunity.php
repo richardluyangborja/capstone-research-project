@@ -195,9 +195,14 @@ class Opportunity extends Model
      * Apply a legal stage move (module 02, ADR-0015 §1). Illegal moves and a `lost`
      * without a reason raise a 422. Every move stamps `stage_changed_at`, refreshes
      * `last_activity_at`, re-defaults the probability and records a `system` activity
-     * through `OpportunityStageChanged`. `won`/`lost` stamp the close date; reopening
-     * clears the close date and the lost reason. A `won` deals **prompts** contract
-     * creation — it never runs the Service handoff (ADR-0015 §4).
+     * through `OpportunityStageChanged`. `won`/`lost` stamp the close date (an explicit
+     * close date may be given, spec 18 S3); reopening clears the close date and the lost
+     * reason. A `won` deal may also record a win note and — for a manager+ caller — the
+     * final negotiated amount; it never runs the Service handoff (ADR-0015 §4, ADR-0027).
+     *
+     * @param  string|null  $actualCloseDate  Explicit close date for a terminal move (spec 18 S3; defaults to today).
+     * @param  string|null  $winNote  Outcome details captured when the deal is won (spec 18 S2/S3).
+     * @param  float|null  $amount  Final won amount (spec 18 S3); the controller only passes it for a manager+ caller.
      */
     public function transitionTo(
         OpportunityStage $stage,
@@ -205,6 +210,9 @@ class Opportunity extends Model
         ?LostReason $lostReason = null,
         ?int $probability = null,
         ?string $note = null,
+        ?string $actualCloseDate = null,
+        ?string $winNote = null,
+        ?float $amount = null,
     ): void {
         if (! $this->stage->canTransitionTo($stage)) {
             throw ValidationException::withMessages([
@@ -220,13 +228,21 @@ class Opportunity extends Model
 
         $from = $this->stage;
 
-        DB::transaction(function () use ($from, $stage, $actor, $lostReason, $probability, $note): void {
+        DB::transaction(function () use ($from, $stage, $actor, $lostReason, $probability, $note, $actualCloseDate, $winNote, $amount): void {
             $this->stage = $stage;
             $this->stage_changed_at = now();
             $this->last_activity_at = now();
             $this->probability = $probability ?? $stage->defaultProbability();
-            $this->actual_close_date = $stage->isTerminal() ? now()->toDateString() : null;
+            $this->actual_close_date = $stage->isTerminal() ? ($actualCloseDate ?? now()->toDateString()) : null;
             $this->lost_reason = $stage === OpportunityStage::Lost ? $lostReason : null;
+            if ($stage === OpportunityStage::Won) {
+                if ($winNote !== null) {
+                    $this->win_note = $winNote;
+                }
+                if ($amount !== null) {
+                    $this->amount = $amount;
+                }
+            }
             $this->save();
 
             OpportunityStageChanged::dispatch($this, $from, $stage, $actor, $note);
