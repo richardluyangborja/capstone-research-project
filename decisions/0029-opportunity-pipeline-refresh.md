@@ -58,7 +58,7 @@ However, real-world operation and comparison with Module 01's workspace refresh 
 
 ## Consequences
 
-- Delivered in four reviewable slices defined in `../specs/18-module-02-refresh.md` (S2–S5).
+- S2 is delivered; S3–S5 remain planned in `../specs/18-module-02-refresh.md`.
 - All existing API endpoints remain backward-compatible; new fields are strictly additive.
 - Preserves the ADR-0015 any-to-any stage transition rules and ADR-0004 role-based scoping (salesrep own,
   manager team, admin all).
