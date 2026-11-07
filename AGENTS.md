@@ -161,7 +161,7 @@ Laravel's own and is separate from `frontend/`.
   the account's rights; billing is manager-only. Events: `CompanyStatusChanged`, `ContractSigned`,
   `CompanyActivated`, `CompanyChurned`. **Not built here:** the deal pipeline, contract
   versioning/e-signature, renewal reminders and automatic aging (ADR-0013).
-- **Module 02 — Opportunity Pipeline Visualization (baseline built; S2 built, S3–S5 planned — spec 18, ADR-0029):**
+- **Module 02 — Opportunity Pipeline Visualization (baseline built; S2–S3 built, S4–S5 planned — spec 18, ADR-0029):**
   the deal pipeline on the `Opportunity` record (ADR-0014, ADR-0015). Flat `/api/v1/opportunities`
   (index/store/show/update/destroy + `POST /{id}/restore`) with `filter[stage|owner|company|open|source|close_window]` +
   `search` and a `summary` block; a deal is created directly on a visible company (owner = the creator) or by
@@ -179,15 +179,17 @@ Laravel's own and is separate from `frontend/`.
   states that contracts are managed in Contract Management (Core Transaction 3, ADR-0027). Spec `18`
   (ADR-0029) refreshes Module 02 with staffing demand attributes, outcome governance
   (`WonConfirmDialog` / lost notes), follow-up synchronization (`next_follow_up_at`), and unified
-  workspace view switching. **S2 is built:** `opportunities` carries nullable
+  workspace view switching. **S2 and S3 are built:** `opportunities` carries nullable
   `estimated_headcount`, `service_type`, `target_start_date` and `win_note`; conversion copies the
   lead's headcount and target date and carries its service interest onto the deal; the store/update
   requests validate the three staffing fields, `OpportunityResource` exposes all four, and pipeline
-  cards, the deal table and the deal detail show/edit them. Events:
+  cards, the deal table and the deal detail show/edit them. **S3** replaces the silent won move with
+  `WonConfirmDialog` (actual close date, manager+ final amount, win notes and the ADR-0027 next steps),
+  adds optional notes to `LostReasonDialog`, shows linked contract projections on won cards and retires
+  the old contract-activation prompt. Events:
   `OpportunityStageChanged`, `OpportunityWon`, `OpportunityLost` (`OpportunityCreated` now also fires on
   manual creation). The dashboard read endpoints are covered under module 06 below, and AI Management
-  Reports (spec `15`) under module 07. S3–S5 (won/lost governance, follow-up sync and workspace
-  ergonomics) remain planned.
+  Reports (spec `15`) under module 07. S4–S5 (follow-up sync and workspace ergonomics) remain planned.
 - **Module 03 — Communication History Management (slices S1–S5 — log & history, email, attachments,
   threads, templates):** the detailed,
   channel-aware history record beside `Activity` (ADR-0017). Flat `/api/v1/communications`
