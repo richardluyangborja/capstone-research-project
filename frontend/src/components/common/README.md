@@ -17,7 +17,9 @@ check this list first:
 - `LeadOwnerControl` — claim / reassign a lead's owner — **done**
 - `LeadAgingBadge` — stale / at-risk / archive-due flag from the API's computed aging — **done**
 - `StageMoveControl` — accessible "Move to…" stage menu driven by the API's `allowed_transitions` (module 02) — **done**
-- `LostReasonDialog` — reason prompt before a deal is marked lost (module 02) — **done**
+- `LostReasonDialog` — reason prompt (plus optional notes, spec 18 S3) before a deal is marked lost (module 02) — **done**
+- `WonConfirmDialog` — won-milestone prompt: actual close date, manager+ final amount, win notes
+  and the ADR-0027 next steps (contract via Core Transaction 3, demand to Recruitment) — **done** (spec 18 S3)
 - `CompanyBillingPanel` — Account 360's manager-only Finance/AR panel (summary, aging, invoices, source/as-of; module 01 refresh S11) — **done**
 - `CommunicationList` — one record's communication history + the log entry point (module 03, shared by the account tab and the lead/deal sections) — **done**
 - `RescheduleDialog` — the due-date prompt on the follow-up worklist and task page (module 04) — **done**

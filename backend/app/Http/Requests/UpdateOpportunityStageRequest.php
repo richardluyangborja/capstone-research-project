@@ -28,6 +28,11 @@ class UpdateOpportunityStageRequest extends FormRequest
             'lost_reason' => ['nullable', 'required_if:stage,lost', Rule::enum(LostReason::class)],
             'probability' => ['nullable', 'integer', 'min:0', 'max:100'],
             'note' => ['nullable', 'string', 'max:1000'],
+            // Won-milestone governance (spec 18 S3). All optional and additive — callers
+            // that omit them keep the previous behavior (close date defaults to today).
+            'actual_close_date' => ['nullable', 'date'],
+            'win_note' => ['nullable', 'string', 'max:2000'],
+            'amount' => ['nullable', 'numeric', 'min:0'],
         ];
     }
 }

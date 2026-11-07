@@ -446,6 +446,11 @@ export interface OpportunityStageMove {
   lost_reason?: LostReason | null
   probability?: number | null
   note?: string | null
+  /** Won-milestone governance (spec 18 S3) — all optional and additive. */
+  actual_close_date?: string | null
+  win_note?: string | null
+  /** Final won amount — accepted only from a manager+ caller (`can_set_amount`). */
+  amount?: number | null
 }
 
 export interface OpportunityTimeline {
