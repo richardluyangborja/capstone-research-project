@@ -154,7 +154,7 @@ dashboard and AI reports are cross-cutting presentation layers, not data modules
 | Module | Name | Depends on | Spec |
 | --- | --- | --- | --- |
 | 01 | Lead & Client Tracking | — | `01`–`09` **(baseline built)** + `16` refresh (S0–S19 built) + `17` adjustments (T1–T3 built) |
-| 02 | Opportunity Pipeline Visualization | `Opportunity` record (08) | `10` **(built)** + `18` (S2–S3 built, S4–S5 planned) |
+| 02 | Opportunity Pipeline Visualization | `Opportunity` record (08) | `10` **(built)** + `18` (S2–S4 built, S5 planned) |
 | 03 | Communication History Management | objects from 01–02 | `11` **(built)** |
 | 04 | Follow-up Reminder System | 03 + notifications | `12` **(built)** |
 | 05 | Client Satisfaction & Survey | clients + contacts | `13` **(built)** |
@@ -171,7 +171,7 @@ The refresh adds computed, explainable health flags, not automatic lifecycle mov
 
 ## Module 02 → submodules (built, ADR-0015)
 
-1. **Pipeline Board** — Kanban of open deals, drag-and-drop + accessible move menu, column totals, staffing-demand badges (S2).
+1. **Pipeline Board** — Kanban of open deals, drag-and-drop + accessible move menu, column totals, staffing-demand badges (S2), follow-up badges and unscheduled warnings (S4).
 2. **Deal Management** — flat `/opportunities` CRUD, deal list and detail page.
 3. **Deal Stage & Outcome** — any-to-any stage moves with rules, won/lost, reopen, stage history; a won
    move confirms close date, manager+ final amount and win notes (S3), while a lost move captures the

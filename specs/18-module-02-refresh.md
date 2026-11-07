@@ -5,11 +5,12 @@ Refresh of Module 02 (Opportunity Pipeline Visualization). Extends `00-data-mode
 ADRs: **0029** (pipeline refresh & staffing domain alignment), **0015** (pipeline conventions),
 **0027** (contracts are read-only), and **0018** (follow-up reminders).
 
-> **Status: S2–S3 built; S4–S5 planned.** S2 (staffing demand and lead-conversion continuity) and S3
-> (won/lost outcome governance and ADR-0027 alignment) are merged on `main`; S4–S5 remain planned. This
-> spec declares four reviewable delivery slices (S2–S5). It elevates the deal pipeline to mirror
-> real-world manpower and staffing agency workflows, captures staffing headcount demand, enforces proper
-> Won/Lost outcome governance, synchronizes follow-up tasks, and connects cross-department seams.
+> **Status: S2–S4 built; S5 planned.** S2 (staffing demand and lead-conversion continuity), S3 (won/lost
+> outcome governance and ADR-0027 alignment) and S4 (opportunity follow-up synchronization) are merged on
+> `main`; S5 remains planned. This spec declares four reviewable delivery slices (S2–S5). It elevates the
+> deal pipeline to mirror real-world manpower and staffing agency workflows, captures staffing headcount
+> demand, enforces proper Won/Lost outcome governance, synchronizes follow-up tasks, and connects
+> cross-department seams.
 
 ---
 
@@ -73,7 +74,7 @@ This refresh resolves these issues through four incremental, reviewable slices (
 | --- | --- | --- | --- |
 | **S2** | **Staffing Domain Scope** *(built)* | Data Model & Conversion | `estimated_headcount`, `service_type`, `target_start_date` on `opportunities`, `LeadConversionController` mapping, form inputs & card badges |
 | **S3** | **Stage Governance & Outcomes** *(built)* | Outcomes & ADR-0027 | `WonConfirmDialog`, enhanced `LostReasonDialog` with notes, contract projection badge on won cards, retirement of outdated contract prompt |
-| **S4** | **Follow-up Integration** | Module 04 Integration | `next_follow_up_at` column, `Opportunity::syncNextFollowUpAt()`, follow-up status badges & unscheduled warnings on cards |
+| **S4** | **Follow-up Integration** *(built)* | Module 04 Integration | `next_follow_up_at` column, `Opportunity::syncNextFollowUpAt()`, follow-up status badges & unscheduled warnings on cards |
 | **S5** | **Workspace Ergonomics & Analytics** | Navigation & Seams | Unified View Switcher (Board/List), visual Stage Funnel Bar, Quick Deal Peek Drawer, Recruitment Job Orders context |
 
 ---
