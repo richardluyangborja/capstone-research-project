@@ -12,6 +12,7 @@ import LostReasonDialog from '../components/common/LostReasonDialog'
 import WonConfirmDialog, { type WonOutcome } from '../components/common/WonConfirmDialog'
 import StaffingBadge from '../components/common/StaffingBadge'
 import DealFollowUpBadge from '../components/common/DealFollowUpBadge'
+import OpportunityRecruitmentContext from '../components/opportunities/OpportunityRecruitmentContext'
 import {
   deleteOpportunity,
   getOpportunity,
@@ -615,6 +616,8 @@ export default function OpportunityDetail() {
               )}
             </div>
           </FormCard>
+
+          <OpportunityRecruitmentContext companyId={deal.company_id} />
 
           <FormCard title="Contracts" description="Agreements opened from this deal.">
             {linkedContracts.length === 0 ? (
