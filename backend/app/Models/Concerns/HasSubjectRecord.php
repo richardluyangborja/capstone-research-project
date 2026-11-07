@@ -123,7 +123,7 @@ trait HasSubjectRecord
     {
         $subject = $this->subjectable;
 
-        if ($subject instanceof Lead) {
+        if ($subject instanceof Lead || $subject instanceof Opportunity) {
             $subject->syncNextFollowUpAt();
         }
     }

@@ -20,6 +20,9 @@ check this list first:
 - `LostReasonDialog` — reason prompt (plus optional notes, spec 18 S3) before a deal is marked lost (module 02) — **done**
 - `WonConfirmDialog` — won-milestone prompt: actual close date, manager+ final amount, win notes
   and the ADR-0027 next steps (contract via Core Transaction 3, demand to Recruitment) — **done** (spec 18 S3)
+- `StaffingBadge` — a deal's headcount and placement type, on the board, table and detail (spec 18 S2) — **done**
+- `DealFollowUpBadge` — a deal's derived follow-up state, or the no-follow-up warning on active
+  proposal/negotiation stages (spec 18 S4) — **done**
 - `CompanyBillingPanel` — Account 360's manager-only Finance/AR panel (summary, aging, invoices, source/as-of; module 01 refresh S11) — **done**
 - `CommunicationList` — one record's communication history + the log entry point (module 03, shared by the account tab and the lead/deal sections) — **done**
 - `RescheduleDialog` — the due-date prompt on the follow-up worklist and task page (module 04) — **done**

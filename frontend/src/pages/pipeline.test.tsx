@@ -39,6 +39,8 @@ const { deal, wonDeal, board, history } = vi.hoisted(() => {
     is_lost: false,
     stage_changed_at: '2026-10-12T00:00:00.000000Z',
     last_activity_at: '2026-10-16T00:00:00.000000Z',
+    next_follow_up_at: null,
+    next_follow_up: null,
     days_in_stage: 5,
     days_since_activity: 1,
     is_stale: true,
@@ -209,6 +211,55 @@ describe('Pipeline board', () => {
     expect(within(select).getByRole('option', { name: 'Lost' })).toBeInTheDocument()
     // The deal already sits in Discovery — moving to itself is not offered.
     expect(within(select).queryByRole('option', { name: 'Discovery' })).not.toBeInTheDocument()
+  })
+
+  it('shows the deal follow-up state on a card', async () => {
+    vi.mocked(opportunityApi.getPipeline).mockResolvedValue({
+      ...board,
+      data: {
+        ...board.data,
+        columns: board.data.columns.map((column) =>
+          column.stage === 'discovery'
+            ? {
+                ...column,
+                deals: [
+                  {
+                    ...deal,
+                    next_follow_up_at: '2026-10-16T02:00:00.000000Z',
+                    next_follow_up: {
+                      state: 'today',
+                      label: 'Due today',
+                      days: 0,
+                      overdue: false,
+                    },
+                  },
+                ],
+              }
+            : column,
+        ),
+      },
+    })
+    renderBoard()
+
+    expect(await screen.findByText('Due today')).toBeInTheDocument()
+  })
+
+  it('warns when an active deal has no follow-up scheduled', async () => {
+    vi.mocked(opportunityApi.getPipeline).mockResolvedValue({
+      ...board,
+      data: {
+        ...board.data,
+        columns: board.data.columns.map((column) => ({
+          ...column,
+          count: column.stage === 'proposal_sent' ? 1 : 0,
+          deals:
+            column.stage === 'proposal_sent' ? [{ ...deal, stage: 'proposal_sent' }] : [],
+        })),
+      },
+    })
+    renderBoard()
+
+    expect(await screen.findByText('No follow-up scheduled')).toBeInTheDocument()
   })
 
   it('asks for a reason — and optional notes — before marking a deal lost', async () => {
@@ -406,6 +457,35 @@ describe('Deals list', () => {
     expect(within(row).getByRole('link', { name: 'Sunrise Foods Inc' })).toBeInTheDocument()
     expect(within(row).getByText('Discovery')).toBeInTheDocument()
     expect(within(row).getByText('25 workers · Temporary Staffing')).toBeInTheDocument()
+  })
+
+  it('shows the deal follow-up state in the table', async () => {
+    vi.mocked(opportunityApi.listOpportunities).mockResolvedValue({
+      data: [
+        {
+          ...deal,
+          next_follow_up_at: '2026-10-16T02:00:00.000000Z',
+          next_follow_up: {
+            state: 'today',
+            label: 'Due today',
+            days: 0,
+            overdue: false,
+          },
+        },
+      ],
+      meta: { current_page: 1, per_page: 25, total: 1, last_page: 1 },
+      links: {},
+      summary: { all: 1, open: 1, won: 0, lost: 0 },
+    })
+    render(
+      <MemoryRouter>
+        <Opportunities />
+      </MemoryRouter>,
+    )
+
+    const link = await screen.findByRole('link', { name: 'Sunrise Foods — warehouse staffing' })
+    const row = link.closest('tr') as HTMLElement
+    expect(within(row).getByText('Due today')).toBeInTheDocument()
   })
 })
 

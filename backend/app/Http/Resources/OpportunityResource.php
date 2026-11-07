@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Enums\FollowUpDueState;
 use App\Enums\OpportunityStage;
 use App\Models\Opportunity;
 use Illuminate\Http\Request;
@@ -64,6 +65,10 @@ class OpportunityResource extends JsonResource
             // Pipeline affordances (module 02)
             'stage_changed_at' => $this->stage_changed_at?->toIso8601String(),
             'last_activity_at' => $this->last_activity_at?->toIso8601String(),
+            // The deal's earliest open follow-up (spec 18 S4) — maintained on task writes,
+            // with the due state derived on read.
+            'next_follow_up_at' => $this->next_follow_up_at,
+            'next_follow_up' => FollowUpDueState::block($this->next_follow_up_at),
             'days_in_stage' => $this->daysInStage(),
             'days_since_activity' => $this->daysSinceActivity(),
             'is_stale' => $this->isStale(),

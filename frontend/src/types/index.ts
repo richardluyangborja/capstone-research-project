@@ -366,6 +366,9 @@ export interface Opportunity {
   /** Pipeline affordances (module 02). */
   stage_changed_at: string | null
   last_activity_at: string | null
+  /** The deal's earliest open task (spec 18 S4); null when nothing is owed. */
+  next_follow_up_at: string | null
+  next_follow_up: FollowUpDue | null
   days_in_stage: number
   days_since_activity: number
   is_stale: boolean
