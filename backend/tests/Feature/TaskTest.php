@@ -457,6 +457,70 @@ class TaskTest extends TestCase
         $this->assertNull($lead->fresh()->next_follow_up_at);
     }
 
+    public function test_a_task_on_a_deal_keeps_next_follow_up_at_honest(): void
+    {
+        $rep = User::factory()->salesrep()->create();
+        $company = $this->companyFor($rep);
+        $deal = Opportunity::factory()->forCompany($company)->ownedBy($rep)->create();
+
+        $this->assertNull($deal->fresh()->next_follow_up_at);
+
+        $laterDue = Carbon::now()->addDays(5);
+        $soonerDue = Carbon::now()->addDays(2);
+
+        $later = $this->actingAs($rep, 'api')
+            ->postJson('/api/v1/tasks', [
+                'subject_type' => 'opportunity',
+                'subject_id' => $deal->id,
+                'subject' => 'Send the revised proposal',
+                'due_at' => $laterDue->toIso8601String(),
+            ])
+            ->assertCreated();
+
+        $sooner = $this->actingAs($rep, 'api')
+            ->postJson('/api/v1/tasks', [
+                'subject_type' => 'opportunity',
+                'subject_id' => $deal->id,
+                'subject' => 'Confirm the final headcount',
+                'due_at' => $soonerDue->toIso8601String(),
+            ])
+            ->assertCreated();
+
+        // The sooner of the two open tasks is the deal's next follow-up ...
+        $this->assertSame(
+            $soonerDue->timestamp,
+            $deal->fresh()->next_follow_up_at?->timestamp,
+        );
+
+        // ... and the API carries the derived state beside the stored instant.
+        $this->actingAs($rep, 'api')
+            ->getJson("/api/v1/opportunities/{$deal->id}")
+            ->assertOk()
+            ->assertJsonPath('data.next_follow_up.state', 'upcoming')
+            ->assertJsonPath('data.next_follow_up.days', 2)
+            ->assertJsonPath(
+                'data.next_follow_up_at',
+                $deal->fresh()->next_follow_up_at?->toISOString(),
+            );
+
+        // Finishing the sooner task promotes the later one.
+        $this->actingAs($rep, 'api')
+            ->patchJson("/api/v1/tasks/{$sooner->json('data.id')}/status", ['status' => 'done'])
+            ->assertOk();
+
+        $this->assertSame(
+            $laterDue->timestamp,
+            $deal->fresh()->next_follow_up_at?->timestamp,
+        );
+
+        // Nothing is owed once both are settled (a cancelled task is not a promise).
+        $this->actingAs($rep, 'api')
+            ->patchJson("/api/v1/tasks/{$later->json('data.id')}/status", ['status' => 'cancelled'])
+            ->assertOk();
+
+        $this->assertNull($deal->fresh()->next_follow_up_at);
+    }
+
     public function test_the_lead_list_carries_the_next_follow_up(): void
     {
         $rep = User::factory()->salesrep()->create();

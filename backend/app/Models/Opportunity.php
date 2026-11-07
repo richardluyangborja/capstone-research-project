@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\ActivityStatus;
 use App\Enums\LeadSource;
 use App\Enums\LostReason;
 use App\Enums\OpportunityStage;
@@ -68,6 +69,7 @@ class Opportunity extends Model
             'estimated_headcount' => 'integer',
             'stage_changed_at' => 'datetime',
             'last_activity_at' => 'datetime',
+            'next_follow_up_at' => 'datetime',
         ];
     }
 
@@ -130,6 +132,23 @@ class Opportunity extends Model
     public function communications(): MorphMany
     {
         return $this->morphMany(Communication::class, 'subjectable', 'subject_type', 'subject_id');
+    }
+
+    /**
+     * Keep `next_follow_up_at` pointing at the deal's earliest open task (spec 18 S4), or null
+     * when nothing is owed. Called after every task write through `HasSubjectRecord`, so the
+     * board and the deal table read one column instead of joining the task table.
+     */
+    public function syncNextFollowUpAt(): void
+    {
+        $next = $this->activities()
+            ->tasks()
+            ->where('status', ActivityStatus::Open)
+            ->whereNotNull('due_at')
+            ->orderBy('due_at')
+            ->value('due_at');
+
+        $this->forceFill(['next_follow_up_at' => $next])->save();
     }
 
     public function contracts(): HasMany

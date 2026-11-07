@@ -151,6 +151,8 @@ const { company, site, contact, deal, contract, billing, delivery, paginated } =
     next_step: 'Send the revised rate card',
     stage_changed_at: '2026-10-12T03:51:40.000000Z',
     last_activity_at: '2026-10-14T03:51:40.000000Z',
+    next_follow_up_at: null,
+    next_follow_up: null,
     days_in_stage: 5,
     days_since_activity: 3,
     is_stale: false,

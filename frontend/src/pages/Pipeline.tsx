@@ -5,6 +5,7 @@ import PageHeader from '../components/common/PageHeader'
 import StatCard from '../components/common/StatCard'
 import StatusBadge from '../components/common/StatusBadge'
 import StaffingBadge from '../components/common/StaffingBadge'
+import DealFollowUpBadge from '../components/common/DealFollowUpBadge'
 import AlertItem from '../components/common/AlertItem'
 import EmptyState from '../components/common/EmptyState'
 import StageMoveControl from '../components/common/StageMoveControl'
@@ -12,7 +13,7 @@ import LostReasonDialog from '../components/common/LostReasonDialog'
 import WonConfirmDialog, { type WonOutcome } from '../components/common/WonConfirmDialog'
 import { contractStatusMeta } from '../lib/contractMeta'
 import { getPipeline, moveOpportunityStage, type OpportunityFilters } from '../lib/opportunities'
-import { opportunityStageMeta, openStageOrder } from '../lib/opportunityMeta'
+import { opportunityStageMeta, openStageOrder, followUpWarningStages } from '../lib/opportunityMeta'
 import { formatCurrency, formatDate } from '../lib/format'
 import type { LostReason, Opportunity, OpportunityStage, PipelineBoard } from '../types'
 
@@ -476,6 +477,12 @@ function DealCard({
             estimatedHeadcount={deal.estimated_headcount}
             serviceType={deal.service_type}
           />
+        </div>
+      )}
+
+      {(deal.next_follow_up || (deal.is_open && followUpWarningStages.includes(deal.stage))) && (
+        <div className="mt-2">
+          <DealFollowUpBadge deal={deal} />
         </div>
       )}
 

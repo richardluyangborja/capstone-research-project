@@ -83,5 +83,8 @@ export const openStageOrder: OpportunityStage[] = [
   'on_hold',
 ]
 
+/** An open deal in these stages without a follow-up reads as neglected (spec 18 S4). */
+export const followUpWarningStages: OpportunityStage[] = ['proposal_sent', 'negotiation']
+
 export const isTerminalStage = (stage: OpportunityStage): boolean =>
   stage === 'won' || stage === 'lost'

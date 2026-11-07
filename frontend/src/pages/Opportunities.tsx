@@ -4,6 +4,7 @@ import { SquareKanban, Plus, Search } from 'lucide-react'
 import PageHeader from '../components/common/PageHeader'
 import StatusBadge from '../components/common/StatusBadge'
 import StaffingBadge from '../components/common/StaffingBadge'
+import DealFollowUpBadge from '../components/common/DealFollowUpBadge'
 import EmptyState from '../components/common/EmptyState'
 import AlertItem from '../components/common/AlertItem'
 import StatCard from '../components/common/StatCard'
@@ -56,6 +57,11 @@ const columns: DataTableColumn<Opportunity>[] = [
         {opportunityStageMeta[deal.stage].label}
       </StatusBadge>
     ),
+  },
+  {
+    key: 'follow_up',
+    header: 'Follow-up',
+    render: (deal) => <DealFollowUpBadge deal={deal} />,
   },
   {
     key: 'amount',

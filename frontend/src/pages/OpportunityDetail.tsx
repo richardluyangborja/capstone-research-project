@@ -11,6 +11,7 @@ import StageMoveControl from '../components/common/StageMoveControl'
 import LostReasonDialog from '../components/common/LostReasonDialog'
 import WonConfirmDialog, { type WonOutcome } from '../components/common/WonConfirmDialog'
 import StaffingBadge from '../components/common/StaffingBadge'
+import DealFollowUpBadge from '../components/common/DealFollowUpBadge'
 import {
   deleteOpportunity,
   getOpportunity,
@@ -278,6 +279,7 @@ export default function OpportunityDetail() {
               estimatedHeadcount={deal.estimated_headcount}
               serviceType={deal.service_type}
             />
+            <DealFollowUpBadge deal={deal} />
             {deal.can_update && (
               <Link
                 to={`/follow-ups/new?subject_type=opportunity&subject_id=${deal.id}`}
