@@ -35,13 +35,13 @@ score or automatic lifecycle transition. These remain tracked module-01 deferral
 
 | File | Module |
 | --- | --- |
-| `10-opportunity-pipeline-visualization.md` | 2. Opportunity Pipeline Visualization *(baseline done; S2–S4 built, S5 planned in spec 18, ADR-0029)* |
+| `10-opportunity-pipeline-visualization.md` | 2. Opportunity Pipeline Visualization *(baseline done; S2–S5 built in spec 18, ADR-0029)* |
 | `11-communication-history.md` | 3. Communication History Management *(done — 5 slices)* |
 | `12-follow-up-reminders.md` | 4. Follow-up Reminder System *(done — 4 slices)* |
 | `13-client-satisfaction-survey.md` | 5. Client Satisfaction & Survey *(built — 4 slices, S1–S4)* |
 | `14-dashboard-management-reports.md` | 6. Dashboard (cross-cutting) *(D1 + D2 built; D3 moved to module 07)* |
 | `15-ai-management-reports.md` | 7. AI Management Reports *(built — S1 + S2)* |
-| `18-module-02-refresh.md` | **Refresh** — Opportunity Pipeline Visualization: staffing demand fields, won/lost governance, follow-up sync and view switcher; S2–S4 built (ADR-0029) |
+| `18-module-02-refresh.md` | **Refresh** — Opportunity Pipeline Visualization: staffing demand fields, won/lost governance, follow-up sync and view switcher; S2–S5 built (ADR-0029) |
 
 `16-module-01-refresh.md` is the one exception to the `10+` numbering: it is a **refresh of Module 01**,
 not a later data module. Its ADRs (0023–0026) are the current decisions for that work.

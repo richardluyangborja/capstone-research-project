@@ -34,7 +34,7 @@ class OpportunityController extends Controller
         $user = $request->user();
 
         $opportunities = Opportunity::query()
-            ->with(['owner:id,name', 'company'])
+            ->with(['owner:id,name,team_id', 'company'])
             ->visibleTo($user)
             ->search($request->string('search')->toString() ?: null)
             ->when($filters['stage'] ?? null, fn ($query, $stage) => $query->whereIn('stage', explode(',', (string) $stage)))
@@ -185,6 +185,6 @@ class OpportunityController extends Controller
      */
     private function relations(): array
     {
-        return ['company', 'lead', 'owner:id,name', 'primaryContact:id,name,role_type', 'contracts:id,reference,title,status,opportunity_id'];
+        return ['company', 'lead', 'owner:id,name,team_id', 'primaryContact:id,name,role_type', 'contracts:id,reference,title,status,opportunity_id'];
     }
 }

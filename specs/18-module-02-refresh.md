@@ -5,12 +5,13 @@ Refresh of Module 02 (Opportunity Pipeline Visualization). Extends `00-data-mode
 ADRs: **0029** (pipeline refresh & staffing domain alignment), **0015** (pipeline conventions),
 **0027** (contracts are read-only), and **0018** (follow-up reminders).
 
-> **Status: S2–S4 built; S5 planned.** S2 (staffing demand and lead-conversion continuity), S3 (won/lost
+> **Status: S2–S5 built.** S2 (staffing demand and lead-conversion continuity), S3 (won/lost
 > outcome governance and ADR-0027 alignment) and S4 (opportunity follow-up synchronization) are merged on
-> `main`; S5 remains planned. This spec declares four reviewable delivery slices (S2–S5). It elevates the
-> deal pipeline to mirror real-world manpower and staffing agency workflows, captures staffing headcount
-> demand, enforces proper Won/Lost outcome governance, synchronizes follow-up tasks, and connects
-> cross-department seams.
+> `main`; S5 (workspace ergonomics and department seams) is built on
+> `feature/module-02-workspace-ergonomics`. This spec declares four reviewable delivery slices (S2–S5).
+> It elevates the deal pipeline to mirror real-world manpower and staffing agency workflows, captures
+> staffing headcount demand, enforces proper Won/Lost outcome governance, synchronizes follow-up tasks,
+> and connects cross-department seams.
 
 ---
 
@@ -28,7 +29,7 @@ for improvement:
 3. **Follow-up tracking gap:** Deals lacked follow-up synchronization with Module 04, leaving reps without
    visibility into overdue touches or unscheduled deals.
 4. **Cross-department visibility & ergonomics:** Won deals did not surface linked contract projections, and
-   users lacked a unified view switcher (Board vs List) and visual funnel analytics.
+   users lacked a unified view switcher (Board vs Funnel) and visual funnel analytics.
 
 This refresh resolves these issues through four incremental, reviewable slices (S2–S5).
 
@@ -46,9 +47,11 @@ This refresh resolves these issues through four incremental, reviewable slices (
   - Follow-up status indicators and unscheduled follow-up warnings on Kanban cards.
   - Eager-loaded contract projection badges (`CON-YYYY-NNNN · Signed`) on won deals.
   - Read-only staffing demand / Recruitment Job Orders (`RecruitmentFeed`) preview on deal detail.
-  - Unified View Switcher on `/pipeline` (Kanban Board, Deal Table List, Funnel Overview) with persistent filters.
+  - View switcher on `/pipeline` (Kanban Board and Funnel Overview) with persistent filters; the
+    `/opportunities` Deal Book remains the single full table and paginated deal register.
   - Visual Stage Funnel Progress Bar showing stage volume and value distribution.
   - Quick Deal Peek Drawer for rapid deal review without leaving the board.
+  - Deal detail returns to the page it was opened from (the board, or the Deal Book by default).
 - **Out:**
   - Automatic stage movement based on external feeds.
   - Re-creating Recruitment or Contract Management operational CRUD inside CRM.
@@ -75,7 +78,7 @@ This refresh resolves these issues through four incremental, reviewable slices (
 | **S2** | **Staffing Domain Scope** *(built)* | Data Model & Conversion | `estimated_headcount`, `service_type`, `target_start_date` on `opportunities`, `LeadConversionController` mapping, form inputs & card badges |
 | **S3** | **Stage Governance & Outcomes** *(built)* | Outcomes & ADR-0027 | `WonConfirmDialog`, enhanced `LostReasonDialog` with notes, contract projection badge on won cards, retirement of outdated contract prompt |
 | **S4** | **Follow-up Integration** *(built)* | Module 04 Integration | `next_follow_up_at` column, `Opportunity::syncNextFollowUpAt()`, follow-up status badges & unscheduled warnings on cards |
-| **S5** | **Workspace Ergonomics & Analytics** | Navigation & Seams | Unified View Switcher (Board/List), visual Stage Funnel Bar, Quick Deal Peek Drawer, Recruitment Job Orders context |
+| **S5** | **Workspace Ergonomics & Analytics** *(built)* | Navigation & Seams | Board/Funnel switcher, visual Stage Funnel Bar, Quick Deal Peek Drawer, Recruitment Job Orders context, origin-aware Back navigation |
 
 ---
 
@@ -200,22 +203,29 @@ Add additive columns to `opportunities`:
 **Branch:** `feature/module-02-workspace-ergonomics`
 
 #### Implementation
-1. **Unified View Switcher on `/pipeline`:**
+1. **View Switcher on `/pipeline`:**
    - Add segmented control in the page header:
-     `[ Board (Kanban) ]` `[ Table (List) ]` `[ Funnel Overview ]`
+     `[ Board (Kanban) ]` `[ Funnel Overview ]`
    - Preserves active search, owner, and close window filters across view changes.
+   - The table view was removed: `/opportunities` stays the one full, paginated deal register.
 2. **Visual Stage Funnel Progress Bar:**
    - Render horizontal funnel progress bar above board columns displaying relative count and value across open stages.
 3. **Quick Deal Peek Drawer:**
    - Clicking a card opens an accessible side drawer showing deal summary, staffing demand, next step, upcoming follow-up, and recent timeline activity without losing board position.
 4. **Recruitment Seam on `OpportunityDetail`:**
    - Display a read-only **Staffing & Recruitment Context** card consuming the account's active Job Orders from `RecruitmentFeed` (`GET /companies/{id}/delivery`), bridging pipeline demand with operational fulfillment.
+5. **Origin-aware deal navigation:**
+   - Opening a deal from the board (card or peek drawer) carries the board as the return target.
+   - The detail page's Back link returns to `/pipeline` in that case, and to `/opportunities` otherwise.
+   - Deleting a deal follows the same return target.
 
 #### Acceptance Criteria
-- [ ] View switcher seamlessly toggles between Kanban, Table, and Funnel views while maintaining filters.
+- [ ] View switcher toggles between Kanban and Funnel views while maintaining filters.
+- [ ] `/pipeline` exposes no duplicate table view; the Deal Book remains the full paginated table.
 - [ ] Funnel bar accurately reflects stage value and count distributions.
 - [ ] Side peek drawer displays deal details and timeline without full page reloads.
 - [ ] Opportunity detail renders read-only recruitment context when available.
+- [ ] Back from a deal opened on the board returns to the board, not the Deal Book.
 - [ ] All automated tests pass; lint and formatting verified.
 
 ---

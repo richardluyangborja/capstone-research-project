@@ -9,7 +9,7 @@ Extends `0015-opportunity-pipeline-conventions.md`, `0027-contracts-read-only.md
 ## Context
 
 Module 02 (`../specs/10-opportunity-pipeline-visualization.md`, ADR-0015) delivered the baseline
-deal pipeline: an open-stage Kanban board (`/pipeline`), the flat deal book (`/opportunities`), any-to-any
+deal pipeline: an open-stage Kanban board (`/pipeline`), the full deal book (`/opportunities`), any-to-any
 stage moves with rules, deal timeline touches, and forecast summaries.
 
 However, real-world operation and comparison with Module 01's workspace refresh revealed five gaps:
@@ -52,13 +52,19 @@ However, real-world operation and comparison with Module 01's workspace refresh 
 4. **Cross-department seams.** Eager load `contracts` on the pipeline board to surface the linked contract
    reference and status badge on won cards. Display read-only recruitment job orders from `RecruitmentFeed`
    on the deal detail page.
-5. **Workspace visualization.** Provide a unified View Switcher on `/pipeline` (Board vs Table vs Funnel) with
-   synchronized filters, a visual stage funnel progress bar, and an accessible side peek drawer for rapid
-   deal inspection without losing position on the Kanban board.
+5. **Workspace visualization.** Provide a View Switcher on `/pipeline` (Board vs Funnel) with synchronized
+   filters, a visual stage funnel progress bar, and an accessible side peek drawer for rapid deal inspection
+   without losing position on the Kanban board. The flat Deal Book (`/opportunities`) remains the single
+   full, paginated table; the board does not duplicate it.
+
+> **Amendment (2026-11-08):** the planned Table tab on `/pipeline` was removed during S5 review. The
+> Deal Book already owns the complete, paginated register (including closed history beyond the board's
+> closed-deal limit), so keeping a second table was redundant. Deal detail now also remembers whether it
+> was opened from the board and returns there.
 
 ## Consequences
 
-- S2, S3 and S4 are delivered; S5 remains planned in `../specs/18-module-02-refresh.md`.
+- S2, S3, S4 and S5 are delivered; S5 is built on `feature/module-02-workspace-ergonomics`.
 - All existing API endpoints remain backward-compatible; new fields are strictly additive.
 - Preserves the ADR-0015 any-to-any stage transition rules and ADR-0004 role-based scoping (salesrep own,
   manager team, admin all).

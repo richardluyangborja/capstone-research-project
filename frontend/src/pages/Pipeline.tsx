@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { List, Plus, Search } from 'lucide-react'
+import { Columns3, Filter, List, Plus, Search } from 'lucide-react'
 import PageHeader from '../components/common/PageHeader'
 import StatCard from '../components/common/StatCard'
 import StatusBadge from '../components/common/StatusBadge'
@@ -11,11 +11,20 @@ import EmptyState from '../components/common/EmptyState'
 import StageMoveControl from '../components/common/StageMoveControl'
 import LostReasonDialog from '../components/common/LostReasonDialog'
 import WonConfirmDialog, { type WonOutcome } from '../components/common/WonConfirmDialog'
+import PipelineFunnel from '../components/pipeline/PipelineFunnel'
+import DealPeekDrawer from '../components/pipeline/DealPeekDrawer'
 import { contractStatusMeta } from '../lib/contractMeta'
 import { getPipeline, moveOpportunityStage, type OpportunityFilters } from '../lib/opportunities'
 import { opportunityStageMeta, openStageOrder, followUpWarningStages } from '../lib/opportunityMeta'
 import { formatCurrency, formatDate } from '../lib/format'
 import type { LostReason, Opportunity, OpportunityStage, PipelineBoard } from '../types'
+
+type PipelineView = 'board' | 'funnel'
+
+const pipelineViews: { id: PipelineView; label: string; icon: typeof Columns3 }[] = [
+  { id: 'board', label: 'Board', icon: Columns3 },
+  { id: 'funnel', label: 'Funnel', icon: Filter },
+]
 
 type OwnerFilter = '' | 'me' | 'team'
 
@@ -38,6 +47,8 @@ export default function Pipeline() {
   const [pendingLost, setPendingLost] = useState<Opportunity | null>(null)
   const [pendingWon, setPendingWon] = useState<Opportunity | null>(null)
   const [wonNotice, setWonNotice] = useState<Opportunity | null>(null)
+  const [view, setView] = useState<PipelineView>('board')
+  const [peek, setPeek] = useState<Opportunity | null>(null)
 
   const filters: OpportunityFilters = {
     owner: owner || undefined,
@@ -125,6 +136,29 @@ export default function Pipeline() {
         description="Every open deal, by stage. Drag a card, or use its Move-to menu."
         actions={
           <>
+            <div
+              role="tablist"
+              aria-label="Pipeline view"
+              className="inline-flex rounded-md border border-border bg-card p-0.5"
+            >
+              {pipelineViews.map(({ id, label, icon: Icon }) => (
+                <button
+                  key={id}
+                  type="button"
+                  role="tab"
+                  aria-selected={view === id}
+                  onClick={() => setView(id)}
+                  className={`inline-flex items-center gap-1.5 rounded px-2.5 py-1.5 text-sm font-medium ${
+                    view === id
+                      ? 'bg-primary text-primary-foreground'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+                  {label}
+                </button>
+              ))}
+            </div>
             <Link
               to="/opportunities"
               className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
@@ -261,34 +295,44 @@ export default function Pipeline() {
             </Link>
           }
         />
+      ) : view === 'funnel' ? (
+        <PipelineFunnel columns={columns} detailed />
       ) : (
-        <div className="flex items-start gap-4 overflow-x-auto pb-4">
-          {openStageOrder.map((stage) => {
-            const column = columns.find((entry) => entry.stage === stage)
-            return (
-              <BoardColumn
-                key={stage}
-                stage={stage}
-                count={column?.count ?? 0}
-                value={column?.value ?? 0}
-                weighted={column?.weighted_value ?? 0}
-                deals={column?.deals ?? []}
-                busyId={busyId}
-                onRequestMove={requestMove}
-                onDropDeal={(dealId) => dropMove(dealId, stage)}
-              />
-            )
-          })}
+        <>
+          <PipelineFunnel columns={columns} />
 
-          <ClosedColumn
-            won={won}
-            lost={lost}
-            busyId={busyId}
-            onRequestMove={requestMove}
-            onDropDeal={dropMove}
-          />
-        </div>
+          <div className="flex items-start gap-4 overflow-x-auto pb-4">
+            {openStageOrder.map((stage) => {
+              const column = columns.find((entry) => entry.stage === stage)
+              return (
+                <BoardColumn
+                  key={stage}
+                  stage={stage}
+                  count={column?.count ?? 0}
+                  value={column?.value ?? 0}
+                  weighted={column?.weighted_value ?? 0}
+                  deals={column?.deals ?? []}
+                  busyId={busyId}
+                  onRequestMove={requestMove}
+                  onDropDeal={(dealId) => dropMove(dealId, stage)}
+                  onPeek={setPeek}
+                />
+              )
+            })}
+
+            <ClosedColumn
+              won={won}
+              lost={lost}
+              busyId={busyId}
+              onRequestMove={requestMove}
+              onDropDeal={dropMove}
+              onPeek={setPeek}
+            />
+          </div>
+        </>
       )}
+
+      <DealPeekDrawer deal={peek} onClose={() => setPeek(null)} />
 
       {pendingLost && (
         <LostReasonDialog
@@ -322,6 +366,7 @@ interface BoardColumnProps {
   busyId: string | null
   onRequestMove: (deal: Opportunity, stage: OpportunityStage) => void
   onDropDeal: (dealId: string) => void
+  onPeek: (deal: Opportunity) => void
 }
 
 function BoardColumn({
@@ -333,6 +378,7 @@ function BoardColumn({
   busyId,
   onRequestMove,
   onDropDeal,
+  onPeek,
 }: BoardColumnProps) {
   const [over, setOver] = useState(false)
 
@@ -375,6 +421,7 @@ function BoardColumn({
               deal={deal}
               busy={busyId === deal.id}
               onRequestMove={onRequestMove}
+              onPeek={onPeek}
             />
           ))
         )}
@@ -389,12 +436,14 @@ function ClosedColumn({
   busyId,
   onRequestMove,
   onDropDeal,
+  onPeek,
 }: {
   won: Opportunity[]
   lost: Opportunity[]
   busyId: string | null
   onRequestMove: (deal: Opportunity, stage: OpportunityStage) => void
   onDropDeal: (dealId: string, stage: OpportunityStage) => void
+  onPeek: (deal: Opportunity) => void
 }) {
   return (
     <section aria-label="Closed deals column" className="flex w-72 shrink-0 flex-col gap-3">
@@ -428,6 +477,7 @@ function ClosedColumn({
                     deal={deal}
                     busy={busyId === deal.id}
                     onRequestMove={onRequestMove}
+                    onPeek={onPeek}
                   />
                 ))
               )}
@@ -443,81 +493,112 @@ function DealCard({
   deal,
   busy,
   onRequestMove,
+  onPeek,
 }: {
   deal: Opportunity
   busy: boolean
   onRequestMove: (deal: Opportunity, stage: OpportunityStage) => void
+  onPeek: (deal: Opportunity) => void
 }) {
+  const openPeek = (target: EventTarget | null) => {
+    if (target instanceof HTMLElement && target.closest('a,button,select,input,textarea')) return
+    onPeek(deal)
+  }
+
   return (
     <article
-      draggable={deal.can_change_stage}
-      onDragStart={(event) => {
-        event.dataTransfer.setData('text/plain', deal.id)
-        event.dataTransfer.effectAllowed = 'move'
-      }}
       className={`rounded-lg border border-border bg-card p-3 shadow-sm ${busy ? 'opacity-60' : ''}`}
     >
-      <div className="flex items-start justify-between gap-2">
-        <Link
-          to={`/opportunities/${deal.id}`}
-          className="text-sm font-medium text-foreground hover:underline"
-        >
-          {deal.name}
-        </Link>
-        {deal.is_stale && <StatusBadge tone="warm">Stale</StatusBadge>}
-      </div>
+      {/* Drag and peek live on the card body only — the stage select sits outside them so
+          it can be clicked and opened without starting a drag or the peek drawer. */}
+      <div
+        draggable={deal.can_change_stage}
+        tabIndex={0}
+        aria-label={`Quick look: ${deal.name}`}
+        onClick={(event) => openPeek(event.target)}
+        onKeyDown={(event) => {
+          if (event.target !== event.currentTarget) return
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault()
+            onPeek(deal)
+          }
+        }}
+        onDragStart={(event) => {
+          if (!deal.can_change_stage) {
+            // A nested link is natively draggable; never let that start a stage move
+            // for someone the API has not granted changeStage on this deal.
+            event.preventDefault()
+            return
+          }
 
-      <p className="mt-1 text-xs text-muted-foreground">
-        {deal.company?.name ?? '—'} · <span className="font-mono">{deal.reference}</span>
-      </p>
-
-      {(deal.estimated_headcount || deal.service_type) && (
-        <div className="mt-2">
-          <StaffingBadge
-            estimatedHeadcount={deal.estimated_headcount}
-            serviceType={deal.service_type}
-          />
+          event.dataTransfer.setData('text/plain', deal.id)
+          event.dataTransfer.effectAllowed = 'move'
+        }}
+        className="cursor-pointer rounded outline-none focus:ring-2 focus:ring-ring"
+      >
+        <div className="flex items-start justify-between gap-2">
+          <Link
+            to={`/opportunities/${deal.id}`}
+            state={{ returnTo: '/pipeline' }}
+            className="text-sm font-medium text-foreground hover:underline"
+          >
+            {deal.name}
+          </Link>
+          {deal.is_stale && <StatusBadge tone="warm">Stale</StatusBadge>}
         </div>
-      )}
 
-      {(deal.next_follow_up || (deal.is_open && followUpWarningStages.includes(deal.stage))) && (
-        <div className="mt-2">
-          <DealFollowUpBadge deal={deal} />
+        <p className="mt-1 text-xs text-muted-foreground">
+          {deal.company?.name ?? '—'} · <span className="font-mono">{deal.reference}</span>
+        </p>
+
+        {(deal.estimated_headcount || deal.service_type) && (
+          <div className="mt-2">
+            <StaffingBadge
+              estimatedHeadcount={deal.estimated_headcount}
+              serviceType={deal.service_type}
+            />
+          </div>
+        )}
+
+        {(deal.next_follow_up || (deal.is_open && followUpWarningStages.includes(deal.stage))) && (
+          <div className="mt-2">
+            <DealFollowUpBadge deal={deal} />
+          </div>
+        )}
+
+        {/* ADR-0027 — a won deal surfaces its read-only contract projection, if any (spec 18 S3). */}
+        {deal.is_won && deal.contracts && deal.contracts.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1">
+            {deal.contracts.map((contract) => (
+              <Link
+                key={contract.id}
+                to={`/contracts/${contract.id}`}
+                className="inline-flex items-center rounded-full bg-people/15 px-2 py-0.5 text-xs font-medium text-people hover:underline"
+              >
+                {contract.reference} · {contractStatusMeta[contract.status].label}
+              </Link>
+            ))}
+          </div>
+        )}
+
+        <p className="mt-2 text-sm font-semibold text-cost">{formatCurrency(deal.amount)}</p>
+
+        <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
+          <span>{deal.owner?.name ?? 'Unassigned'}</span>
+          <span>{deal.probability ?? 0}%</span>
         </div>
-      )}
 
-      {/* ADR-0027 — a won deal surfaces its read-only contract projection, if any (spec 18 S3). */}
-      {deal.is_won && deal.contracts && deal.contracts.length > 0 && (
-        <div className="mt-2 flex flex-wrap gap-1">
-          {deal.contracts.map((contract) => (
-            <Link
-              key={contract.id}
-              to={`/contracts/${contract.id}`}
-              className="inline-flex items-center rounded-full bg-people/15 px-2 py-0.5 text-xs font-medium text-people hover:underline"
-            >
-              {contract.reference} · {contractStatusMeta[contract.status].label}
-            </Link>
-          ))}
+        <div className="mt-1 flex items-center justify-between text-xs text-muted-foreground">
+          <span>
+            {deal.expected_close_date
+              ? `Close ${formatDate(deal.expected_close_date)}`
+              : 'No close date'}
+          </span>
+          <span>{deal.days_in_stage}d in stage</span>
         </div>
-      )}
 
-      <p className="mt-2 text-sm font-semibold text-cost">{formatCurrency(deal.amount)}</p>
-
-      <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
-        <span>{deal.owner?.name ?? 'Unassigned'}</span>
-        <span>{deal.probability ?? 0}%</span>
+        {deal.next_step && <p className="mt-2 text-xs text-foreground">Next: {deal.next_step}</p>}
       </div>
-
-      <div className="mt-1 flex items-center justify-between text-xs text-muted-foreground">
-        <span>
-          {deal.expected_close_date
-            ? `Close ${formatDate(deal.expected_close_date)}`
-            : 'No close date'}
-        </span>
-        <span>{deal.days_in_stage}d in stage</span>
-      </div>
-
-      {deal.next_step && <p className="mt-2 text-xs text-foreground">Next: {deal.next_step}</p>}
 
       <div className="mt-3">
         <StageMoveControl

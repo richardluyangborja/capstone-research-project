@@ -48,9 +48,9 @@ class OpportunityActivityController extends Controller
             return $activity;
         });
 
-        return (new OpportunityResource($opportunity->load(['company', 'owner:id,name'])))
+        return (new OpportunityResource($opportunity->load(['company', 'owner:id,name,team_id'])))
             ->additional([
-                'activity' => (new ActivityResource($activity->load('owner:id,name')))->resolve(),
+                'activity' => (new ActivityResource($activity->load('owner:id,name,team_id')))->resolve(),
             ])
             ->response();
     }
@@ -63,7 +63,7 @@ class OpportunityActivityController extends Controller
         $this->authorize('view', $opportunity);
 
         $activities = $opportunity->activities()
-            ->with('owner:id,name')
+            ->with('owner:id,name,team_id')
             ->timelineOrder()
             ->limit(100)
             ->get();

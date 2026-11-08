@@ -109,7 +109,19 @@ class OpportunityPolicy
         }
 
         if ($user->role === Role::Manager && $user->team_id !== null) {
-            return $opportunity->owner?->team_id === $user->team_id;
+            $owner = $opportunity->owner;
+
+            if ($owner === null) {
+                return false;
+            }
+
+            // Resource payloads have historically eager-loaded `owner:id,name`; a partial
+            // owner relation would otherwise read `team_id` as null and deny the whole team.
+            $ownerTeamId = array_key_exists('team_id', $owner->getAttributes())
+                ? $owner->team_id
+                : $owner->newQuery()->whereKey($owner->getKey())->value('team_id');
+
+            return $ownerTeamId === $user->team_id;
         }
 
         return false;

@@ -171,8 +171,12 @@ The refresh adds computed, explainable health flags, not automatic lifecycle mov
 
 ## Module 02 → submodules (built, ADR-0015)
 
-1. **Pipeline Board** — Kanban of open deals, drag-and-drop + accessible move menu, column totals, staffing-demand badges (S2), follow-up badges and unscheduled warnings (S4).
-2. **Deal Management** — flat `/opportunities` CRUD, deal list and detail page.
+1. **Pipeline Board** — Kanban of open deals with a Board/Funnel switcher, drag-and-drop + accessible
+   move menu, column totals, staffing-demand badges (S2), follow-up badges and unscheduled warnings (S4),
+   a stage funnel and a quick-peek drawer (S5).
+2. **Deal Management** — flat `/opportunities` CRUD; the Deal Book is the single full, paginated table
+   (the board no longer duplicates it), plus the deal detail page. Detail returns to the board when it
+   was opened there, otherwise to the Deal Book.
 3. **Deal Stage & Outcome** — any-to-any stage moves with rules, won/lost, reopen, stage history; a won
    move confirms close date, manager+ final amount and win notes (S3), while a lost move captures the
    reason and optional notes.

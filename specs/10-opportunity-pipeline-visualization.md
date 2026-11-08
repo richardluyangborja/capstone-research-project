@@ -3,12 +3,13 @@
 Module 2 (ADR-0014). Entities: `Opportunity`, `Company`, `Contact`, `Activity`, `Contract`, `User`.
 ADRs: 0002, 0004, 0007, 0012, 0015.
 
-> **Implemented baseline; S2–S4 built, S5 planned (spec 18, ADR-0029).** The contract below is what
-> shipped (see ADR-0015 for the choices made where the spec was open). It builds on the deal record
-> submodule 08 created (ADR-0012 §1). Spec `18` extends this baseline with staffing demand fields,
-> won/lost governance dialogs, follow-up synchronization and view ergonomics; S2 (staffing demand on
-> opportunities and through conversion), S3 (won/lost outcome governance) and S4 (follow-up state)
-> are merged.
+> **Implemented baseline; S2–S5 built (spec 18, ADR-0029).** The contract below is what shipped (see
+> ADR-0015 for the choices made where the spec was open). It builds on the deal record submodule 08
+> created (ADR-0012 §1). Spec `18` extends this baseline with staffing demand fields, won/lost
+> governance dialogs, follow-up synchronization and view ergonomics; S2 (staffing demand on
+> opportunities and through conversion), S3 (won/lost outcome governance), S4 (follow-up state) and S5
+> (Board/Funnel switcher, peek drawer, recruitment context and origin-aware Back navigation) are built.
+> The Deal Book remains the single full table; `/pipeline` no longer duplicates it.
 >
 > **Amended by ADR-0027 (contracts are read-only).** The pipeline itself is unchanged, and `won`
 > never triggers a Service handoff. A won deal no longer exposes **Create contract from deal** or a

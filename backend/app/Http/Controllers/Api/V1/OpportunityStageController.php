@@ -49,7 +49,7 @@ class OpportunityStageController extends Controller
         );
 
         return new OpportunityResource($opportunity->fresh()->load([
-            'company', 'lead', 'owner:id,name', 'primaryContact:id,name,role_type', 'contracts',
+            'company', 'lead', 'owner:id,name,team_id', 'primaryContact:id,name,role_type', 'contracts',
         ]));
     }
 }
