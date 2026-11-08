@@ -771,11 +771,15 @@ link and `POST /reports/management/generate` behind the authenticated `ai/` Groq
 `AI_SERVICE_TOKEN`) with cache, cooldown, daily caps and the rules fallback. S3/S4 (record catch-up
 summaries, message drafting) are future submodules.
 **Module 08 — Administration & Platform Operations** is planned in `specs/19` and ADR-0030.
-**S0 (the role/endpoint/settings/audit/threat-model contract) is built**; S1–S10 remain proposed.
-It covers the admin application plane, superadmin platform diagnostics, typed settings, immutable
-audit history, user/team lifecycle, safe maintenance actions, and personal settings for every role.
-Arbitrary SQL, credentials, migrations, backups, and unrestricted destructive operations are
-explicitly outside the product UI.
+**S0 (the role/endpoint/settings/audit/threat-model contract) and S1 (the shared administration
+shell and route protection) are built**; S2–S10 remain proposed.
+S1 adds the guarded `/admin` and `/platform` route groups, the all-role `/settings` page,
+`GET /admin/access` capability probe, `RoleRoute`, and inert placeholders named for each later
+slice. The sidebar groups are `Administration`, `Platform Operations` and `Personal`; a role that
+cannot see a group does not render its heading. It covers the admin application plane, superadmin
+platform diagnostics, typed settings, immutable audit history, user/team lifecycle, safe maintenance
+actions, and personal settings for every role. Arbitrary SQL, credentials, migrations, backups, and
+unrestricted destructive operations are explicitly outside the product UI.
 Dedup/merge and advanced/stored tier scoring are module-01 deferrals
 (ADR-0006), and automatic client aging stays one too (ADR-0018 §6). Other departments are consumed via
 **read-only mocked feeds** (ADR-0005, ADR-0025), not built here.

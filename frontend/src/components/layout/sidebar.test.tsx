@@ -18,7 +18,7 @@ vi.mock('../../lib/auth-context', () => ({
   }),
 }))
 
-const renderSidebar = (role: 'manager' | 'salesrep' = 'manager') =>
+const renderSidebar = (role: 'manager' | 'salesrep' | 'admin' | 'superadmin' = 'manager') =>
   render(
     <MemoryRouter initialEntries={['/dashboard']}>
       <Sidebar role={role} />
@@ -103,6 +103,57 @@ describe('Sidebar', () => {
     expect(screen.queryByRole('link', { name: 'Billing' })).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Contracts' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Deployments' })).toBeInTheDocument()
+  })
+
+  it('shows personal settings to every role and no administration plane to a salesrep', () => {
+    renderSidebar('salesrep')
+
+    expect(screen.getByRole('link', { name: 'Personal Settings' })).toHaveAttribute(
+      'href',
+      '/settings',
+    )
+    expect(screen.queryByRole('button', { name: 'Administration' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Platform Operations' })).not.toBeInTheDocument()
+  })
+
+  it('shows the application administration group to an admin but not platform operations', () => {
+    renderSidebar('admin')
+
+    expect(screen.getByRole('button', { name: 'Administration' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Admin Overview' })).toHaveAttribute('href', '/admin')
+    expect(screen.getByRole('link', { name: 'Users' })).toHaveAttribute('href', '/admin/users')
+    expect(screen.getByRole('link', { name: 'Teams' })).toHaveAttribute('href', '/admin/teams')
+    expect(screen.getByRole('link', { name: 'Admin Settings' })).toHaveAttribute(
+      'href',
+      '/admin/settings',
+    )
+    expect(screen.getByRole('link', { name: 'Audit Log' })).toHaveAttribute('href', '/admin/audit')
+    expect(screen.getByRole('link', { name: 'Operations Health' })).toHaveAttribute(
+      'href',
+      '/admin/operations',
+    )
+
+    expect(screen.queryByRole('button', { name: 'Platform Operations' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Diagnostics' })).not.toBeInTheDocument()
+  })
+
+  it('shows application and platform groups to a superadmin', () => {
+    renderSidebar('superadmin')
+
+    expect(screen.getByRole('button', { name: 'Administration' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Platform Operations' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Platform Overview' })).toHaveAttribute(
+      'href',
+      '/platform',
+    )
+    expect(screen.getByRole('link', { name: 'Diagnostics' })).toHaveAttribute(
+      'href',
+      '/platform/diagnostics',
+    )
+    expect(screen.getByRole('link', { name: 'Personal Settings' })).toHaveAttribute(
+      'href',
+      '/settings',
+    )
   })
 
   it('brands the sidebar and leaves the account block free of a role badge', () => {
