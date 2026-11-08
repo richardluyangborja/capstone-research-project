@@ -318,6 +318,39 @@ class OpportunityPipelineTest extends TestCase
         $this->assertTrue($manager->can('setAmount', $deal));
     }
 
+    public function test_manager_payloads_grant_stage_and_amount_rights_for_team_deals(): void
+    {
+        $team = Team::factory()->create();
+        $manager = User::factory()->manager()->create(['team_id' => $team->id]);
+        $rep = User::factory()->salesrep()->create(['team_id' => $team->id]);
+
+        $company = Company::factory()->ownedBy($rep)->create();
+        $deal = Opportunity::factory()->forCompany($company)->ownedBy($rep)->stage(OpportunityStage::Negotiation)->create();
+
+        // The eager-loaded owner must include team_id, otherwise the resource's policy
+        // checks read it as null and tell the manager they cannot work their team's deal.
+        $this->actingAs($manager, 'api')
+            ->getJson("/api/v1/opportunities/{$deal->id}")
+            ->assertOk()
+            ->assertJsonPath('data.can_change_stage', true)
+            ->assertJsonPath('data.can_set_amount', true);
+
+        $this->actingAs($manager, 'api')
+            ->getJson('/api/v1/pipeline')
+            ->assertOk()
+            ->assertJsonFragment([
+                'id' => $deal->id,
+                'can_change_stage' => true,
+                'can_set_amount' => true,
+            ]);
+
+        $this->actingAs($manager, 'api')
+            ->getJson("/api/v1/companies/{$company->id}/opportunities")
+            ->assertOk()
+            ->assertJsonPath('data.0.can_change_stage', true)
+            ->assertJsonPath('data.0.can_set_amount', true);
+    }
+
     public function test_a_deal_outside_the_callers_scope_is_forbidden(): void
     {
         $rep = User::factory()->salesrep()->create();

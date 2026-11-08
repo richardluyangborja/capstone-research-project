@@ -607,6 +607,13 @@ function DealCard({
           }
         }}
         onDragStart={(event) => {
+          if (!deal.can_change_stage) {
+            // A nested link is natively draggable; never let that start a stage move
+            // for someone the API has not granted changeStage on this deal.
+            event.preventDefault()
+            return
+          }
+
           event.dataTransfer.setData('text/plain', deal.id)
           event.dataTransfer.effectAllowed = 'move'
         }}

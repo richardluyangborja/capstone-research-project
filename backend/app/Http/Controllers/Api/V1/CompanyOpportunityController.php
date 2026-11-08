@@ -23,7 +23,7 @@ class CompanyOpportunityController extends Controller
         $filters = (array) $request->input('filter', []);
 
         $opportunities = $company->opportunities()
-            ->with(['owner:id,name', 'primaryContact:id,name,role_type', 'lead:id,reference'])
+            ->with(['owner:id,name,team_id', 'primaryContact:id,name,role_type', 'lead:id,reference'])
             ->visibleTo($request->user())
             ->when($filters['stage'] ?? null, fn ($query, $stage) => $query->whereIn('stage', explode(',', (string) $stage)))
             ->when($filters['open'] ?? null, fn ($query) => $query->whereNotIn('stage', ['won', 'lost']))
