@@ -7,8 +7,8 @@ ADRs: **0029** (pipeline refresh & staffing domain alignment), **0015** (pipelin
 
 > **Status: S2–S5 built.** S2 (staffing demand and lead-conversion continuity), S3 (won/lost
 > outcome governance and ADR-0027 alignment) and S4 (opportunity follow-up synchronization) are merged on
-> `main`; S5 (workspace ergonomics and department seams) is built on
-> `feature/module-02-workspace-ergonomics`. This spec declares four reviewable delivery slices (S2–S5).
+> `main`; S5 (workspace ergonomics and department seams) is merged. This spec declares four reviewable
+> delivery slices (S2–S5).
 > It elevates the deal pipeline to mirror real-world manpower and staffing agency workflows, captures
 > staffing headcount demand, enforces proper Won/Lost outcome governance, synchronizes follow-up tasks,
 > and connects cross-department seams.

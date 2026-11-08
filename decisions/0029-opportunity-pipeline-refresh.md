@@ -64,7 +64,7 @@ However, real-world operation and comparison with Module 01's workspace refresh 
 
 ## Consequences
 
-- S2, S3, S4 and S5 are delivered; S5 is built on `feature/module-02-workspace-ergonomics`.
+- S2, S3, S4 and S5 are delivered and merged to `main`.
 - All existing API endpoints remain backward-compatible; new fields are strictly additive.
 - Preserves the ADR-0015 any-to-any stage transition rules and ADR-0004 role-based scoping (salesrep own,
   manager team, admin all).
