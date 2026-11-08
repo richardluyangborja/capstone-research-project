@@ -336,6 +336,32 @@ others). At most one `nps` question per survey. `rating` is 1–5 and `nps` 0–
 **SurveyAnswer** — `response_id` ✓, `question_id` ✓ (unique together), `value_number` (rating/NPS),
 `value_text` (text), `value_options` (json, the selected options).
 
+## Administration & platform operations (module 08, proposed in spec 19)
+
+S0 defines the contract; these tables land with the later slices. They use ULIDs for every
+URL-exposed row and never expose secrets, password hashes, private paths or session payloads.
+
+**User additions** — `public_id` (ULID, unique; the admin URL key while `users.id` remains the
+internal FK/JWT key), `status` (`active`/`suspended`, default `active`), `suspended_at`,
+`suspended_by`, `status_reason`. Suspension keeps ownership history; it never reassigns CRM records.
+
+**Setting** — `scope` (`system`, `organization`, `team`, `user`), `scope_id` (nullable for system),
+`key` (allow-listed dotted key), `value` (json), `value_type` (`string`, `integer`, `decimal`,
+`boolean`, `enum`, `url`), `updated_by`, timestamps. Unique `scope + scope_id + key`; unknown keys are
+rejected. Secrets remain environment-only and are never stored here.
+
+**AuditLog** — append-only: `actor_id` (nullable for system events), `action`, `severity`
+(`info`/`notice`/`warning`/`critical`), `subject_type`, `subject_id`, `before` (json, redacted),
+`after` (json, redacted), `metadata` (json), `request_id`, `ip_address`, `user_agent`, `created_at`.
+No `updated_at` or delete route; corrections are new events. Index `created_at`, `actor_id`,
+`action`, `subject_type + subject_id`, `severity`.
+
+**UserSession** (only if S9 session tracking is delivered) — `user_id`, `session_reference`,
+`ip_address`, `user_agent`, `last_seen_at`, `revoked_at`, `created_at`. The session payload and token
+are never stored or returned. A separate `admin_invitations` table is not required in Phase 1; the
+mocked invitation uses a signed, expiring token, and a new table is added only if revocable
+acceptance tracking needs it.
+
 ## Indexes / constraints (highlights)
 
 - Unique: `leads.reference`, `companies.reference`, `opportunities.reference`, `contracts.reference`,
