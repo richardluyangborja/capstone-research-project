@@ -161,7 +161,7 @@ Laravel's own and is separate from `frontend/`.
   the account's rights; billing is manager-only. Events: `CompanyStatusChanged`, `ContractSigned`,
   `CompanyActivated`, `CompanyChurned`. **Not built here:** the deal pipeline, contract
   versioning/e-signature, renewal reminders and automatic aging (ADR-0013).
-- **Module 02 — Opportunity Pipeline Visualization (baseline built; S2–S4 built, S5 planned — spec 18, ADR-0029):**
+- **Module 02 — Opportunity Pipeline Visualization (baseline built; S2–S5 built — spec 18, ADR-0029):**
   the deal pipeline on the `Opportunity` record (ADR-0014, ADR-0015). Flat `/api/v1/opportunities`
   (index/store/show/update/destroy + `POST /{id}/restore`) with `filter[stage|owner|company|open|source|close_window]` +
   `search` and a `summary` block; a deal is created directly on a visible company (owner = the creator) or by
@@ -188,11 +188,14 @@ Laravel's own and is separate from `frontend/`.
   adds optional notes to `LostReasonDialog`, shows linked contract projections on won cards and retires
   the old contract-activation prompt. **S4** adds the indexed `next_follow_up_at` column, syncs it from
   the deal's earliest open task, exposes it with a derived `next_follow_up` state, and badges the board,
-  table and detail (including the no-follow-up warning on proposal/negotiation deals). Events:
+  table and detail (including the no-follow-up warning on proposal/negotiation deals). **S5** adds the
+  Board/Funnel switcher, the stage funnel bar, the accessible deal peek drawer and the read-only
+  recruitment context on deal detail; the redundant Table tab was removed, so `/opportunities` remains
+  the one full, paginated deal book. Deal detail remembers whether it was opened from the board and its
+  Back link returns there; otherwise it returns to the Deal Book. Events:
   `OpportunityStageChanged`, `OpportunityWon`, `OpportunityLost` (`OpportunityCreated` now also fires on
   manual creation). The dashboard read endpoints are covered under module 06 below, and AI Management
-  Reports (spec `15`) under module 07. S5 (workspace ergonomics, funnel, peek drawer and recruitment
-  context) remains planned.
+  Reports (spec `15`) under module 07.
 - **Module 03 — Communication History Management (slices S1–S5 — log & history, email, attachments,
   threads, templates):** the detailed,
   channel-aware history record beside `Activity` (ADR-0017). Flat `/api/v1/communications`
@@ -498,13 +501,15 @@ linking to the account's Commercial > Billing section; hidden for salesreps), `/
 book: search + role/status/
 company filters, rows link back
 to their account). The old `/companies`, `/companies/new`, `/companies/:id` and `/clients` paths
-redirect to their `/accounts` equivalents while preserving the query string. `/pipeline` (Kanban
-board: open-stage columns with count/value/weighted totals,
-native drag-and-drop + a keyboard "Move to…" menu per card, a Lost-reason dialog, a Closed column for
-won/lost, owner/close-window/search filters and a forecast header), `/opportunities` (deal book:
-filters, pagination, summary), `/opportunities/new` (deal created directly on an account),
+redirect to their `/accounts` equivalents while preserving the query string. `/pipeline` (Kanban board
+with Board/Funnel tabs: open-stage columns with count/value/weighted totals, native drag-and-drop + a
+keyboard "Move to…" menu per card, a Lost-reason dialog, a Closed column for won/lost,
+owner/close-window/search filters, a forecast header, a stage funnel and a quick-peek drawer),
+`/opportunities` (deal book: the single full paginated table with filters and summary),
+`/opportunities/new` (deal created directly on an account),
 `/opportunities/:id` (edit form, stage control, deal timeline + log-activity, linked contracts and
-"Create contract from deal" when won — spec 17 T1 replaces this with a read-only contract link).
+"Create contract from deal" when won — spec 17 T1 replaces this with a read-only contract link;
+its Back link returns to `/pipeline` when opened from the board, otherwise to the Deal Book).
 `/accounts/:id?tab=contracts&opportunity_id=…` currently opens the contract upload prefilled from a
 won deal; after T1 it opens the read-only Commercial tab. `/communications` (history book: summary cards, channel/
 direction/status/**due**/record-type/owner/date filters — the status picker names the scheduled count

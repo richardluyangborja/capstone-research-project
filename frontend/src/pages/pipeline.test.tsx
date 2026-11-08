@@ -309,15 +309,13 @@ describe('Pipeline board', () => {
     expect(await screen.findByText('No follow-up scheduled')).toBeInTheDocument()
   })
 
-  it('switches between the board, table and funnel without losing filters', async () => {
+  it('switches between the board and funnel without losing filters', async () => {
     renderBoard()
 
     await screen.findByRole('link', { name: 'Sunrise Foods — warehouse staffing' })
     fireEvent.change(screen.getByLabelText('Owner filter'), { target: { value: 'me' } })
 
-    fireEvent.click(screen.getByRole('tab', { name: 'Table' }))
-    expect(await screen.findByRole('columnheader', { name: 'Account' })).toBeInTheDocument()
-    expect(screen.getByLabelText('Owner filter')).toHaveValue('me')
+    expect(screen.queryByRole('tab', { name: 'Table' })).not.toBeInTheDocument()
 
     fireEvent.click(screen.getByRole('tab', { name: 'Funnel' }))
     expect(await screen.findByRole('region', { name: 'Pipeline funnel' })).toBeInTheDocument()
@@ -328,6 +326,29 @@ describe('Pipeline board', () => {
       await screen.findByRole('region', { name: 'Discovery column' }),
     ).toBeInTheDocument()
     expect(screen.getByLabelText('Owner filter')).toHaveValue('me')
+  })
+
+  it('returns to the board when Back is used from a deal opened on the board', async () => {
+    render(
+      <MemoryRouter initialEntries={['/pipeline']}>
+        <Routes>
+          <Route path="/pipeline" element={<Pipeline />} />
+          <Route path="/opportunities/:id" element={<OpportunityDetail />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    fireEvent.click(
+      await screen.findByRole('link', { name: 'Sunrise Foods — warehouse staffing' }),
+    )
+
+    const back = await screen.findByRole('link', { name: 'Pipeline' })
+    expect(back).toHaveAttribute('href', '/pipeline')
+
+    fireEvent.click(back)
+    expect(
+      await screen.findByRole('region', { name: 'Discovery column' }),
+    ).toBeInTheDocument()
   })
 
   it('shows the open-stage share in the funnel bar', async () => {
@@ -600,6 +621,15 @@ describe('Deal detail', () => {
     expect(
       screen.queryByRole('link', { name: /create contract from deal/i }),
     ).not.toBeInTheDocument()
+  })
+
+  it('returns to the Deal Book when it was not opened from the board', async () => {
+    renderDetail()
+
+    expect(await screen.findByRole('link', { name: 'Deals' })).toHaveAttribute(
+      'href',
+      '/opportunities',
+    )
   })
 
   it('shows and edits the deal staffing demand', async () => {

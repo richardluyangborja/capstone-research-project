@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { ArrowLeft, CalendarClock, Trash2 } from 'lucide-react'
 import PageHeader from '../components/common/PageHeader'
 import FormCard from '../components/common/FormCard'
@@ -76,6 +76,17 @@ const formFromDeal = (deal: Opportunity): DealForm => ({
 export default function OpportunityDetail() {
   const { id = '' } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
+
+  const requestedReturnTo = (location.state as { returnTo?: unknown } | null)?.returnTo
+  const backTo =
+    typeof requestedReturnTo === 'string' &&
+    requestedReturnTo.startsWith('/') &&
+    !requestedReturnTo.startsWith('//') &&
+    !requestedReturnTo.startsWith('/opportunities/')
+      ? requestedReturnTo
+      : '/opportunities'
+  const backLabel = backTo.startsWith('/pipeline') ? 'Pipeline' : 'Deals'
 
   const [deal, setDeal] = useState<Opportunity | null>(null)
   const [timeline, setTimeline] = useState<Activity[]>([])
@@ -234,7 +245,7 @@ export default function OpportunityDetail() {
     setBusy(true)
     try {
       await deleteOpportunity(id)
-      navigate('/opportunities')
+      navigate(backTo)
     } catch (error) {
       showFailure(error, 'Could not delete the deal.')
       setBusy(false)
@@ -249,8 +260,8 @@ export default function OpportunityDetail() {
     return (
       <div>
         <AlertItem variant="danger">{message || 'This deal could not be found.'}</AlertItem>
-        <Link to="/opportunities" className="mt-4 inline-block text-sm text-primary">
-          Back to deals
+        <Link to={backTo} className="mt-4 inline-block text-sm text-primary">
+          Back to {backLabel.toLowerCase()}
         </Link>
       </div>
     )
@@ -261,11 +272,11 @@ export default function OpportunityDetail() {
   return (
     <div>
       <Link
-        to="/opportunities"
+        to={backTo}
         className="mb-4 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
       >
         <ArrowLeft className="h-4 w-4" aria-hidden="true" />
-        Deals
+        {backLabel}
       </Link>
 
       <PageHeader

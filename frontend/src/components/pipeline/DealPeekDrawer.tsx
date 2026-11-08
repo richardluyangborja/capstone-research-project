@@ -181,6 +181,7 @@ export default function DealPeekDrawer({ deal, onClose }: DealPeekDrawerProps) {
 
         <Link
           to={`/opportunities/${deal.id}`}
+          state={{ returnTo: '/pipeline' }}
           className="mt-5 inline-flex w-full items-center justify-center rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground"
         >
           Open full deal

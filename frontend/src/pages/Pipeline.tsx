@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Columns3, Filter, List, Plus, Search, Table2 } from 'lucide-react'
+import { Columns3, Filter, List, Plus, Search } from 'lucide-react'
 import PageHeader from '../components/common/PageHeader'
 import StatCard from '../components/common/StatCard'
 import StatusBadge from '../components/common/StatusBadge'
@@ -8,7 +8,6 @@ import StaffingBadge from '../components/common/StaffingBadge'
 import DealFollowUpBadge from '../components/common/DealFollowUpBadge'
 import AlertItem from '../components/common/AlertItem'
 import EmptyState from '../components/common/EmptyState'
-import DataTable, { type DataTableColumn } from '../components/common/DataTable'
 import StageMoveControl from '../components/common/StageMoveControl'
 import LostReasonDialog from '../components/common/LostReasonDialog'
 import WonConfirmDialog, { type WonOutcome } from '../components/common/WonConfirmDialog'
@@ -20,85 +19,11 @@ import { opportunityStageMeta, openStageOrder, followUpWarningStages } from '../
 import { formatCurrency, formatDate } from '../lib/format'
 import type { LostReason, Opportunity, OpportunityStage, PipelineBoard } from '../types'
 
-type PipelineView = 'board' | 'table' | 'funnel'
+type PipelineView = 'board' | 'funnel'
 
 const pipelineViews: { id: PipelineView; label: string; icon: typeof Columns3 }[] = [
   { id: 'board', label: 'Board', icon: Columns3 },
-  { id: 'table', label: 'Table', icon: Table2 },
   { id: 'funnel', label: 'Funnel', icon: Filter },
-]
-
-const dealTableColumns: DataTableColumn<Opportunity>[] = [
-  {
-    key: 'deal',
-    header: 'Deal',
-    render: (deal) => (
-      <div className="flex flex-col">
-        <Link
-          to={`/opportunities/${deal.id}`}
-          className="font-medium text-foreground hover:underline"
-        >
-          {deal.name}
-        </Link>
-        <span className="font-mono text-xs text-muted-foreground">{deal.reference}</span>
-      </div>
-    ),
-  },
-  {
-    key: 'account',
-    header: 'Account',
-    render: (deal) => (
-      <Link
-        to={`/accounts/${deal.company_id}`}
-        className="text-foreground hover:underline"
-      >
-        {deal.company?.name ?? '—'}
-      </Link>
-    ),
-  },
-  {
-    key: 'stage',
-    header: 'Stage',
-    render: (deal) => (
-      <StatusBadge tone={opportunityStageMeta[deal.stage].tone}>
-        {opportunityStageMeta[deal.stage].label}
-      </StatusBadge>
-    ),
-  },
-  {
-    key: 'staffing',
-    header: 'Staffing',
-    render: (deal) => (
-      <StaffingBadge
-        estimatedHeadcount={deal.estimated_headcount}
-        serviceType={deal.service_type}
-      />
-    ),
-  },
-  {
-    key: 'follow_up',
-    header: 'Follow-up',
-    render: (deal) => <DealFollowUpBadge deal={deal} />,
-  },
-  {
-    key: 'value',
-    header: 'Value',
-    className: 'font-medium text-cost',
-    headerClassName: 'text-right',
-    render: (deal) => <div className="text-right">{formatCurrency(deal.amount)}</div>,
-  },
-  {
-    key: 'owner',
-    header: 'Owner',
-    className: 'text-muted-foreground',
-    render: (deal) => deal.owner?.name ?? 'Unassigned',
-  },
-  {
-    key: 'close',
-    header: 'Expected close',
-    className: 'text-muted-foreground',
-    render: (deal) => formatDate(deal.expected_close_date) || '—',
-  },
 ]
 
 type OwnerFilter = '' | 'me' | 'team'
@@ -192,7 +117,6 @@ export default function Pipeline() {
   const closed = board?.data.closed ?? []
   const won = closed.filter((deal) => deal.is_won)
   const lost = closed.filter((deal) => deal.is_lost)
-  const tableDeals = [...columns.flatMap((column) => column.deals), ...closed]
   const meta = board?.meta
 
   const byId = new Map<string, Opportunity>()
@@ -370,13 +294,6 @@ export default function Pipeline() {
               New deal
             </Link>
           }
-        />
-      ) : view === 'table' ? (
-        <DataTable
-          columns={dealTableColumns}
-          rows={tableDeals}
-          rowKey={(deal) => deal.id}
-          caption="Deals in the current pipeline view"
         />
       ) : view === 'funnel' ? (
         <PipelineFunnel columns={columns} detailed />
@@ -622,6 +539,7 @@ function DealCard({
         <div className="flex items-start justify-between gap-2">
           <Link
             to={`/opportunities/${deal.id}`}
+            state={{ returnTo: '/pipeline' }}
             className="text-sm font-medium text-foreground hover:underline"
           >
             {deal.name}
