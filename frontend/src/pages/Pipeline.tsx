@@ -590,84 +590,90 @@ function DealCard({
 
   return (
     <article
-      draggable={deal.can_change_stage}
-      tabIndex={0}
-      aria-label={`Quick look: ${deal.name}`}
-      onClick={(event) => openPeek(event.target)}
-      onKeyDown={(event) => {
-        if (event.target !== event.currentTarget) return
-        if (event.key === 'Enter' || event.key === ' ') {
-          event.preventDefault()
-          onPeek(deal)
-        }
-      }}
-      onDragStart={(event) => {
-        event.dataTransfer.setData('text/plain', deal.id)
-        event.dataTransfer.effectAllowed = 'move'
-      }}
-      className={`cursor-pointer rounded-lg border border-border bg-card p-3 shadow-sm outline-none focus:ring-2 focus:ring-ring ${busy ? 'opacity-60' : ''}`}
+      className={`rounded-lg border border-border bg-card p-3 shadow-sm ${busy ? 'opacity-60' : ''}`}
     >
-      <div className="flex items-start justify-between gap-2">
-        <Link
-          to={`/opportunities/${deal.id}`}
-          className="text-sm font-medium text-foreground hover:underline"
-        >
-          {deal.name}
-        </Link>
-        {deal.is_stale && <StatusBadge tone="warm">Stale</StatusBadge>}
-      </div>
-
-      <p className="mt-1 text-xs text-muted-foreground">
-        {deal.company?.name ?? '—'} · <span className="font-mono">{deal.reference}</span>
-      </p>
-
-      {(deal.estimated_headcount || deal.service_type) && (
-        <div className="mt-2">
-          <StaffingBadge
-            estimatedHeadcount={deal.estimated_headcount}
-            serviceType={deal.service_type}
-          />
+      {/* Drag and peek live on the card body only — the stage select sits outside them so
+          it can be clicked and opened without starting a drag or the peek drawer. */}
+      <div
+        draggable={deal.can_change_stage}
+        tabIndex={0}
+        aria-label={`Quick look: ${deal.name}`}
+        onClick={(event) => openPeek(event.target)}
+        onKeyDown={(event) => {
+          if (event.target !== event.currentTarget) return
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault()
+            onPeek(deal)
+          }
+        }}
+        onDragStart={(event) => {
+          event.dataTransfer.setData('text/plain', deal.id)
+          event.dataTransfer.effectAllowed = 'move'
+        }}
+        className="cursor-pointer rounded outline-none focus:ring-2 focus:ring-ring"
+      >
+        <div className="flex items-start justify-between gap-2">
+          <Link
+            to={`/opportunities/${deal.id}`}
+            className="text-sm font-medium text-foreground hover:underline"
+          >
+            {deal.name}
+          </Link>
+          {deal.is_stale && <StatusBadge tone="warm">Stale</StatusBadge>}
         </div>
-      )}
 
-      {(deal.next_follow_up || (deal.is_open && followUpWarningStages.includes(deal.stage))) && (
-        <div className="mt-2">
-          <DealFollowUpBadge deal={deal} />
+        <p className="mt-1 text-xs text-muted-foreground">
+          {deal.company?.name ?? '—'} · <span className="font-mono">{deal.reference}</span>
+        </p>
+
+        {(deal.estimated_headcount || deal.service_type) && (
+          <div className="mt-2">
+            <StaffingBadge
+              estimatedHeadcount={deal.estimated_headcount}
+              serviceType={deal.service_type}
+            />
+          </div>
+        )}
+
+        {(deal.next_follow_up || (deal.is_open && followUpWarningStages.includes(deal.stage))) && (
+          <div className="mt-2">
+            <DealFollowUpBadge deal={deal} />
+          </div>
+        )}
+
+        {/* ADR-0027 — a won deal surfaces its read-only contract projection, if any (spec 18 S3). */}
+        {deal.is_won && deal.contracts && deal.contracts.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1">
+            {deal.contracts.map((contract) => (
+              <Link
+                key={contract.id}
+                to={`/contracts/${contract.id}`}
+                className="inline-flex items-center rounded-full bg-people/15 px-2 py-0.5 text-xs font-medium text-people hover:underline"
+              >
+                {contract.reference} · {contractStatusMeta[contract.status].label}
+              </Link>
+            ))}
+          </div>
+        )}
+
+        <p className="mt-2 text-sm font-semibold text-cost">{formatCurrency(deal.amount)}</p>
+
+        <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
+          <span>{deal.owner?.name ?? 'Unassigned'}</span>
+          <span>{deal.probability ?? 0}%</span>
         </div>
-      )}
 
-      {/* ADR-0027 — a won deal surfaces its read-only contract projection, if any (spec 18 S3). */}
-      {deal.is_won && deal.contracts && deal.contracts.length > 0 && (
-        <div className="mt-2 flex flex-wrap gap-1">
-          {deal.contracts.map((contract) => (
-            <Link
-              key={contract.id}
-              to={`/contracts/${contract.id}`}
-              className="inline-flex items-center rounded-full bg-people/15 px-2 py-0.5 text-xs font-medium text-people hover:underline"
-            >
-              {contract.reference} · {contractStatusMeta[contract.status].label}
-            </Link>
-          ))}
+        <div className="mt-1 flex items-center justify-between text-xs text-muted-foreground">
+          <span>
+            {deal.expected_close_date
+              ? `Close ${formatDate(deal.expected_close_date)}`
+              : 'No close date'}
+          </span>
+          <span>{deal.days_in_stage}d in stage</span>
         </div>
-      )}
 
-      <p className="mt-2 text-sm font-semibold text-cost">{formatCurrency(deal.amount)}</p>
-
-      <div className="mt-2 flex items-center justify-between text-xs text-muted-foreground">
-        <span>{deal.owner?.name ?? 'Unassigned'}</span>
-        <span>{deal.probability ?? 0}%</span>
+        {deal.next_step && <p className="mt-2 text-xs text-foreground">Next: {deal.next_step}</p>}
       </div>
-
-      <div className="mt-1 flex items-center justify-between text-xs text-muted-foreground">
-        <span>
-          {deal.expected_close_date
-            ? `Close ${formatDate(deal.expected_close_date)}`
-            : 'No close date'}
-        </span>
-        <span>{deal.days_in_stage}d in stage</span>
-      </div>
-
-      {deal.next_step && <p className="mt-2 text-xs text-foreground">Next: {deal.next_step}</p>}
 
       <div className="mt-3">
         <StageMoveControl

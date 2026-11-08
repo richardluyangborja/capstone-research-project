@@ -240,6 +240,11 @@ describe('Pipeline board', () => {
     expect(within(column).getByText('25 workers · Temporary Staffing')).toBeInTheDocument()
     expect(within(column).getAllByText(/450,000/).length).toBeGreaterThan(0)
 
+    // The stage select sits outside the draggable/peek body, so it stays clickable.
+    expect(
+      within(column).getByLabelText('Move OPP-2026-0001 to another stage').closest('[draggable="true"]'),
+    ).toBeNull()
+
     expect(screen.getByText('Open pipeline')).toBeInTheDocument()
     expect(screen.getByText('Weighted forecast')).toBeInTheDocument()
     expect(screen.getByText('Stalled deals')).toBeInTheDocument()
