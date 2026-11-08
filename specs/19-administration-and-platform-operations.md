@@ -1,6 +1,6 @@
 # Module 08 — Administration & Platform Operations
 
-- Status: **S0 policy baseline built; S1–S10 proposed**
+- Status: **S0–S1 built; S2–S10 proposed**
 - Owner: Main Planner
 - Depends on: ADR-0004, ADR-0005, ADR-0007, ADR-0016, `00-data-model.md`, `implementation/system-roles.md`
 
@@ -167,6 +167,7 @@ id. `{auditLog}` and `{session}` are ULIDs.
 
 | Method | Path | Owning policy | Allowed roles | Explicitly forbidden |
 | --- | --- | --- | --- | --- |
+| `GET` | `/admin/access` | `AdminAccessPolicy@view` | admin, superadmin | Salesrep/manager access; admin claiming platform operations; secrets or environment details |
 | `GET` | `/admin/users` | `UserAdminPolicy@viewAny` | admin, superadmin | Admin listing or filtering superadmin accounts |
 | `POST` | `/admin/users` | `UserAdminPolicy@create` | admin, superadmin | Admin creating admins; any route creating a superadmin; sending a plaintext password |
 | `GET` | `/admin/users/{user:public_id}` | `UserAdminPolicy@view` | admin, superadmin | Admin viewing a superadmin's security details |
@@ -348,18 +349,22 @@ Acceptance:
 - [x] The settings allow-list, audit vocabulary, redaction rules and threat model are accepted.
 - [x] The S0 contract is the implementation baseline for S1–S10.
 
-### S1 — Shared administration shell and route protection
+### S1 — Shared administration shell and route protection *(built)*
 
 Add admin/platform navigation groups, route guards, capability helpers, empty states, and a shared
 admin layout using the existing `DashboardShell`. Do not add fake controls without an API contract.
+S1 ships `GET /admin/access` (the capability probe), the `RoleRoute` guard, the Forbidden surface,
+the `Administration`, `Platform Operations` and `Personal` sidebar groups, and inert placeholder
+pages for S2–S9.
 
 Acceptance:
 
-- salesrep and manager cannot see or open admin routes;
-- admin sees application administration only;
-- superadmin sees application plus platform operations;
-- all roles see Personal Settings;
-- unauthorized access returns the existing authenticated error shape.
+- [x] salesrep and manager cannot see or open admin routes;
+- [x] admin sees application administration only;
+- [x] superadmin sees application plus platform operations;
+- [x] all roles see Personal Settings;
+- [x] unauthorized access returns the existing authenticated error shape (`403` from
+  `AdminAccessPolicy`, mirrored by the shell's 403 page).
 
 ### S2 — User directory and account lifecycle
 

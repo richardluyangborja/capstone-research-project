@@ -17,6 +17,7 @@ use App\Integrations\MockTimekeepingFeed;
 use App\Integrations\RecruitmentFeed;
 use App\Integrations\TimekeepingFeed;
 use App\Models\Activity;
+use App\Policies\AdminAccessPolicy;
 use App\Policies\TaskPolicy;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
@@ -48,5 +49,8 @@ class AppServiceProvider extends ServiceProvider
         // A task *is* an `Activity`, but a policy named `ActivityPolicy` would claim every
         // quick-log line — the rules here are about follow-ups only (spec 12 §Permissions).
         Gate::policy(Activity::class, TaskPolicy::class);
+
+        // Module 08 S1 — the administration shell's capability probe (spec 19, ADR-0030).
+        Gate::define('viewAdminAccess', [AdminAccessPolicy::class, 'view']);
     }
 }

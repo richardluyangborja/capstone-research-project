@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\V1\AdminAccessController;
 use App\Http\Controllers\Api\V1\AttachmentController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\BillingBookController;
@@ -68,6 +69,10 @@ Route::prefix('v1')->group(function (): void {
     Route::middleware('auth:api')->group(function (): void {
         Route::get('/auth/me', [AuthController::class, 'me']);
         Route::post('/auth/logout', [AuthController::class, 'logout']);
+
+        // Module 08 S1 — the administration shell's capability probe (spec 19, ADR-0030).
+        // The route is guarded by `AdminAccessPolicy`; non-admins get the standard 403 shape.
+        Route::get('admin/access', [AdminAccessController::class, 'show']);
 
         // Module 06 dashboard (spec 14, D2) — one role-scoped read over modules 01–05.
         Route::get('dashboard', [DashboardController::class, 'summary']);

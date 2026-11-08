@@ -25,6 +25,7 @@ import NewLead from '../pages/NewLead'
 import NewOpportunity from '../pages/NewOpportunity'
 import Opportunities from '../pages/Opportunities'
 import OpportunityDetail from '../pages/OpportunityDetail'
+import PersonalSettings from '../pages/PersonalSettings'
 import Pipeline from '../pages/Pipeline'
 import Reports from '../pages/Reports'
 import Satisfaction from '../pages/Satisfaction'
@@ -33,10 +34,24 @@ import SurveyInvitations from '../pages/SurveyInvitations'
 import SurveyResponseDetail from '../pages/SurveyResponseDetail'
 import SurveyResponses from '../pages/SurveyResponses'
 import Surveys from '../pages/Surveys'
+import AdminAudit from '../pages/admin/AdminAudit'
+import AdminHome from '../pages/admin/AdminHome'
+import AdminOperations from '../pages/admin/AdminOperations'
+import AdminSettings from '../pages/admin/AdminSettings'
+import AdminTeams from '../pages/admin/AdminTeams'
+import AdminUsers from '../pages/admin/AdminUsers'
+import PlatformDiagnostics from '../pages/platform/PlatformDiagnostics'
+import PlatformHome from '../pages/platform/PlatformHome'
+import { ADMIN_ROLES, PLATFORM_ROLES } from '../lib/permissions'
+import type { AdminArea, Role } from '../types'
 
 export interface DashboardRoute {
   path: string
   element: ReactNode
+  /** The role boundary for an administration route (spec 19 S1). */
+  roles?: Role[]
+  /** The shared sub-navigation shown above an administration page. */
+  area?: AdminArea
 }
 
 /**
@@ -82,4 +97,24 @@ export const dashboardRoutes: DashboardRoute[] = [
   { path: '/satisfaction/responses', element: <SurveyResponses /> },
   { path: '/satisfaction/responses/:id', element: <SurveyResponseDetail /> },
   { path: '/reports', element: <Reports /> },
+  // Module 08 S1 — personal settings for every role, then the guarded administration planes.
+  { path: '/settings', element: <PersonalSettings /> },
+  { path: '/admin', element: <AdminHome />, roles: ADMIN_ROLES, area: 'application' },
+  { path: '/admin/users', element: <AdminUsers />, roles: ADMIN_ROLES, area: 'application' },
+  { path: '/admin/teams', element: <AdminTeams />, roles: ADMIN_ROLES, area: 'application' },
+  { path: '/admin/settings', element: <AdminSettings />, roles: ADMIN_ROLES, area: 'application' },
+  { path: '/admin/audit', element: <AdminAudit />, roles: ADMIN_ROLES, area: 'application' },
+  {
+    path: '/admin/operations',
+    element: <AdminOperations />,
+    roles: ADMIN_ROLES,
+    area: 'application',
+  },
+  { path: '/platform', element: <PlatformHome />, roles: PLATFORM_ROLES, area: 'platform' },
+  {
+    path: '/platform/diagnostics',
+    element: <PlatformDiagnostics />,
+    roles: PLATFORM_ROLES,
+    area: 'platform',
+  },
 ]

@@ -1,7 +1,9 @@
 import { Route, Routes } from 'react-router-dom'
+import AdminSectionLayout from '../components/layout/AdminSectionLayout'
 import DashboardShell from '../components/layout/DashboardShell'
 import PublicLayout from '../components/layout/PublicLayout'
 import ProtectedRoute from '../components/ProtectedRoute'
+import RoleRoute from '../components/RoleRoute'
 import { useAuth } from '../lib/auth-context'
 import NotFound from '../pages/NotFound'
 import PublicHome from '../pages/PublicHome'
@@ -44,9 +46,23 @@ export default function AppRouter() {
         <Route path="/conversion" element={<RedirectToLeadView view="conversion" />} />
 
         <Route element={<DashboardLayout />}>
-          {dashboardRoutes.map((route) => (
-            <Route key={route.path} path={route.path} element={route.element} />
-          ))}
+          {dashboardRoutes.map((route) => {
+            const content = route.area ? (
+              <AdminSectionLayout area={route.area}>{route.element}</AdminSectionLayout>
+            ) : (
+              route.element
+            )
+
+            return (
+              <Route
+                key={route.path}
+                path={route.path}
+                element={
+                  route.roles ? <RoleRoute allow={route.roles}>{content}</RoleRoute> : content
+                }
+              />
+            )
+          })}
         </Route>
       </Route>
 

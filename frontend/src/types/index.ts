@@ -575,6 +575,17 @@ export interface AuthUser {
   role: Role
 }
 
+/** Module 08 S1 — the administration shell's server-side capability probe. */
+export type AdminArea = 'application' | 'platform'
+
+export interface AdminAccess {
+  role: Role
+  application: boolean
+  platform: boolean
+  personal_settings: boolean
+  areas: AdminArea[]
+}
+
 export interface Paginated<T> {
   data: T[]
   meta: {

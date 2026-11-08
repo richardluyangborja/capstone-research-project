@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import {
+  Activity,
   Building2,
   CalendarClock,
   ChevronDown,
@@ -13,19 +14,27 @@ import {
   LogOut,
   MessageSquare,
   MessagesSquare,
+  MonitorCog,
+  ScrollText,
   Send,
+  Settings,
+  ShieldCheck,
+  SlidersHorizontal,
   Sparkles,
   SquareKanban,
   Target,
   Truck,
   Upload,
+  UserCog,
   UserPlus,
   Users,
+  UsersRound,
   Wallet,
   type LucideIcon,
 } from 'lucide-react'
 import logo from '../../assets/logo.png'
 import { useAuth } from '../../lib/auth-context'
+import { ADMIN_ROLES, PLATFORM_ROLES } from '../../lib/permissions'
 import type { Role } from '../../types'
 
 interface NavItem {
@@ -153,6 +162,69 @@ const groups: NavGroup[] = [
     label: 'AI Reports',
     sections: [{ items: [{ to: '/reports', label: 'Management Reports', icon: Sparkles }] }],
   },
+  {
+    // Module 08 S1 (spec 19, ADR-0030). Admin operates the application; the platform group is
+    // superadmin-only. An empty group is omitted entirely, so an admin never sees a platform
+    // heading with nothing under it.
+    label: 'Administration',
+    sections: [
+      {
+        label: 'Application',
+        items: [
+          {
+            to: '/admin',
+            label: 'Admin Overview',
+            icon: ShieldCheck,
+            end: true,
+            roles: ADMIN_ROLES,
+          },
+          { to: '/admin/users', label: 'Users', icon: UserCog, roles: ADMIN_ROLES },
+          { to: '/admin/teams', label: 'Teams', icon: UsersRound, roles: ADMIN_ROLES },
+          {
+            to: '/admin/settings',
+            label: 'Admin Settings',
+            icon: SlidersHorizontal,
+            roles: ADMIN_ROLES,
+          },
+          { to: '/admin/audit', label: 'Audit Log', icon: ScrollText, roles: ADMIN_ROLES },
+          {
+            to: '/admin/operations',
+            label: 'Operations Health',
+            icon: Activity,
+            roles: ADMIN_ROLES,
+          },
+        ],
+      },
+    ],
+  },
+  {
+    label: 'Platform Operations',
+    sections: [
+      {
+        label: 'Platform',
+        items: [
+          {
+            to: '/platform',
+            label: 'Platform Overview',
+            icon: MonitorCog,
+            end: true,
+            roles: PLATFORM_ROLES,
+          },
+          {
+            to: '/platform/diagnostics',
+            label: 'Diagnostics',
+            icon: Activity,
+            roles: PLATFORM_ROLES,
+          },
+        ],
+      },
+    ],
+  },
+  {
+    // Every signed-in role has the same personal surface (spec 19 §All signed-in roles).
+    label: 'Personal',
+    sections: [{ items: [{ to: '/settings', label: 'Personal Settings', icon: Settings }] }],
+  },
 ]
 
 export default function Sidebar({ role }: { role: Role }) {
@@ -221,6 +293,12 @@ function NavGroupSection({ group, role }: { group: NavGroup; role: Role }) {
       items: section.items.filter((item) => !item.roles || item.roles.includes(role)),
     }))
     .filter((section) => section.items.length > 0)
+
+  // A group that has no visible items for this role (the platform group for an admin) is not
+  // rendered at all, rather than leaving an empty heading behind.
+  if (sections.length === 0) {
+    return null
+  }
 
   return (
     <div className="mt-5">
