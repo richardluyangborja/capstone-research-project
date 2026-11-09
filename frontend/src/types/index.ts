@@ -697,6 +697,32 @@ export interface AdminInvitationResult {
   message?: string
 }
 
+// --- Module 08 S4: organization and CRM settings -----------------------------
+
+export type SettingType = 'string' | 'email' | 'url' | 'enum' | 'int' | 'decimal' | 'bool'
+
+/** Where the effective value came from — the server computes it per key (spec 19). */
+export type SettingSource = 'database' | 'environment' | 'default'
+
+export interface AdminSetting {
+  key: string
+  label: string
+  type: SettingType
+  options: string[] | null
+  value: string | number | boolean | null
+  source: SettingSource
+  scope: string
+  write_role: 'admin' | 'superadmin' | null
+  read_only: boolean
+  editable: boolean
+}
+
+export interface AdminSettingCategory {
+  category: string
+  label: string
+  settings: AdminSetting[]
+}
+
 // --- Submodule 09: client account lifecycle + contracts ---------------------
 
 export type ContractStatus = 'draft' | 'sent' | 'signed' | 'expired' | 'terminated'

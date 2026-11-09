@@ -16,13 +16,19 @@ use App\Integrations\MockRecruitmentFeed;
 use App\Integrations\MockTimekeepingFeed;
 use App\Integrations\RecruitmentFeed;
 use App\Integrations\TimekeepingFeed;
+use App\Listeners\FilterDatabaseNotifications;
 use App\Models\Activity;
+use App\Models\Setting;
 use App\Models\Team;
 use App\Models\User;
 use App\Policies\AdminAccessPolicy;
+use App\Policies\SettingPolicy;
 use App\Policies\TaskPolicy;
 use App\Policies\TeamAdminPolicy;
 use App\Policies\UserAdminPolicy;
+use App\Settings\EffectiveSettings;
+use Illuminate\Notifications\Events\NotificationSending;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
@@ -43,6 +49,11 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(DeploymentFeed::class, MockDeploymentFeed::class);
         $this->app->bind(TimekeepingFeed::class, MockTimekeepingFeed::class);
         $this->app->bind(ContractFeed::class, MockContractFeed::class);
+
+        // Module 08 S4 — one effective-settings resolver per process. It remembers the
+        // baseline config so deleting an override restores the environment/default value
+        // instead of the value an earlier apply left behind in a long-running worker.
+        $this->app->singleton(EffectiveSettings::class);
     }
 
     /**
@@ -65,5 +76,13 @@ class AppServiceProvider extends ServiceProvider
         // Module 08 S3 — team administration. Registered explicitly alongside the user policy
         // so the application plane owns both halves of the organizational model.
         Gate::policy(Team::class, TeamAdminPolicy::class);
+
+        // Module 08 S4 — the settings registry is the allow-list; a Setting row is only an
+        // override. Registered explicitly so auto-discovery cannot claim a narrower meaning.
+        Gate::policy(Setting::class, SettingPolicy::class);
+
+        // Module 08 S4 — `notifications.database_enabled` is enforced at send time: the
+        // listener vetoes a database delivery when the switch is off.
+        Event::listen(NotificationSending::class, FilterDatabaseNotifications::class);
     }
 }

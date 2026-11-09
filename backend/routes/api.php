@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\V1\AdminAccessController;
+use App\Http\Controllers\Api\V1\AdminSettingController;
 use App\Http\Controllers\Api\V1\AdminTeamController;
 use App\Http\Controllers\Api\V1\AdminUserController;
 use App\Http\Controllers\Api\V1\AttachmentController;
@@ -103,6 +104,14 @@ Route::prefix('v1')->group(function (): void {
         Route::patch('admin/teams/{team}/manager', [AdminTeamController::class, 'assignManager']);
         Route::post('admin/teams/{team}/members', [AdminTeamController::class, 'addMember']);
         Route::delete('admin/teams/{team}/members/{user:public_id}', [AdminTeamController::class, 'removeMember']);
+
+        // Module 08 slice S4 — organization and CRM settings (spec 19, ADR-0030). The
+        // allow-list lives in `App\Settings\SettingRegistry`: unknown or secret keys are
+        // rejected, security keys are superadmin-only (hidden from the admin read), and the
+        // refresh endpoint rebuilds only the settings snapshot — never a generic cache flush.
+        Route::get('admin/settings', [AdminSettingController::class, 'index']);
+        Route::patch('admin/settings', [AdminSettingController::class, 'update']);
+        Route::post('admin/settings/refresh', [AdminSettingController::class, 'refresh']);
 
         // Module 06 dashboard (spec 14, D2) — one role-scoped read over modules 01–05.
         Route::get('dashboard', [DashboardController::class, 'summary']);

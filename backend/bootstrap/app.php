@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\ApplySettings;
 use App\Http\Middleware\EnsureUserIsActive;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -19,6 +20,10 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'active.user' => EnsureUserIsActive::class,
         ]);
+
+        // Module 08 S4 — every API request reads the persisted setting overrides onto
+        // `config()`, so the owning modules see the effective values on their next read.
+        $middleware->api(append: [ApplySettings::class]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(

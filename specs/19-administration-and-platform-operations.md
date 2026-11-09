@@ -1,6 +1,6 @@
 # Module 08 — Administration & Platform Operations
 
-- Status: **S0–S3 built; S4–S10 proposed**
+- Status: **S0–S4 built; S5–S10 proposed**
 - Owner: Main Planner
 - Depends on: ADR-0004, ADR-0005, ADR-0007, ADR-0016, `00-data-model.md`, `implementation/system-roles.md`
 
@@ -416,18 +416,31 @@ mutation writes `team.created`, `team.updated`, `team.member_added` or `team.mem
 members and add or remove them. The seed adds an unmanaged **Enterprise Accounts** team beside
 Business Development so the flow demos without creating one first.
 
-### S4 — Organization and CRM settings
+### S4 — Organization and CRM settings *(built)*
 
 Deliver typed settings read/update APIs and the settings UI. Group settings by the categories above,
 show effective source, validate ranges, and preserve defaults when no override exists.
 
 Acceptance:
 
-- admin can change safe CRM thresholds and organization presentation settings;
-- superadmin-only settings are hidden and rejected for admin;
-- setting changes affect the next read/dispatch where the owning module supports runtime settings;
-- unsupported or secret settings cannot be written through the UI;
-- changes create audit entries with old/new values after redaction.
+- [x] admin can change safe CRM thresholds and organization presentation settings;
+- [x] superadmin-only settings are hidden and rejected for admin;
+- [x] setting changes affect the next read/dispatch where the owning module supports runtime settings;
+- [x] unsupported or secret settings cannot be written through the UI;
+- [x] changes create audit entries with old/new values after redaction.
+
+Built as: `GET|PATCH /admin/settings` and `POST /admin/settings/refresh`, all behind
+`SettingPolicy`. `App\Settings\SettingRegistry` is the allow-list and `App\Settings\EffectiveSettings`
+resolves override → environment → default, caching one snapshot and pushing the effective values onto
+`config()` through the API middleware (`ApplySettings`) so the owning modules read the runtime values
+unchanged. A write upserts one typed `settings` row, deletes it when the value returns to the default
+(`setting.reset`), and audits `setting.updated`/`setting.reset` with the key's old and new values;
+`setting.refreshed` records the bounded snapshot rebuild. Unknown keys, secret-shaped keys and
+read-only keys are rejected, an admin never sees the Security category, and `notifications.database_enabled`
+is enforced at notification send time. `/admin/settings` renders the server's grouped allow-list with
+source badges and inline editors only where the key is editable. The runtime wiring covers the CRM
+aging/pipeline/follow-up/attachment/contract/survey thresholds, the mocked email/HR failure flags, the
+AI report switch and the organization timezone.
 
 ### S5 — Audit and security activity
 

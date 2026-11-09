@@ -150,7 +150,7 @@ export default function AdminHome() {
 
       <EmptyState
         title="Core administration is live"
-        description="Users and teams are managed now. Settings arrive with S4, the audit book with S5 and operations with S6."
+        description="Users, teams and settings are managed now. The audit book arrives with S5 and operations with S6."
       />
     </div>
   )
