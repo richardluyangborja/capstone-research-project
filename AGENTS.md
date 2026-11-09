@@ -772,8 +772,9 @@ link and `POST /reports/management/generate` behind the authenticated `ai/` Groq
 summaries, message drafting) are future submodules.
 **Module 08 — Administration & Platform Operations** is planned in `specs/19` and ADR-0030.
 **S0 (the role/endpoint/settings/audit/threat-model contract), S1 (the shared administration
-shell and route protection), S2 (the user directory and account lifecycle) and S3 (teams, roles and
-ownership administration) are built**; S4–S10 remain proposed.
+shell and route protection), S2 (the user directory and account lifecycle), S3 (teams, roles and
+ownership administration) and S4 (organization and CRM settings) are built**; S5–S10 remain
+proposed.
 S1 adds the guarded `/admin` and `/platform` route groups, the all-role `/settings` page,
 `GET /admin/access` capability probe, `RoleRoute`, and inert placeholders named for each later
 slice. The sidebar groups are `Administration`, `Platform Operations` and `Personal`; a role that
@@ -806,6 +807,19 @@ and shows the ownership-impact preview before the change. Every team mutation wr
 `team.updated`, `team.member_added` or `team.member_removed`; the team id is a ULID, so those audit
 rows carry it in `before`/`after` while `subject_id` stays null. The seed adds an unmanaged
 **Enterprise Accounts** team beside Business Development for the demo.
+S4 adds `/admin/settings` with `GET|PATCH /admin/settings` and `POST /admin/settings/refresh`,
+behind `SettingPolicy`. `App\Settings\SettingRegistry` is the typed allow-list (organization, CRM,
+notifications, AI and security keys) and `App\Settings\EffectiveSettings` resolves override →
+environment → default, caches one snapshot and pushes the effective values onto `config()` from the
+API middleware. A write upserts one typed `settings` row, deletes it when the value returns to the
+default, and audits `setting.updated`/`setting.reset` with the key's old and new values; the bounded
+refresh audits `setting.refreshed`. Unknown, secret-shaped and read-only keys are rejected; an admin
+never sees the Security category (a direct write is a 403), while the runtime wiring covers the CRM
+aging/pipeline/follow-up/attachment/contract/survey thresholds, the mocked email/HR flags, the AI
+report switch, the organization timezone and `notifications.database_enabled` (enforced at
+notification send time). `/admin/settings` renders the grouped allow-list with source badges and
+inline editors only where the key is editable. The module adds the `settings` table; `user.*`
+preferences remain S9.
 Dedup/merge and advanced/stored tier scoring are module-01 deferrals
 (ADR-0006), and automatic client aging stays one too (ADR-0018 §6). Other departments are consumed via
 **read-only mocked feeds** (ADR-0005, ADR-0025), not built here.

@@ -2,6 +2,7 @@ import { api } from './api'
 import type {
   AdminAccess,
   AdminInvitationResult,
+  AdminSettingCategory,
   AdminTeam,
   AdminTeamOption,
   AdminUser,
@@ -193,4 +194,28 @@ export const addAdminTeamMember = async (id: string, userId: string): Promise<Ad
 export const removeAdminTeamMember = async (id: string, userId: string): Promise<AdminTeam> => {
   const { data } = await api.delete<{ data: AdminTeam }>(`/admin/teams/${id}/members/${userId}`)
   return data.data
+}
+
+// --- Module 08 S4: organization and CRM settings -----------------------------
+
+/** The grouped read: categories with their typed, sourced settings (spec 19 §S4). */
+export const getAdminSettings = async (): Promise<AdminSettingCategory[]> => {
+  const { data } = await api.get<{ data: AdminSettingCategory[] }>('/admin/settings')
+  return data.data
+}
+
+/**
+ * A keyed batch write. Unknown, read-only or out-of-scope keys come back as 422/403 per
+ * the spec; the response is the full grouped read as it now stands.
+ */
+export const updateAdminSettings = async (
+  settings: Record<string, string | number | boolean | null>,
+): Promise<AdminSettingCategory[]> => {
+  const { data } = await api.patch<{ data: AdminSettingCategory[] }>('/admin/settings', { settings })
+  return data.data
+}
+
+/** Rebuild the effective-configuration snapshot — a bounded refresh, not a cache flush. */
+export const refreshAdminSettings = async (): Promise<void> => {
+  await api.post('/admin/settings/refresh')
 }
