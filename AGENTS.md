@@ -772,8 +772,8 @@ link and `POST /reports/management/generate` behind the authenticated `ai/` Groq
 summaries, message drafting) are future submodules.
 **Module 08 — Administration & Platform Operations** is planned in `specs/19` and ADR-0030.
 **S0 (the role/endpoint/settings/audit/threat-model contract), S1 (the shared administration
-shell and route protection) and S2 (the user directory and account lifecycle) are built**;
-S3–S10 remain proposed.
+shell and route protection), S2 (the user directory and account lifecycle) and S3 (teams, roles and
+ownership administration) are built**; S4–S10 remain proposed.
 S1 adds the guarded `/admin` and `/platform` route groups, the all-role `/settings` page,
 `GET /admin/access` capability probe, `RoleRoute`, and inert placeholders named for each later
 slice. The sidebar groups are `Administration`, `Platform Operations` and `Personal`; a role that
@@ -794,6 +794,18 @@ working), the final active superadmin cannot be demoted or suspended
 creates a superadmin. Invitations ride the mocked `EmailGateway` (ADR-0005) and never carry a
 credential. Suspension and team changes never reassign CRM records; ownership stays with the domain
 delegation endpoints.
+S3 adds `/admin/teams` (search, member counts and manager) with `POST /admin/teams`, `GET|PATCH
+/admin/teams/{team}`, `PATCH /admin/teams/{team}/manager`, `POST /admin/teams/{team}/members` and
+`DELETE /admin/teams/{team}/members/{user:public_id}`, all behind `TeamAdminPolicy`. A manager must
+be an active manager account (`EligibleTeamManager`); the current manager cannot be removed as a
+member, and a manager who still leads a team cannot be demoted or suspended until the team is
+reassigned. An admin manages manager/salesrep membership; only a superadmin may move an
+administrator, and superadmins never join a team. Membership writes only `users.team_id` — never a
+lead, account or deal owner. The role control in `/admin/users` now asks for explicit confirmation
+and shows the ownership-impact preview before the change. Every team mutation writes `team.created`,
+`team.updated`, `team.member_added` or `team.member_removed`; the team id is a ULID, so those audit
+rows carry it in `before`/`after` while `subject_id` stays null. The seed adds an unmanaged
+**Enterprise Accounts** team beside Business Development for the demo.
 Dedup/merge and advanced/stored tier scoring are module-01 deferrals
 (ADR-0006), and automatic client aging stays one too (ADR-0018 §6). Other departments are consumed via
 **read-only mocked feeds** (ADR-0005, ADR-0025), not built here.

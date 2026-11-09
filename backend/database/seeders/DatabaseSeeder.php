@@ -17,6 +17,10 @@ class DatabaseSeeder extends Seeder
     {
         $team = Team::create(['name' => 'Business Development']);
 
+        // Module 08 S3 — an unmanaged second team so the admin team directory demos manager
+        // assignment and membership changes without creating one first.
+        Team::create(['name' => 'Enterprise Accounts']);
+
         $manager = User::create([
             'name' => 'Maria Manager',
             'email' => 'manager@primepower.test',

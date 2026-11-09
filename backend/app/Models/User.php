@@ -76,6 +76,15 @@ class User extends Authenticatable implements JWTSubject
     }
 
     /**
+     * Teams this user leads (module 08 S3). A team manager must keep the manager role and an
+     * active account, so the directory checks this before a role change or suspension.
+     */
+    public function managedTeams(): HasMany
+    {
+        return $this->hasMany(Team::class, 'manager_id');
+    }
+
+    /**
      * The route key for administration URLs: the ULID public id, never the internal key.
      */
     public function getRouteKeyName(): string

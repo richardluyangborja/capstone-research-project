@@ -149,8 +149,14 @@ class AdminUserController extends Controller
             return $this->finalSuperadminGuardResponse();
         }
 
+        $newRole = Role::from((string) $request->input('role'));
+
+        if ($target->role === Role::Manager && $newRole !== Role::Manager && $target->managedTeams()->exists()) {
+            return response()->json(['message' => "Reassign this user's teams before changing their role."], 422);
+        }
+
         $before = ['role' => $target->role->value];
-        $target->update(['role' => Role::from((string) $request->input('role'))]);
+        $target->update(['role' => $newRole]);
 
         AuditLog::record('user.role_changed', AuditSeverity::Warning, $request->user()->id, User::class, $target->id, $before, ['role' => $target->role->value]);
 
@@ -181,6 +187,10 @@ class AdminUserController extends Controller
 
         if ($target->status === UserStatus::Suspended) {
             return response()->json(['message' => 'This account is already suspended.'], 422);
+        }
+
+        if ($target->managedTeams()->exists()) {
+            return response()->json(['message' => "Reassign this user's teams before suspending the account."], 422);
         }
 
         $target->forceFill([

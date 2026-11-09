@@ -1,6 +1,6 @@
 # Module 08 — Administration & Platform Operations
 
-- Status: **S0–S2 built; S3–S10 proposed**
+- Status: **S0–S3 built; S4–S10 proposed**
 - Owner: Main Planner
 - Depends on: ADR-0004, ADR-0005, ADR-0007, ADR-0016, `00-data-model.md`, `implementation/system-roles.md`
 
@@ -389,18 +389,32 @@ filters, a create/invite form, and a detail panel whose controls are gated by th
 block. The ownership-impact preview is read-only and states that suspension and team changes never
 reassign records.
 
-### S3 — Teams, roles, and ownership administration
+### S3 — Teams, roles, and ownership administration *(built)*
 
 Deliver team listing/detail, manager assignment, membership changes, and a role/team change
 workflow. Role changes must be explicit, confirmed, audited, and reflected in the next request.
 
 Acceptance:
 
-- team manager and membership constraints remain valid;
-- admins cannot assign a user to an out-of-scope role;
-- changing a user's team does not reassign CRM records automatically;
-- ownership reassignment uses existing domain delegation endpoints or a reviewed bulk operation;
-- the user detail shows an ownership-impact preview before a risky change.
+- [x] team manager and membership constraints remain valid;
+- [x] admins cannot assign a user to an out-of-scope role;
+- [x] changing a user's team does not reassign CRM records automatically;
+- [x] ownership reassignment uses existing domain delegation endpoints or a reviewed bulk operation;
+- [x] the user detail shows an ownership-impact preview before a risky change.
+
+Built as: `GET|POST /admin/teams`, `GET|PATCH /admin/teams/{team}`, `PATCH
+/admin/teams/{team}/manager`, `POST /admin/teams/{team}/members` and `DELETE
+/admin/teams/{team}/members/{user:public_id}`, all behind `TeamAdminPolicy`. A manager must be an
+active account with the manager role (`EligibleTeamManager`); a team's current manager cannot be
+removed as a member, and a manager who still leads a team cannot be demoted or suspended until the
+team is reassigned. Administrators may add manager/salesrep accounts, while only a superadmin may
+move an administrator; superadmins are never team members. Membership changes only write
+`users.team_id` — never a lead, account or deal owner. The role control in `/admin/users` now asks
+for explicit confirmation and shows the ownership-impact preview before the change; every team
+mutation writes `team.created`, `team.updated`, `team.member_added` or `team.member_removed`.
+`/admin/teams` is the directory and detail workspace: create/rename, assign a manager, inspect
+members and add or remove them. The seed adds an unmanaged **Enterprise Accounts** team beside
+Business Development so the flow demos without creating one first.
 
 ### S4 — Organization and CRM settings
 
