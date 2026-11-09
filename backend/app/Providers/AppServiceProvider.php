@@ -18,10 +18,12 @@ use App\Integrations\RecruitmentFeed;
 use App\Integrations\TimekeepingFeed;
 use App\Listeners\FilterDatabaseNotifications;
 use App\Models\Activity;
+use App\Models\AuditLog;
 use App\Models\Setting;
 use App\Models\Team;
 use App\Models\User;
 use App\Policies\AdminAccessPolicy;
+use App\Policies\AuditLogPolicy;
 use App\Policies\SettingPolicy;
 use App\Policies\TaskPolicy;
 use App\Policies\TeamAdminPolicy;
@@ -80,6 +82,10 @@ class AppServiceProvider extends ServiceProvider
         // Module 08 S4 — the settings registry is the allow-list; a Setting row is only an
         // override. Registered explicitly so auto-discovery cannot claim a narrower meaning.
         Gate::policy(Setting::class, SettingPolicy::class);
+
+        // Module 08 S5 — the audit book's read/export boundary. Registered explicitly so the
+        // append-only model never inherits a broader auto-discovered policy.
+        Gate::policy(AuditLog::class, AuditLogPolicy::class);
 
         // Module 08 S4 — `notifications.database_enabled` is enforced at send time: the
         // listener vetoes a database delivery when the switch is off.

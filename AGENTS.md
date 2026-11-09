@@ -773,8 +773,8 @@ summaries, message drafting) are future submodules.
 **Module 08 — Administration & Platform Operations** is planned in `specs/19` and ADR-0030.
 **S0 (the role/endpoint/settings/audit/threat-model contract), S1 (the shared administration
 shell and route protection), S2 (the user directory and account lifecycle), S3 (teams, roles and
-ownership administration) and S4 (organization and CRM settings) are built**; S5–S10 remain
-proposed.
+ownership administration), S4 (organization and CRM settings) and S5 (the immutable audit book)
+are built**; S6–S10 remain proposed.
 S1 adds the guarded `/admin` and `/platform` route groups, the all-role `/settings` page,
 `GET /admin/access` capability probe, `RoleRoute`, and inert placeholders named for each later
 slice. The sidebar groups are `Administration`, `Platform Operations` and `Personal`; a role that
@@ -820,6 +820,15 @@ report switch, the organization timezone and `notifications.database_enabled` (e
 notification send time). `/admin/settings` renders the grouped allow-list with source badges and
 inline editors only where the key is editable. The module adds the `settings` table; `user.*`
 preferences remain S9.
+S5 adds `/admin/audit` with `GET /admin/audit-logs` (actor, action, resource, severity, date-range
+and correlation-id filters; per-page capped at 100), `GET /admin/audit-logs/{auditLog}` and
+`GET /admin/audit-logs/export` (CSV, 5,000 rows and 366 days, itself audited as `audit.exported`),
+behind `AuditLogPolicy`. `AuditLog` is append-only at the model layer (update/delete throw) and the
+writer already strips secret-shaped keys; `AuditPresenter` masks contact email/phone and actor
+emails again on read, and the CSV neutralises formula injection. An application admin never sees
+`security.*` or `auth.login_failed`; a superadmin does. The correlation id is minted once per
+request and cached, so a multi-step mutation's rows share it. `/admin/audit` renders the book with
+grouped event labels, severity badges, a detail panel and the bounded export.
 Dedup/merge and advanced/stored tier scoring are module-01 deferrals
 (ADR-0006), and automatic client aging stays one too (ADR-0018 §6). Other departments are consumed via
 **read-only mocked feeds** (ADR-0005, ADR-0025), not built here.
