@@ -9,3 +9,6 @@ venv/
 .idea/
 .vscode/
 .run/
+
+# Perch workspace scaffolding (local tooling config, not project source)
+.perch/
