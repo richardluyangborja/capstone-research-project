@@ -147,4 +147,15 @@ return [
         'attention_nps_max' => (int) env('CRM_SURVEY_ATTENTION_NPS_MAX', 6),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Administration (module 08)
+    |--------------------------------------------------------------------------
+    | The origin the mocked account invitation points at. Email is a mocked
+    | integration (ADR-0005), so this is only the wording of the invite.
+    */
+
+    'admin' => [
+        'invite_origin' => env('FRONTEND_URL', 'http://localhost:5173'),
+    ],
 ];

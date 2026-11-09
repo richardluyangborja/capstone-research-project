@@ -1,5 +1,14 @@
 import { api } from './api'
-import type { AdminAccess } from '../types'
+import type {
+  AdminAccess,
+  AdminInvitationResult,
+  AdminTeamOption,
+  AdminUser,
+  AdminUserOwnershipImpact,
+  Paginated,
+  Role,
+  UserStatus,
+} from '../types'
 
 /**
  * The server-side capability probe for the administration shell (spec 19 S1). It is deliberately
@@ -8,5 +17,122 @@ import type { AdminAccess } from '../types'
  */
 export const getAdminAccess = async (): Promise<AdminAccess> => {
   const { data } = await api.get<{ data: AdminAccess }>('/admin/access')
+  return data.data
+}
+
+// --- Module 08 S2 — the user directory and account lifecycle -----------------
+
+export interface AdminUserFilters {
+  search?: string
+  role?: Role | ''
+  team_id?: string
+  status?: UserStatus | ''
+  page?: number
+}
+
+/**
+ * The directory is paginated and role-scoped on the server: an admin's query never returns a
+ * superadmin account, so the page does not filter the response itself (spec 19 §Endpoint and
+ * policy inventory).
+ */
+export const listAdminUsers = async (
+  filters: AdminUserFilters = {},
+): Promise<Paginated<AdminUser>> => {
+  const params: Record<string, string | number> = {}
+  if (filters.search) params.search = filters.search
+  if (filters.role) params.role = filters.role
+  if (filters.team_id) params.team_id = filters.team_id
+  if (filters.status) params.status = filters.status
+  if (filters.page && filters.page > 1) params.page = filters.page
+
+  const { data } = await api.get<Paginated<AdminUser>>('/admin/users', { params })
+  return data
+}
+
+export const getAdminUser = async (id: string): Promise<AdminUser> => {
+  const { data } = await api.get<{ data: AdminUser }>(`/admin/users/${id}`)
+  return data.data
+}
+
+/** The teams a directory account can belong to — a lookup, not team administration (S3). */
+export const listAdminTeamOptions = async (): Promise<AdminTeamOption[]> => {
+  const { data } = await api.get<{ data: AdminTeamOption[] }>('/admin/users/team-options')
+  return data.data
+}
+
+export interface CreateAdminUserInput {
+  name: string
+  email: string
+  role: Role
+  team_id?: string | null
+  /** Optional: an omitted password means the account starts through the invitation flow. */
+  password?: string
+}
+
+export interface CreateAdminUserResult {
+  user: AdminUser
+  invitation: AdminInvitationResult
+}
+
+export const createAdminUser = async (
+  input: CreateAdminUserInput,
+): Promise<CreateAdminUserResult> => {
+  const { data } = await api.post<{ data: AdminUser; invitation: AdminInvitationResult }>(
+    '/admin/users',
+    input,
+  )
+  return { user: data.data, invitation: data.invitation }
+}
+
+/** Safe profile edits only — role, team, status and password have their own endpoints. */
+export const updateAdminUser = async (
+  id: string,
+  input: { name?: string; email?: string },
+): Promise<AdminUser> => {
+  const { data } = await api.patch<{ data: AdminUser }>(`/admin/users/${id}`, input)
+  return data.data
+}
+
+export const changeAdminUserRole = async (id: string, role: Role): Promise<AdminUser> => {
+  const { data } = await api.patch<{ data: AdminUser }>(`/admin/users/${id}/role`, { role })
+  return data.data
+}
+
+/** A team change never reassigns CRM ownership (spec 19 §Resource boundaries). */
+export const changeAdminUserTeam = async (
+  id: string,
+  teamId: string | null,
+): Promise<AdminUser> => {
+  const { data } = await api.patch<{ data: AdminUser }>(`/admin/users/${id}/team`, {
+    team_id: teamId,
+  })
+  return data.data
+}
+
+export const suspendAdminUser = async (id: string, statusReason: string): Promise<AdminUser> => {
+  const { data } = await api.post<{ data: AdminUser }>(`/admin/users/${id}/suspend`, {
+    status_reason: statusReason,
+  })
+  return data.data
+}
+
+export const restoreAdminUser = async (id: string): Promise<AdminUser> => {
+  const { data } = await api.post<{ data: AdminUser }>(`/admin/users/${id}/restore`)
+  return data.data
+}
+
+export const resendAdminInvitation = async (id: string): Promise<AdminInvitationResult> => {
+  const { data } = await api.post<{ data: AdminInvitationResult }>(
+    `/admin/users/${id}/resend-invitation`,
+  )
+  return data.data
+}
+
+export const getAdminUserOwnershipImpact = async (
+  id: string,
+): Promise<AdminUserOwnershipImpact> => {
+  const { data } = await api.get<{ data: AdminUserOwnershipImpact }>(
+    `/admin/users/${id}/ownership-impact`,
+  )
   return data.data
 }

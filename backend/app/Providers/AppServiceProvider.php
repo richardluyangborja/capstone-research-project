@@ -17,8 +17,10 @@ use App\Integrations\MockTimekeepingFeed;
 use App\Integrations\RecruitmentFeed;
 use App\Integrations\TimekeepingFeed;
 use App\Models\Activity;
+use App\Models\User;
 use App\Policies\AdminAccessPolicy;
 use App\Policies\TaskPolicy;
+use App\Policies\UserAdminPolicy;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
@@ -52,5 +54,10 @@ class AppServiceProvider extends ServiceProvider
 
         // Module 08 S1 — the administration shell's capability probe (spec 19, ADR-0030).
         Gate::define('viewAdminAccess', [AdminAccessPolicy::class, 'view']);
+
+        // Module 08 S2 — the user directory's lifecycle policy. It is named `UserAdminPolicy`
+        // (not `UserPolicy`) on purpose: auto-discovery would silently claim every `users`
+        // ability across the CRM, so it is registered explicitly for the User model.
+        Gate::policy(User::class, UserAdminPolicy::class);
     }
 }

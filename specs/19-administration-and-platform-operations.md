@@ -1,6 +1,6 @@
 # Module 08 — Administration & Platform Operations
 
-- Status: **S0–S1 built; S2–S10 proposed**
+- Status: **S0–S2 built; S3–S10 proposed**
 - Owner: Main Planner
 - Depends on: ADR-0004, ADR-0005, ADR-0007, ADR-0016, `00-data-model.md`, `implementation/system-roles.md`
 
@@ -366,7 +366,7 @@ Acceptance:
 - [x] unauthorized access returns the existing authenticated error shape (`403` from
   `AdminAccessPolicy`, mirrored by the shell's 403 page).
 
-### S2 — User directory and account lifecycle
+### S2 — User directory and account lifecycle *(built)*
 
 Deliver the admin user directory: search, role/team/status filters, detail view, create/invite,
 activate, suspend, restore, and safe profile edits. A suspended user cannot authenticate or mutate
@@ -374,11 +374,20 @@ CRM data. Preserve ownership history when a user is suspended; do not silently r
 
 Acceptance:
 
-- admins manage manager/salesrep accounts; only superadmins create or promote admins;
-- only superadmins manage superadmin accounts; creating a superadmin is not exposed in the UI;
-- the final active superadmin cannot be suspended;
-- every lifecycle mutation is audited and visible in the activity detail;
-- invitation delivery uses the existing mocked gateway or a clearly labelled local fallback.
+- [x] admins manage manager/salesrep accounts; only superadmins create or promote admins;
+- [x] only superadmins manage superadmin accounts; creating a superadmin is not exposed in the UI;
+- [x] the final active superadmin cannot be suspended;
+- [x] every lifecycle mutation is audited and visible in the activity detail;
+- [x] invitation delivery uses the existing mocked gateway or a clearly labelled local fallback.
+
+Built as: the `users` lifecycle columns (`public_id` ULID URL key, `status`, `suspended_at`,
+`suspended_by`, `status_reason`), the append-only redacting `audit_logs` writer, `UserAdminPolicy`,
+`EnsureUserIsActive`, and the `/admin/users` routes from the inventory above plus
+`GET /admin/users/team-options` — the directory's team lookup for its filter and create form, not
+team administration, which S3 owns. The frontend is `/admin/users`: search and role/team/status
+filters, a create/invite form, and a detail panel whose controls are gated by the row's own `can`
+block. The ownership-impact preview is read-only and states that suspension and team changes never
+reassign records.
 
 ### S3 — Teams, roles, and ownership administration
 

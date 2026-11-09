@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\V1\AdminAccessController;
+use App\Http\Controllers\Api\V1\AdminUserController;
 use App\Http\Controllers\Api\V1\AttachmentController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\BillingBookController;
@@ -66,13 +67,30 @@ Route::prefix('v1')->group(function (): void {
     // narrow: a website lead, owned by nobody, with consent recorded and no internal detail back.
     Route::post('public/leads', [PublicLeadController::class, 'store'])->middleware('throttle:5,1');
 
-    Route::middleware('auth:api')->group(function (): void {
+    Route::middleware(['auth:api', 'active.user'])->group(function (): void {
         Route::get('/auth/me', [AuthController::class, 'me']);
         Route::post('/auth/logout', [AuthController::class, 'logout']);
 
         // Module 08 S1 — the administration shell's capability probe (spec 19, ADR-0030).
         // The route is guarded by `AdminAccessPolicy`; non-admins get the standard 403 shape.
         Route::get('admin/access', [AdminAccessController::class, 'show']);
+
+        // Module 08 slice S2 — the admin user directory and account lifecycle (spec 19,
+        // ADR-0030). The URL key is `users.public_id` (ULID); `users.id` stays internal.
+        // Static paths precede nothing here — every path is explicit — but the lifecycle
+        // routes sit beside the resource ones, all behind `UserAdminPolicy`.
+        Route::get('admin/users', [AdminUserController::class, 'index']);
+        Route::post('admin/users', [AdminUserController::class, 'store']);
+        // Declared before `{user:public_id}` so the literal segment is not read as a ULID.
+        Route::get('admin/users/team-options', [AdminUserController::class, 'teamOptions']);
+        Route::get('admin/users/{user:public_id}', [AdminUserController::class, 'show']);
+        Route::patch('admin/users/{user:public_id}', [AdminUserController::class, 'update']);
+        Route::patch('admin/users/{user:public_id}/role', [AdminUserController::class, 'changeRole']);
+        Route::patch('admin/users/{user:public_id}/team', [AdminUserController::class, 'changeTeam']);
+        Route::post('admin/users/{user:public_id}/suspend', [AdminUserController::class, 'suspend']);
+        Route::post('admin/users/{user:public_id}/restore', [AdminUserController::class, 'restore']);
+        Route::post('admin/users/{user:public_id}/resend-invitation', [AdminUserController::class, 'resendInvitation']);
+        Route::get('admin/users/{user:public_id}/ownership-impact', [AdminUserController::class, 'ownershipImpact']);
 
         // Module 06 dashboard (spec 14, D2) — one role-scoped read over modules 01–05.
         Route::get('dashboard', [DashboardController::class, 'summary']);

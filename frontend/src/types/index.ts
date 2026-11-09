@@ -317,10 +317,7 @@ export type LostReason = 'price' | 'competitor' | 'no_budget' | 'timing' | 'no_d
 
 /** Staffing placement type on a deal (spec 18 S2). */
 export type ServiceType =
-  | 'temporary_staffing'
-  | 'contract_to_hire'
-  | 'direct_hire'
-  | 'project_based'
+  'temporary_staffing' | 'contract_to_hire' | 'direct_hire' | 'project_based'
 
 export interface OpportunityCompanyRef {
   id: string
@@ -595,6 +592,68 @@ export interface Paginated<T> {
     last_page: number
   }
   links: Record<string, string | null>
+}
+
+// --- Module 08 S2: user directory and account lifecycle ---------------------
+
+/** Accounts are suspended and restored, never deleted (spec 19 §S2). */
+export type UserStatus = 'active' | 'suspended'
+
+/**
+ * One directory row. `id` is the ULID `public_id` — the internal bigint key never leaves the
+ * API (ADR-0007). The `can` block is the server's own policy answer, so the directory never
+ * offers an action the caller would be refused.
+ */
+export interface AdminUser {
+  id: string
+  name: string
+  email: string
+  role: Role
+  status: UserStatus
+  team: { id: string; name: string } | null
+  suspended_at: string | null
+  suspended_by?: { id: string; name: string } | null
+  status_reason: string | null
+  created_at: string | null
+  counts?: { leads: number; companies: number; opportunities: number }
+  can: AdminUserAbilities
+}
+
+export interface AdminUserAbilities {
+  view: boolean
+  update: boolean
+  change_role: boolean
+  change_team: boolean
+  suspend: boolean
+  restore: boolean
+  resend_invitation: boolean
+  view_ownership_impact: boolean
+  can_assign_admin: boolean
+}
+
+/** The read-only ownership preview shown before a risky change (spec 19 §S3). */
+export interface AdminUserOwnershipImpact {
+  counts: {
+    leads: number
+    companies: number
+    opportunities: number
+    open_follow_ups: number
+  }
+  note: string
+}
+
+/** A team as the directory's filter and create form see it. */
+export interface AdminTeamOption {
+  id: string
+  name: string
+  users_count: number
+}
+
+/** The mocked invitation outcome — a rejection is a delivery result, not an error. */
+export interface AdminInvitationResult {
+  sent: boolean
+  source: string
+  message?: string
 }
 
 // --- Submodule 09: client account lifecycle + contracts ---------------------
