@@ -17,9 +17,11 @@ use App\Integrations\MockTimekeepingFeed;
 use App\Integrations\RecruitmentFeed;
 use App\Integrations\TimekeepingFeed;
 use App\Models\Activity;
+use App\Models\Team;
 use App\Models\User;
 use App\Policies\AdminAccessPolicy;
 use App\Policies\TaskPolicy;
+use App\Policies\TeamAdminPolicy;
 use App\Policies\UserAdminPolicy;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
@@ -59,5 +61,9 @@ class AppServiceProvider extends ServiceProvider
         // (not `UserPolicy`) on purpose: auto-discovery would silently claim every `users`
         // ability across the CRM, so it is registered explicitly for the User model.
         Gate::policy(User::class, UserAdminPolicy::class);
+
+        // Module 08 S3 — team administration. Registered explicitly alongside the user policy
+        // so the application plane owns both halves of the organizational model.
+        Gate::policy(Team::class, TeamAdminPolicy::class);
     }
 }

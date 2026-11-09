@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\V1\AdminAccessController;
+use App\Http\Controllers\Api\V1\AdminTeamController;
 use App\Http\Controllers\Api\V1\AdminUserController;
 use App\Http\Controllers\Api\V1\AttachmentController;
 use App\Http\Controllers\Api\V1\AuthController;
@@ -91,6 +92,17 @@ Route::prefix('v1')->group(function (): void {
         Route::post('admin/users/{user:public_id}/restore', [AdminUserController::class, 'restore']);
         Route::post('admin/users/{user:public_id}/resend-invitation', [AdminUserController::class, 'resendInvitation']);
         Route::get('admin/users/{user:public_id}/ownership-impact', [AdminUserController::class, 'ownershipImpact']);
+
+        // Module 08 slice S3 — team administration (spec 19, ADR-0030). The team key is the
+        // existing ULID; member keys are `users.public_id`. A membership change never
+        // reassigns CRM ownership.
+        Route::get('admin/teams', [AdminTeamController::class, 'index']);
+        Route::post('admin/teams', [AdminTeamController::class, 'store']);
+        Route::get('admin/teams/{team}', [AdminTeamController::class, 'show']);
+        Route::patch('admin/teams/{team}', [AdminTeamController::class, 'update']);
+        Route::patch('admin/teams/{team}/manager', [AdminTeamController::class, 'assignManager']);
+        Route::post('admin/teams/{team}/members', [AdminTeamController::class, 'addMember']);
+        Route::delete('admin/teams/{team}/members/{user:public_id}', [AdminTeamController::class, 'removeMember']);
 
         // Module 06 dashboard (spec 14, D2) — one role-scoped read over modules 01–05.
         Route::get('dashboard', [DashboardController::class, 'summary']);

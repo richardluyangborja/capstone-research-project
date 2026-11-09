@@ -54,6 +54,7 @@ export default function AdminUserPanel({
   const [errors, setErrors] = useState<Record<string, string[]>>({})
   const [suspendOpen, setSuspendOpen] = useState(false)
   const [suspendReason, setSuspendReason] = useState('')
+  const [pendingRole, setPendingRole] = useState<Role | null>(null)
 
   // The directory keys this panel by account id, so switching accounts remounts it and these
   // initial values are the reset. A mutation returns a fresh row for the same account, which
@@ -80,7 +81,7 @@ export default function AdminUserPanel({
 
   /** One mutation wrapper: clears the last message, then reports the outcome the same way. */
   const run = useCallback(
-    async (action: () => Promise<AdminUser>, success: string) => {
+    async (action: () => Promise<AdminUser>, success: string): Promise<boolean> => {
       setBusy(true)
       setError('')
       setNotice('')
@@ -89,6 +90,7 @@ export default function AdminUserPanel({
         const next = await action()
         setNotice(success)
         onChanged(next)
+        return true
       } catch (caught) {
         const validation = parseValidationError(caught)
         if (validation) {
@@ -97,6 +99,7 @@ export default function AdminUserPanel({
         } else {
           setError('That change was refused. Reload the account and try again.')
         }
+        return false
       } finally {
         setBusy(false)
       }
@@ -214,11 +217,9 @@ export default function AdminUserPanel({
               disabled={busy || !canChangeRole}
               onChange={(event) => {
                 const next = event.target.value as Role
-                setRole(next)
-                void run(
-                  () => changeAdminUserRole(user.id, next),
-                  `Role changed to ${roleMeta[next].label}.`,
-                )
+                if (next !== user.role) {
+                  setPendingRole(next)
+                }
               }}
               className={inputClass}
             >
@@ -382,6 +383,59 @@ export default function AdminUserPanel({
                 className="rounded-md bg-destructive px-3 py-2 text-sm font-medium text-destructive-foreground disabled:opacity-60"
               >
                 {busy ? 'Suspending…' : 'Suspend'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {pendingRole && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Change role"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 p-4"
+        >
+          <div className="w-full max-w-sm rounded-lg border border-border bg-card p-5">
+            <h2 className="text-sm font-semibold text-foreground">
+              Change role to {roleMeta[pendingRole].label}?
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              This change is audited and applies on the next request. Their records stay assigned to
+              them; ownership moves go through the domain delegation endpoints.
+            </p>
+            {impact && (
+              <p className="mt-2 rounded-md border border-border bg-secondary/40 px-3 py-2 text-xs text-muted-foreground">
+                {impact.counts.leads} leads, {impact.counts.companies} accounts and{' '}
+                {impact.counts.opportunities} deals stay with {user.name}.
+              </p>
+            )}
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setPendingRole(null)}
+                className="rounded-md border border-border bg-card px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => {
+                  const next = pendingRole
+                  setRole(next)
+                  setPendingRole(null)
+                  void run(
+                    () => changeAdminUserRole(user.id, next),
+                    `Role changed to ${roleMeta[next].label}.`,
+                  ).then((ok) => {
+                    if (!ok) {
+                      setRole(user.role)
+                    }
+                  })
+                }}
+                className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:opacity-60"
+              >
+                {busy ? 'Changing…' : 'Confirm role change'}
               </button>
             </div>
           </div>

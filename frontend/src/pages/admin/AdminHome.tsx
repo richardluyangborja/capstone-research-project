@@ -149,8 +149,8 @@ export default function AdminHome() {
       </section>
 
       <EmptyState
-        title="The shell is ready"
-        description="The routes and role boundary are in place. User management is live; teams arrive with S3, settings with S4, audit with S5 and operations with S6."
+        title="Core administration is live"
+        description="Users and teams are managed now. Settings arrive with S4, the audit book with S5 and operations with S6."
       />
     </div>
   )

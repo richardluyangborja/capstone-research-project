@@ -2,6 +2,7 @@ import { api } from './api'
 import type {
   AdminAccess,
   AdminInvitationResult,
+  AdminTeam,
   AdminTeamOption,
   AdminUser,
   AdminUserOwnershipImpact,
@@ -28,6 +29,7 @@ export interface AdminUserFilters {
   team_id?: string
   status?: UserStatus | ''
   page?: number
+  per_page?: number
 }
 
 /**
@@ -44,6 +46,7 @@ export const listAdminUsers = async (
   if (filters.team_id) params.team_id = filters.team_id
   if (filters.status) params.status = filters.status
   if (filters.page && filters.page > 1) params.page = filters.page
+  if (filters.per_page) params.per_page = filters.per_page
 
   const { data } = await api.get<Paginated<AdminUser>>('/admin/users', { params })
   return data
@@ -134,5 +137,60 @@ export const getAdminUserOwnershipImpact = async (
   const { data } = await api.get<{ data: AdminUserOwnershipImpact }>(
     `/admin/users/${id}/ownership-impact`,
   )
+  return data.data
+}
+
+// --- Module 08 S3 — teams, roles and ownership administration ---------------
+
+export interface AdminTeamFilters {
+  search?: string
+  page?: number
+}
+
+export const listAdminTeams = async (
+  filters: AdminTeamFilters = {},
+): Promise<Paginated<AdminTeam>> => {
+  const params: Record<string, string | number> = {}
+  if (filters.search) params.search = filters.search
+  if (filters.page && filters.page > 1) params.page = filters.page
+
+  const { data } = await api.get<Paginated<AdminTeam>>('/admin/teams', { params })
+  return data
+}
+
+export const getAdminTeam = async (id: string): Promise<AdminTeam> => {
+  const { data } = await api.get<{ data: AdminTeam }>(`/admin/teams/${id}`)
+  return data.data
+}
+
+export const createAdminTeam = async (input: {
+  name: string
+  manager_id?: string | null
+}): Promise<AdminTeam> => {
+  const { data } = await api.post<{ data: AdminTeam }>('/admin/teams', input)
+  return data.data
+}
+
+export const updateAdminTeam = async (id: string, name: string): Promise<AdminTeam> => {
+  const { data } = await api.patch<{ data: AdminTeam }>(`/admin/teams/${id}`, { name })
+  return data.data
+}
+
+export const assignAdminTeamManager = async (id: string, managerId: string): Promise<AdminTeam> => {
+  const { data } = await api.patch<{ data: AdminTeam }>(`/admin/teams/${id}/manager`, {
+    manager_id: managerId,
+  })
+  return data.data
+}
+
+export const addAdminTeamMember = async (id: string, userId: string): Promise<AdminTeam> => {
+  const { data } = await api.post<{ data: AdminTeam }>(`/admin/teams/${id}/members`, {
+    user_id: userId,
+  })
+  return data.data
+}
+
+export const removeAdminTeamMember = async (id: string, userId: string): Promise<AdminTeam> => {
+  const { data } = await api.delete<{ data: AdminTeam }>(`/admin/teams/${id}/members/${userId}`)
   return data.data
 }

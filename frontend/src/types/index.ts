@@ -649,6 +649,47 @@ export interface AdminTeamOption {
   users_count: number
 }
 
+// --- Module 08 S3: teams, roles and ownership administration ----------------
+
+export interface AdminTeamManager {
+  id: string
+  name: string
+  email: string
+  role: Role
+  status: UserStatus
+}
+
+export interface AdminTeamMember {
+  id: string
+  name: string
+  email: string
+  role: Role
+  status: UserStatus
+  is_manager: boolean
+}
+
+/**
+ * One administrative team. The list carries `members_count`; the detail additionally carries
+ * the member rows. `can` is the server's policy answer (spec 19 S3).
+ */
+export interface AdminTeam {
+  id: string
+  name: string
+  manager: AdminTeamManager | null
+  members_count?: number
+  members?: AdminTeamMember[]
+  created_at: string | null
+  updated_at: string | null
+  can: AdminTeamAbilities
+}
+
+export interface AdminTeamAbilities {
+  update: boolean
+  assign_manager: boolean
+  add_member: boolean
+  remove_member: boolean
+}
+
 /** The mocked invitation outcome — a rejection is a delivery result, not an error. */
 export interface AdminInvitationResult {
   sent: boolean
