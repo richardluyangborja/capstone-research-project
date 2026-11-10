@@ -14,7 +14,7 @@ accepted architecture decisions, and `implementation/` for technical guides and 
 | `specs/` | Per-module implementation specs and delivery slice contracts |
 | `decisions/` | Architecture decision records (ADRs) |
 | `implementation/` | Implementation guidelines, design tokens, and system flows |
-| `audit reports/` | Verification and audit reports (inspected by main planner) |
+| `audit reports/` | Verification and audit reports |
 | `resources/` | Static project assets (logos, graphic resources) |
 | `DEPLOYMENT.md` / `AGENTS.md` | Deployment and agent/contributor guidance |
 

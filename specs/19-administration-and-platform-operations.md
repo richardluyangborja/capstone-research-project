@@ -1,7 +1,6 @@
 # Module 08 — Administration & Platform Operations
 
 - Status: **S0 accepted; S1–S7 built; S8–S10 proposed and pending implementation verification**
-- Owner: Main Planner
 - Depends on: ADR-0004, ADR-0005, ADR-0007, ADR-0016, `00-data-model.md`, `implementation/system-roles.md`
 
 ## Purpose

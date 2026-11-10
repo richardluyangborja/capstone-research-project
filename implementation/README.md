@@ -19,20 +19,17 @@ This directory holds technical implementation guides, system flows, design instr
 
 ---
 
-## Instructions for Implementing Agents
+## Implementation guidance
 
-1. **Role of Implementing Agents:**
-   - Implement features according to slices declared in `../specs/` and architectural decisions in `../decisions/`.
-   - Adhere strictly to the design system in `departamental-design-instruction.md` and `design-tokens.md`.
-   - Do not invent new tables or endpoints unless explicitly specified in the slice contract.
-   - Treat “Proposed”, “Accepted”, and “Specified” as planning states, not proof that code exists.
-   - Before claiming completion, cite the changed files and the exact focused test/build/lint command
-     that passed in the current worktree.
-2. **Planner Agent vs. Implementing Agent:**
-   - The **Main Planner** authors specifications in `../specs/`, documents architectural decisions in `../decisions/`, breaks down tasks into reviewable slices, and reviews audit reports in `audit reports/`.
-   - **Implementing Agents** write code, add tests, format with `pint` / `prettier`, and verify test suites.
-   - Planners do not edit application code; implementers do not silently rewrite requirements or
-     change acceptance criteria. Conflicts are escalated instead of guessed.
+- Implement features according to slices declared in `../specs/` and architectural decisions in
+  `../decisions/`.
+- Adhere strictly to the design system in `departamental-design-instruction.md` and
+  `design-tokens.md`.
+- Do not invent new tables or endpoints unless explicitly specified in the slice contract.
+- Treat “Proposed”, “Accepted”, and “Specified” as planning states, not proof that code exists.
+- Before claiming completion, cite the changed files and the exact focused test/build/lint command
+  that passed in the current worktree.
+- If requirements conflict, stop and report the conflicting documents instead of guessing.
 
 ## Evidence rules
 

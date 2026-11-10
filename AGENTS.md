@@ -1,12 +1,5 @@
 # AGENTS.md
 
-## Main Planner Role
-
-The agent functions as the **Main Planner** in this project:
-- **Scope & Responsibility:** Manages and writes documentation, authors architectural decision records (`decisions/`), crafts implementation specifications (`specs/`), breaks down large features into incremental, reviewable delivery slices, and writes detailed implementation guides (`implementation/`).
-- **Code & Implementation Guardrail:** The Main Planner **does not write application code or implement features directly**. Another agent (the Implementing Agent) handles feature coding, testing, and formatting.
-- **Audit Reports:** The Main Planner reads and reviews reports in `audit reports/`. Another dedicated audit agent performs audits and populates that directory.
-
 ## Evidence-first agent workflow
 
 This repository separates planning from implementation. Do not infer repository state from a
@@ -23,8 +16,8 @@ Use this order when sources disagree:
 5. Source code, tests, routes, migrations, and current git state for what is actually implemented.
 
 If two authoritative documents conflict, stop before coding or marking work complete. Report the
-conflict, name both files, and ask the Main Planner/user to resolve it. Do not silently choose the
-more recent-looking paragraph.
+conflict, name both files, and ask the user to resolve it. Do not silently choose the more
+recent-looking paragraph.
 
 ### Status claims
 
@@ -42,18 +35,14 @@ Never write “built”, “implemented”, “complete”, or “available” w
 tests. A valid implementation claim names the relevant source files, route/migration/policy surface,
 and verification command or test. If evidence is unavailable, use “specified” or “proposed”.
 
-### Main Planner / Implementing Agent handoff
+### Implementation workflow
 
-- **Main Planner:** investigates existing behavior, proposes or records decisions, edits
-  `specs/`, `decisions/`, and `implementation/`, defines a bounded slice, and states its acceptance
-  evidence. It does not edit application code, migrations, routes, tests, or formatting.
-- **Implementing Agent:** reads the accepted slice and ADRs, inspects the current code before
-  editing, implements only the stated scope, adds/updates tests, runs the smallest relevant
-  verification, and reports files changed plus command results. It does not rewrite requirements
-  or mark future slices complete.
-- **Either agent:** may identify contradictions or missing requirements, but must stop and ask
-  rather than inventing fields, endpoints, permissions, integrations, seed data, or “reasonable”
-  defaults that change behavior.
+- Read the accepted ADRs, current spec, implementation guides, and local app instructions before
+  editing.
+- Implement only the stated scope, add or update focused tests, and run the smallest relevant
+  verification.
+- Do not invent fields, endpoints, permissions, integrations, seed data, or “reasonable” defaults
+  that change behavior.
 - A slice is complete only when its acceptance criteria, implementation evidence, and verification
   result are all recorded. Documentation status must not be advanced based on a plan alone.
 
@@ -87,7 +76,7 @@ into this file.
 - `specs/` — per-module implementation specs (data model, API, UI, acceptance criteria, and delivery slices)
 - `decisions/` — Architectural Decision Records (`NNNN-title.md`)
 - `implementation/` — implementation guides, design tokens, departmental instructions, and system flows
-- `audit reports/` — audit and verification reports (empty directory, read-only for the Main Planner)
+- `audit reports/` — audit and verification reports
 - `backend/` — Laravel 13 API (`/api/v1`)
 - `frontend/` — React 19 + Vite + TypeScript SPA
 - `ai/` — Python FastAPI AI/ML service
