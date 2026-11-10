@@ -26,11 +26,13 @@ use App\Policies\AdminAccessPolicy;
 use App\Policies\AuditLogPolicy;
 use App\Policies\MaintenanceActionPolicy;
 use App\Policies\OperationsHealthPolicy;
+use App\Policies\AdminDiagnosticsPolicy;
 use App\Policies\SettingPolicy;
 use App\Policies\TaskPolicy;
 use App\Policies\TeamAdminPolicy;
 use App\Policies\UserAdminPolicy;
 use App\Settings\EffectiveSettings;
+use App\Http\Operations\OperationsSummary;
 use App\Support\MaintenanceAction;
 use Illuminate\Notifications\Events\NotificationSending;
 use Illuminate\Support\Facades\Event;
@@ -86,6 +88,7 @@ class AppServiceProvider extends ServiceProvider
         // override. Registered explicitly so auto-discovery cannot claim a narrower meaning.
         Gate::policy(Setting::class, SettingPolicy::class);
         Gate::policy(MaintenanceAction::class, MaintenanceActionPolicy::class);
+        Gate::policy(AdminDiagnosticsController::class, AdminDiagnosticsPolicy::class);
 
         // Module 08 S5 — the audit book's read/export boundary. Registered explicitly so the
         // append-only model never inherits a broader auto-discovered policy.
