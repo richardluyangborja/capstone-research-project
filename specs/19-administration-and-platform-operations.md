@@ -1,6 +1,6 @@
 # Module 08 — Administration & Platform Operations
 
-- Status: **S0–S5 built; S6–S10 proposed**
+- Status: **S0 accepted; S1–S10 proposed and pending implementation verification**
 - Owner: Main Planner
 - Depends on: ADR-0004, ADR-0005, ADR-0007, ADR-0016, `00-data-model.md`, `implementation/system-roles.md`
 
@@ -475,21 +475,117 @@ bounded export.
 
 ### S6 — Integration and operational health
 
-Deliver a read-only operations dashboard for database connectivity, storage, mocked email, AI
-service, HR/delivery feeds, notification delivery, and application version/configuration status.
-Health checks must use safe timeouts and never dump credentials.
+Deliver `/admin/operations` as a **read-only** operational dashboard backed by
+`GET /admin/operations/summary` and `GET /admin/operations/health`. Both endpoints use
+`OperationsHealthPolicy` and are available to admin and superadmin. The response is role-shaped:
+admins receive application health only; superadmins receive that same application view plus a
+separate, explicitly platform-only summary. The UI must not treat a hidden client-side section as an
+authorization boundary.
 
-The admin dashboard should summarize user/account health, recent administrative activity, audit
-severity, integration states, failed/rejected operations, pending maintenance actions, and
-configuration changes. The superadmin dashboard adds platform health, schema/runtime status,
-diagnostic counts, and security-sensitive alerts without exposing secrets.
+#### Health-check contract
+
+`GET /admin/operations/health` returns `{ data: { generated_at, checks } }`. Each check has a stable
+`key`, human-readable `label`, `status`, `checked_at`, short safe `summary`, optional `remediation`,
+and `source` (`application`, `mocked`, or `external`). `status` is exactly one of `healthy`,
+`degraded`, `unavailable`, or `not_configured`. The application-plane keys are `database`,
+`storage`, `email`, `ai`, `hr`, `recruitment`, `deployment`, `timekeeping`, `notifications`, and
+`application`. Superadmins additionally receive `queue` and `schema` checks where the corresponding
+subsystem exists; absence is represented explicitly, never as healthy.
+
+Probe behavior is constrained as follows:
+
+- **Database:** execute one bounded connection/read probe; do not enumerate tables or include the
+  exception, connection string, SQL, or driver credentials in the response.
+- **Storage:** inspect availability/writability of the configured private attachment disk without
+  returning its path, listing files, reading customer files, or leaving a probe file behind.
+- **Email:** report the bound gateway's mocked/external source and configured failure state. Do not
+  send a test message or expose recipients/provider configuration.
+- **AI:** when a service URL is configured, call only its health endpoint using a strict two-second
+  connect/total timeout; do not generate a report or include the URL, response body, token, or raw
+  exception. Missing URL is `not_configured`; timeout/non-success is `unavailable` with safe retry
+  guidance.
+- **HR and department feeds:** report the bound gateway/driver availability and whether it is
+  mocked. Do not imply a mocked feed is a live department connection. Use only bounded, read-only
+  probes where the interface supports one; no writes or broad data pulls.
+- **Notifications:** report database notification-channel availability and the effective
+  `notifications.database_enabled` state. Do not send a notification as a probe. A disabled channel
+  is `degraded`, not `healthy`.
+- **Application:** expose only the application build label (or `unknown`) and effective-configuration
+  availability/source counts. Do not return environment values, config contents, or secret names.
+- **Queue/schema:** superadmin-only capability checks. Do not run migrations, mutate schema, or inspect
+  arbitrary tables; if queue/schema metadata is not configured or cannot be checked safely, return
+  `not_configured`/`unavailable` and a safe explanation.
+
+Every probe must have a bounded execution time, catch infrastructure exceptions into the four-state
+contract, and return stable remediation text. Responses and logs must not contain credentials,
+JWTs, environment dumps, stack traces, SQL, private paths, message bodies, or raw provider
+responses. A successful probe means only that the named dependency check succeeded at `checked_at`;
+it must not claim that a fallback or delivery succeeded.
+
+#### Summary contract
+
+`GET /admin/operations/summary` returns `{ data: { generated_at, accounts,
+administrative_activity, integrations, failed_operations, maintenance, configuration_changes,
+platform } }`:
+
+- `accounts` contains active and suspended user counts.
+- `administrative_activity` contains the last-24-hour count, severity counts, and at most ten recent
+  audit summaries (`id`, `action`, `severity`, actor display name or null, `created_at`). It never
+  includes before/after snapshots. For an admin, security-sensitive events and their counts are
+  excluded; superadmin sees the full allowed audit summary.
+- `integrations` contains counts by the four health statuses and links/keys to the corresponding
+  read-only health sections.
+- `failed_operations` contains a count of failed email communications (no recipient, subject, body,
+  or failure reason).
+- `maintenance` shows the number of retryable failed email records and whether the already-defined
+  configuration refresh is available. S6 exposes no action button and does not execute maintenance;
+  confirmations/actions belong to S7.
+- `configuration_changes` contains the count of `setting.updated`/`setting.reset` events in the
+  last seven days, without returning setting values. Admin counts obey the same security-event
+  filtering as activity.
+- `platform` is `null` for admins. For superadmins it contains only application build/runtime
+  version labels, a safe schema state (`current`, `pending`, `unavailable`, or `not_configured`),
+  bounded counts for failed jobs and allow-listed CRM entity totals where available, and counts of
+  security-sensitive warning/critical events in the last 24 hours. Missing optional tables have an
+  explicit unavailable/not-configured state; no arbitrary table name or query is accepted.
+
+All time windows use UTC storage and the application's standard `Asia/Manila` display conversion.
+Counts must be computed with bounded aggregate queries, not by loading complete tables. Responses
+must degrade gracefully if an optional table/driver is absent, without turning the whole dashboard
+into an error.
+
+#### UI and acceptance
+
+`/admin/operations` replaces its S1 placeholder with a responsive, read-only dashboard: overall
+health summary; labelled check cards with status, last-checked time, safe remediation and source; and
+summary sections for accounts, recent administrative activity, audit severity, integration health,
+failed email operations, pending maintenance, and recent configuration changes. Superadmins also
+see the platform-only summary and alerts. Reuse the existing common components and status tokens;
+provide loading, empty, partial/unavailable, error/retry states and accessible status text. Integration
+links navigate to the owning module; the page does not duplicate CRM workflows or add maintenance
+controls.
 
 Acceptance:
 
-- checks are labelled `healthy`, `degraded`, `unavailable`, or `not_configured`;
-- admin can inspect diagnostics; only superadmin can see platform-level details;
-- failed checks show remediation guidance without claiming a successful fallback;
-- integration controls link to the owning module and do not duplicate its business operations.
+- [ ] both endpoints enforce `OperationsHealthPolicy`; unauthenticated and non-admin roles are
+  rejected, and an admin cannot retrieve platform-only fields by direct API request;
+- [ ] all checks use exactly `healthy`, `degraded`, `unavailable`, or `not_configured`, with safe
+  `checked_at`, summary and remediation where applicable;
+- [ ] database, storage, mocked email, AI, HR/deployment feeds, notifications and application
+  configuration are represented without side effects or secret/path disclosure;
+- [ ] AI health requests use a two-second bound; a timeout/non-success returns a stable unavailable
+  check rather than hanging or exposing provider details;
+- [ ] admin summaries exclude security-sensitive events and details; superadmin platform fields are
+  present only for superadmin;
+- [ ] summary counts are bounded/aggregated and optional subsystem failures produce explicit partial
+  states rather than a false healthy result;
+- [ ] failed checks show truthful remediation guidance, and mocked sources are clearly labelled as
+  mocked rather than live integrations;
+- [ ] the UI has loading, empty, partial, error/retry and accessible status states, and links to
+  owning modules without duplicating their operations;
+- [ ] backend feature tests cover role boundaries, status mapping, timeouts, redaction, bounded
+  aggregates and optional dependency failure; frontend tests cover the role-shaped summary, health
+  cards, partial/error states and route protection.
 
 ### S7 — Safe maintenance actions
 

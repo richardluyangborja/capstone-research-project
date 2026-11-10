@@ -7,9 +7,72 @@ The agent functions as the **Main Planner** in this project:
 - **Code & Implementation Guardrail:** The Main Planner **does not write application code or implement features directly**. Another agent (the Implementing Agent) handles feature coding, testing, and formatting.
 - **Audit Reports:** The Main Planner reads and reviews reports in `audit reports/`. Another dedicated audit agent performs audits and populates that directory.
 
+## Evidence-first agent workflow
+
+This repository separates planning from implementation. Do not infer repository state from a
+specification, a comment, a branch name, a task description, or a previous chat summary.
+
+### Authority and conflict handling
+
+Use this order when sources disagree:
+
+1. Accepted ADRs in `decisions/` for architectural boundaries and decisions.
+2. The current module specification in `specs/` for behavior, API, UI, data, and acceptance criteria.
+3. Current implementation guides in `implementation/` for shared conventions and system context.
+4. This file for agent workflow and repository-wide guardrails.
+5. Source code, tests, routes, migrations, and current git state for what is actually implemented.
+
+If two authoritative documents conflict, stop before coding or marking work complete. Report the
+conflict, name both files, and ask the Main Planner/user to resolve it. Do not silently choose the
+more recent-looking paragraph.
+
+### Status claims
+
+Use these meanings consistently:
+
+- **Proposed:** design only; no implementation claim.
+- **Accepted:** the design is approved, but code may not exist.
+- **Specified:** the behavior is documented; this is not evidence that it is built.
+- **Implemented:** code, routes/data changes, and focused tests exist in the current repository.
+- **Verified:** implemented behavior was checked by named commands/tests; record the evidence.
+- **Deferred:** intentionally not implemented; preserve the reason and owning ADR/spec.
+- **Historical:** retained for context and superseded; never use it as current behavior.
+
+Never write “built”, “implemented”, “complete”, or “available” without checking the current files and
+tests. A valid implementation claim names the relevant source files, route/migration/policy surface,
+and verification command or test. If evidence is unavailable, use “specified” or “proposed”.
+
+### Main Planner / Implementing Agent handoff
+
+- **Main Planner:** investigates existing behavior, proposes or records decisions, edits
+  `specs/`, `decisions/`, and `implementation/`, defines a bounded slice, and states its acceptance
+  evidence. It does not edit application code, migrations, routes, tests, or formatting.
+- **Implementing Agent:** reads the accepted slice and ADRs, inspects the current code before
+  editing, implements only the stated scope, adds/updates tests, runs the smallest relevant
+  verification, and reports files changed plus command results. It does not rewrite requirements
+  or mark future slices complete.
+- **Either agent:** may identify contradictions or missing requirements, but must stop and ask
+  rather than inventing fields, endpoints, permissions, integrations, seed data, or “reasonable”
+  defaults that change behavior.
+- A slice is complete only when its acceptance criteria, implementation evidence, and verification
+  result are all recorded. Documentation status must not be advanced based on a plan alone.
+
+### Hallucination-prevention checklist
+
+Before making a claim or edit, the agent must:
+
+1. Read the relevant ADR, spec, implementation guide, and local app instructions.
+2. Search for existing routes, policies, models, migrations, components, and tests before adding
+   a new surface.
+3. Distinguish current branch/worktree evidence from historical commits and unmerged branches.
+4. Preserve unrelated worktree changes; never use them as evidence for the requested task.
+5. State unknowns explicitly and ask a focused question when the answer changes architecture,
+   permissions, data ownership, or user-visible behavior.
+6. Never fabricate test results, API responses, seed records, file contents, or completion status.
+
 ## Repository state
 
-Scaffolded monorepo (**no commits yet**): three separate apps — `backend/`, `frontend/`, `ai/` — plus
+Monorepo with three separate apps — `backend/`, `frontend/`, `ai/` — plus
 spec/decision/implementation docs. There is no shared package; `frontend/` talks to `backend/` only over the
 `/api/v1` REST API. `implementation/*.md` and `specs/*.md` are the source of truth for requirements;
 update them when decisions change.

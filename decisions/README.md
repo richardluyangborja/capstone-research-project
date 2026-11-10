@@ -8,6 +8,8 @@ agents can pick up context quickly. Read existing entries before proposing chang
 - One decision per file, named `NNNN-short-title.md` (e.g. `0001-lead-client-object-model.md`),
   numbered sequentially. Use `git mv`/increment to keep numbers stable.
 - Status is one of: **Proposed**, **Accepted**, **Superseded by NNNN**, **Rejected**.
+- An **Accepted** ADR records an approved decision, not a claim that implementation exists. Record
+  implementation and verification in the owning spec only after checking current code and tests.
 - Keep entries short: context → decision → consequences. Link to `../implementation/*.md` and
   `../specs/*.md` rather than duplicating details.
 - Supersede, don't delete: mark the old entry and point to the replacement.

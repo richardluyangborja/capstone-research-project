@@ -25,6 +25,23 @@ This directory holds technical implementation guides, system flows, design instr
    - Implement features according to slices declared in `../specs/` and architectural decisions in `../decisions/`.
    - Adhere strictly to the design system in `departamental-design-instruction.md` and `design-tokens.md`.
    - Do not invent new tables or endpoints unless explicitly specified in the slice contract.
+   - Treat “Proposed”, “Accepted”, and “Specified” as planning states, not proof that code exists.
+   - Before claiming completion, cite the changed files and the exact focused test/build/lint command
+     that passed in the current worktree.
 2. **Planner Agent vs. Implementing Agent:**
    - The **Main Planner** authors specifications in `../specs/`, documents architectural decisions in `../decisions/`, breaks down tasks into reviewable slices, and reviews audit reports in `audit reports/`.
    - **Implementing Agents** write code, add tests, format with `pint` / `prettier`, and verify test suites.
+   - Planners do not edit application code; implementers do not silently rewrite requirements or
+     change acceptance criteria. Conflicts are escalated instead of guessed.
+
+## Evidence rules
+
+- “Implemented” means current source code exists for the behavior.
+- “Verified” means the current source was checked by named tests or commands.
+- A route claim requires a current route plus its controller/policy/request surface where applicable.
+- A data claim requires a current migration/model/resource or integration DTO.
+- A UI claim requires a current route/page/component and its relevant test or build evidence.
+- A seed/demo claim requires the current seeder and a reproducible seed command.
+- Historical prose, branch names, PR descriptions, and summaries are context only; they do not
+  prove current implementation.
+- When evidence is missing, write “specified”, “unverified”, or “deferred”, not “built”.

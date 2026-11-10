@@ -6,6 +6,14 @@ as ADR live in `../decisions/`. The roadmap (module order + numbering) is ADR-00
 shared data model, `01`–`09` are module 01's submodules, and `10+` is **one file per later module**,
 with that module's **delivery slices** declared in the file (ADR-0016).
 
+## Reading status correctly
+
+A spec is a contract, not an implementation report. `Proposed`, `Accepted`, and `Specified` describe
+planning maturity; they do not prove that routes, migrations, UI, tests, or seeds exist. Mark a slice
+`Implemented` or `Verified` only after checking the current worktree and recording concrete source
+files plus test/build evidence. If the spec and code disagree, stop and report the discrepancy
+instead of filling the gap with an assumed implementation.
+
 ## Module 01 — Lead & Client Tracking (baseline done; refresh S0–S19 built; adjustments T1–T3 built)
 
 | File | Submodule |
@@ -42,7 +50,7 @@ score or automatic lifecycle transition. These remain tracked module-01 deferral
 | `14-dashboard-management-reports.md` | 6. Dashboard (cross-cutting) *(D1 + D2 built; D3 moved to module 07)* |
 | `15-ai-management-reports.md` | 7. AI Management Reports *(built — S1 + S2)* |
 | `18-module-02-refresh.md` | **Refresh** — Opportunity Pipeline Visualization: staffing demand fields, won/lost governance, follow-up sync and view switcher; S2–S5 built (ADR-0029) |
-| `19-administration-and-platform-operations.md` | **Module 08** — admin application operations, superadmin platform diagnostics, and personal settings; S0–S2 built, S3–S10 proposed |
+| `19-administration-and-platform-operations.md` | **Module 08** — admin application operations, superadmin platform diagnostics, and personal settings; S0 accepted, implementation slices pending verification |
 
 `16-module-01-refresh.md` is the one exception to the `10+` numbering: it is a **refresh of Module 01**,
 not a later data module. Its ADRs (0023–0026) are the current decisions for that work.
