@@ -723,6 +723,46 @@ export interface AdminSettingCategory {
   settings: AdminSetting[]
 }
 
+// --- Module 08 S5: audit and security activity ------------------------------
+
+export type AuditSeverity = 'info' | 'notice' | 'warning' | 'critical'
+
+export interface AuditLogActor {
+  id: string
+  name: string
+  email: string
+}
+
+export interface AuditLogSubject {
+  type: string | null
+  id: string | null
+  name: string | null
+}
+
+export interface AuditLogRequest {
+  method: string | null
+  path: string | null
+  ip: string | null
+  user_agent: string | null
+  id: string
+}
+
+/**
+ * One immutable audit row. `before`/`after` are already redacted by the server: secrets are
+ * gone and contact PII is masked, so the page can render them without a second pass.
+ */
+export interface AuditLogEntry {
+  id: string
+  action: string
+  severity: AuditSeverity
+  actor: AuditLogActor | null
+  subject: AuditLogSubject | null
+  before: Record<string, unknown> | null
+  after: Record<string, unknown> | null
+  request: AuditLogRequest
+  created_at: string | null
+}
+
 // --- Submodule 09: client account lifecycle + contracts ---------------------
 
 export type ContractStatus = 'draft' | 'sent' | 'signed' | 'expired' | 'terminated'

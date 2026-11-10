@@ -5,8 +5,11 @@ namespace App\Models;
 use App\Enums\AuditSeverity;
 use Illuminate\Database\Eloquent\Concerns\HasUlids;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use LogicException;
 
 /**
  * One immutable audit row (spec 19 §Audit event vocabulary, ADR-0030).
@@ -23,6 +26,21 @@ class AuditLog extends Model
     use HasUlids;
 
     public const UPDATED_AT = null;
+
+    /**
+     * Append-only at the application layer (spec 19 §Audit event vocabulary): a correction is
+     * a new event, never an update or a delete. The database has no update/delete route either.
+     */
+    protected static function booted(): void
+    {
+        static::updating(function (): void {
+            throw new LogicException('Audit rows are append-only.');
+        });
+
+        static::deleting(function (): void {
+            throw new LogicException('Audit rows are append-only.');
+        });
+    }
 
     /** Keys stripped from snapshots before persistence (spec 19 §Redaction rules). */
     private const REDACTED_KEYS = [
@@ -55,6 +73,23 @@ class AuditLog extends Model
             'after' => 'array',
             'created_at' => 'datetime',
         ];
+    }
+
+    /**
+     * The actor who caused the event; null for a system event or a failed login.
+     */
+    public function actor(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'actor_id');
+    }
+
+    /**
+     * The record the event is about. `subject_type` is the model class and `subject_id` the
+     * internal key; the resource resolves it to a ULID public id before it leaves the API.
+     */
+    public function subject(): MorphTo
+    {
+        return $this->morphTo();
     }
 
     /**
@@ -94,13 +129,23 @@ class AuditLog extends Model
 
     /**
      * The correlation id: the incoming request's id when the platform provides one, otherwise
-     * a ULID minted per event so a multi-step mutation can still be traced per row.
+     * a ULID minted once per request and cached on it. Caching is what connects the several
+     * rows a multi-step administrative mutation writes (spec 19 §S5 acceptance).
      */
     private static function requestId(Request $request): string
     {
-        $header = (string) $request->headers->get('X-Request-Id');
+        $cached = $request->attributes->get('audit_request_id');
 
-        return $header !== '' ? $header : (string) Str::ulid();
+        if (is_string($cached) && $cached !== '') {
+            return $cached;
+        }
+
+        $header = trim((string) $request->headers->get('X-Request-Id'));
+        $id = $header !== '' ? $header : (string) Str::ulid();
+
+        $request->attributes->set('audit_request_id', $id);
+
+        return $id;
     }
 
     /**

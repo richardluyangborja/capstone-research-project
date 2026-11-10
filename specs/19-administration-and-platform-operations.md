@@ -1,6 +1,6 @@
 # Module 08 — Administration & Platform Operations
 
-- Status: **S0–S4 built; S5–S10 proposed**
+- Status: **S0–S5 built; S6–S10 proposed**
 - Owner: Main Planner
 - Depends on: ADR-0004, ADR-0005, ADR-0007, ADR-0016, `00-data-model.md`, `implementation/system-roles.md`
 
@@ -442,7 +442,7 @@ source badges and inline editors only where the key is editable. The runtime wir
 aging/pipeline/follow-up/attachment/contract/survey thresholds, the mocked email/HR failure flags, the
 AI report switch and the organization timezone.
 
-### S5 — Audit and security activity
+### S5 — Audit and security activity *(built)*
 
 Deliver an immutable audit log book with filters for actor, action, resource, date range, and
 severity, plus a detail view showing redacted before/after values and request metadata. This is a
@@ -461,6 +461,17 @@ Acceptance:
 - exports are permissioned, redacted, bounded by date/row count, and themselves audited;
 - exports use a documented format (CSV first; JSON may be added for machine consumers) and never
   include secrets, hashes, private paths, or message bodies by default.
+
+Built as: `GET /admin/audit-logs` (actor, action, resource, severity, date-range and correlation-id
+filters; per-page capped at 100), `GET /admin/audit-logs/{auditLog}` (redacted before/after and
+request metadata) and `GET /admin/audit-logs/export` (CSV, 5,000-row and 366-day bounds, itself
+audited as `audit.exported`), all behind `AuditLogPolicy`. `AuditLog` is append-only at the model
+layer (update/delete throw) and the writer already strips secret-shaped keys; `AuditPresenter`
+masks contact email/phone and actor emails again on read, and the CSV neutralises formula
+injection. An application admin never sees `security.*` or `auth.login_failed`; a superadmin does.
+The correlation id is minted once per request and cached, so a multi-step mutation's rows share it.
+`/admin/audit` renders the book with grouped event labels, severity badges, a detail panel and the
+bounded export.
 
 ### S6 — Integration and operational health
 

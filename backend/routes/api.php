@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\V1\AdminAccessController;
+use App\Http\Controllers\Api\V1\AdminAuditLogController;
 use App\Http\Controllers\Api\V1\AdminSettingController;
 use App\Http\Controllers\Api\V1\AdminTeamController;
 use App\Http\Controllers\Api\V1\AdminUserController;
@@ -112,6 +113,13 @@ Route::prefix('v1')->group(function (): void {
         Route::get('admin/settings', [AdminSettingController::class, 'index']);
         Route::patch('admin/settings', [AdminSettingController::class, 'update']);
         Route::post('admin/settings/refresh', [AdminSettingController::class, 'refresh']);
+
+        // Module 08 slice S5 — the immutable audit book (spec 19, ADR-0030). Admin+ reads and
+        // exports; an application admin never sees a security-sensitive event. `export` is a
+        // static segment, declared before `{auditLog}` so it is not read as a ULID.
+        Route::get('admin/audit-logs', [AdminAuditLogController::class, 'index']);
+        Route::get('admin/audit-logs/export', [AdminAuditLogController::class, 'export']);
+        Route::get('admin/audit-logs/{auditLog}', [AdminAuditLogController::class, 'show']);
 
         // Module 06 dashboard (spec 14, D2) — one role-scoped read over modules 01–05.
         Route::get('dashboard', [DashboardController::class, 'summary']);

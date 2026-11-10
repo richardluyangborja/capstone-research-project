@@ -7,6 +7,8 @@ import type {
   AdminTeamOption,
   AdminUser,
   AdminUserOwnershipImpact,
+  AuditLogEntry,
+  AuditSeverity,
   Paginated,
   Role,
   UserStatus,
@@ -211,11 +213,69 @@ export const getAdminSettings = async (): Promise<AdminSettingCategory[]> => {
 export const updateAdminSettings = async (
   settings: Record<string, string | number | boolean | null>,
 ): Promise<AdminSettingCategory[]> => {
-  const { data } = await api.patch<{ data: AdminSettingCategory[] }>('/admin/settings', { settings })
+  const { data } = await api.patch<{ data: AdminSettingCategory[] }>('/admin/settings', {
+    settings,
+  })
   return data.data
 }
 
 /** Rebuild the effective-configuration snapshot — a bounded refresh, not a cache flush. */
 export const refreshAdminSettings = async (): Promise<void> => {
   await api.post('/admin/settings/refresh')
+}
+
+// --- Module 08 S5: audit and security activity ------------------------------
+
+export interface AuditLogFilters {
+  actor?: string
+  action?: string
+  resource?: string
+  severity?: AuditSeverity | ''
+  from?: string
+  to?: string
+  request_id?: string
+  page?: number
+  per_page?: number
+}
+
+/** Only the filters that carry a value reach the query string. */
+const auditParams = (filters: AuditLogFilters): Record<string, string | number> => {
+  const params: Record<string, string | number> = {}
+  if (filters.actor) params.actor = filters.actor
+  if (filters.action) params.action = filters.action
+  if (filters.resource) params.resource = filters.resource
+  if (filters.severity) params.severity = filters.severity
+  if (filters.from) params.from = filters.from
+  if (filters.to) params.to = filters.to
+  if (filters.request_id) params.request_id = filters.request_id
+  if (filters.page && filters.page > 1) params.page = filters.page
+  if (filters.per_page) params.per_page = filters.per_page
+  return params
+}
+
+/**
+ * The audit book is paginated and role-scoped on the server: an application admin's query
+ * never returns a security-sensitive event, so the page does not filter the response itself.
+ */
+export const listAuditLogs = async (
+  filters: AuditLogFilters = {},
+): Promise<Paginated<AuditLogEntry>> => {
+  const { data } = await api.get<Paginated<AuditLogEntry>>('/admin/audit-logs', {
+    params: auditParams(filters),
+  })
+  return data
+}
+
+export const getAuditLog = async (id: string): Promise<AuditLogEntry> => {
+  const { data } = await api.get<{ data: AuditLogEntry }>(`/admin/audit-logs/${id}`)
+  return data.data
+}
+
+/** The CSV is fetched as a blob so the bearer token stays inside the axios client. */
+export const exportAuditLogs = async (filters: AuditLogFilters = {}): Promise<Blob> => {
+  const { data } = await api.get<Blob>('/admin/audit-logs/export', {
+    params: auditParams(filters),
+    responseType: 'blob',
+  })
+  return data
 }
