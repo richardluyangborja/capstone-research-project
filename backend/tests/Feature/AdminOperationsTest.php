@@ -422,7 +422,7 @@ class AdminOperationsTest extends TestCase
         $this->assertSame(1, $data['failed_operations']['failed_emails']);
         $this->assertTrue($data['failed_operations']['available']);
         $this->assertSame(1, $data['maintenance']['retryable_failed_emails']);
-        $this->assertFalse($data['maintenance']['actions_available']);
+        $this->assertTrue($data["maintenance"]["actions_available"]);
         $this->assertStringNotContainsString('jane@example.test', json_encode($data));
         $this->assertStringNotContainsString('Provider rejected', json_encode($data));
     }

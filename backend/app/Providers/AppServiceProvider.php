@@ -24,12 +24,14 @@ use App\Models\Team;
 use App\Models\User;
 use App\Policies\AdminAccessPolicy;
 use App\Policies\AuditLogPolicy;
+use App\Policies\MaintenanceActionPolicy;
 use App\Policies\OperationsHealthPolicy;
 use App\Policies\SettingPolicy;
 use App\Policies\TaskPolicy;
 use App\Policies\TeamAdminPolicy;
 use App\Policies\UserAdminPolicy;
 use App\Settings\EffectiveSettings;
+use App\Support\MaintenanceAction;
 use Illuminate\Notifications\Events\NotificationSending;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
@@ -83,6 +85,7 @@ class AppServiceProvider extends ServiceProvider
         // Module 08 S4 — the settings registry is the allow-list; a Setting row is only an
         // override. Registered explicitly so auto-discovery cannot claim a narrower meaning.
         Gate::policy(Setting::class, SettingPolicy::class);
+        Gate::policy(MaintenanceAction::class, MaintenanceActionPolicy::class);
 
         // Module 08 S5 — the audit book's read/export boundary. Registered explicitly so the
         // append-only model never inherits a broader auto-discovered policy.

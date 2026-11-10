@@ -91,6 +91,15 @@ class CommunicationPolicy
      * Pulling the mailbox is a system action rather than a per-message one: admin+ only,
      * because one sync writes history across every team (spec 11 §S2).
      */
+    /**
+     * Retrying a rejected send through the maintenance plane is an admin+ action: it writes
+     * history across teams and must be distinguishable from a rep retrying their own record.
+     */
+    public function retryMaintenance(User $user): bool
+    {
+        return $user->role->isAdmin();
+    }
+
     public function sync(User $user): bool
     {
         return $user->role->isAdmin();
