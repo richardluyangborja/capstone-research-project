@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\V1\AdminAccessController;
 use App\Http\Controllers\Api\V1\AdminAuditLogController;
+use App\Http\Controllers\Api\V1\AdminOperationsController;
 use App\Http\Controllers\Api\V1\AdminSettingController;
 use App\Http\Controllers\Api\V1\AdminTeamController;
 use App\Http\Controllers\Api\V1\AdminUserController;
@@ -120,6 +121,12 @@ Route::prefix('v1')->group(function (): void {
         Route::get('admin/audit-logs', [AdminAuditLogController::class, 'index']);
         Route::get('admin/audit-logs/export', [AdminAuditLogController::class, 'export']);
         Route::get('admin/audit-logs/{auditLog}', [AdminAuditLogController::class, 'show']);
+
+        // Module 08 slice S6 — integration and operational health (spec 19). Read-only: no test
+        // email, notification, migration or maintenance action. The summary is role-shaped on
+        // the server, so an admin's payload carries no `platform` block at all.
+        Route::get('admin/operations/summary', [AdminOperationsController::class, 'summary']);
+        Route::get('admin/operations/health', [AdminOperationsController::class, 'health']);
 
         // Module 06 dashboard (spec 14, D2) — one role-scoped read over modules 01–05.
         Route::get('dashboard', [DashboardController::class, 'summary']);

@@ -1,6 +1,6 @@
 # Module 08 — Administration & Platform Operations
 
-- Status: **S0 accepted; S1–S10 proposed and pending implementation verification**
+- Status: **S0 accepted; S1–S6 built; S7–S10 proposed and pending implementation verification**
 - Owner: Main Planner
 - Depends on: ADR-0004, ADR-0005, ADR-0007, ADR-0016, `00-data-model.md`, `implementation/system-roles.md`
 
@@ -473,7 +473,7 @@ The correlation id is minted once per request and cached, so a multi-step mutati
 `/admin/audit` renders the book with grouped event labels, severity badges, a detail panel and the
 bounded export.
 
-### S6 — Integration and operational health
+### S6 — Integration and operational health *(built)*
 
 Deliver `/admin/operations` as a **read-only** operational dashboard backed by
 `GET /admin/operations/summary` and `GET /admin/operations/health`. Both endpoints use
@@ -567,25 +567,44 @@ controls.
 
 Acceptance:
 
-- [ ] both endpoints enforce `OperationsHealthPolicy`; unauthenticated and non-admin roles are
+- [x] both endpoints enforce `OperationsHealthPolicy`; unauthenticated and non-admin roles are
   rejected, and an admin cannot retrieve platform-only fields by direct API request;
-- [ ] all checks use exactly `healthy`, `degraded`, `unavailable`, or `not_configured`, with safe
+- [x] all checks use exactly `healthy`, `degraded`, `unavailable`, or `not_configured`, with safe
   `checked_at`, summary and remediation where applicable;
-- [ ] database, storage, mocked email, AI, HR/deployment feeds, notifications and application
+- [x] database, storage, mocked email, AI, HR/deployment feeds, notifications and application
   configuration are represented without side effects or secret/path disclosure;
-- [ ] AI health requests use a two-second bound; a timeout/non-success returns a stable unavailable
+- [x] AI health requests use a two-second bound; a timeout/non-success returns a stable unavailable
   check rather than hanging or exposing provider details;
-- [ ] admin summaries exclude security-sensitive events and details; superadmin platform fields are
+- [x] admin summaries exclude security-sensitive events and details; superadmin platform fields are
   present only for superadmin;
-- [ ] summary counts are bounded/aggregated and optional subsystem failures produce explicit partial
+- [x] summary counts are bounded/aggregated and optional subsystem failures produce explicit partial
   states rather than a false healthy result;
-- [ ] failed checks show truthful remediation guidance, and mocked sources are clearly labelled as
+- [x] failed checks show truthful remediation guidance, and mocked sources are clearly labelled as
   mocked rather than live integrations;
-- [ ] the UI has loading, empty, partial, error/retry and accessible status states, and links to
+- [x] the UI has loading, empty, partial, error/retry and accessible status states, and links to
   owning modules without duplicating their operations;
-- [ ] backend feature tests cover role boundaries, status mapping, timeouts, redaction, bounded
+- [x] backend feature tests cover role boundaries, status mapping, timeouts, redaction, bounded
   aggregates and optional dependency failure; frontend tests cover the role-shaped summary, health
   cards, partial/error states and route protection.
+
+Built as: `GET /admin/operations/summary` and `GET /admin/operations/health` behind the
+`viewSummary`/`viewHealth` abilities (`OperationsHealthPolicy`, admin+). The probes live in
+`App\Http\Operations\OperationsHealthProbe` (11 application checks: the ten declared keys plus an
+explicit `service_handoff` check reporting the retired ADR-0027 handoff, and `queue`/`schema` added
+for a superadmin only) and the aggregates in `App\Http\Operations\OperationsSummary`. The database
+probe is one `select 1`; storage asks the local adapter's root metadata whether the private disk is
+writable, without writing, listing or reading a file; the email and department checks report the
+bound gateway and whether it is a `Mock*` driver (`mock` ⇒ `degraded`, never "live"); the AI check
+calls only the service's `/health` with a 2-second connect/total bound and reports a stable
+`unavailable` on any throw, with no URL, token, body or exception in the payload. The summary is
+role-shaped **on the server**: an admin's `platform` is `null` and their audit counts and recent
+events exclude security-sensitive rows through `AuditPresenter`. Every count is a bounded
+aggregate, and a failed optional query yields `null`/`available: false` rather than a false `0`.
+`/admin/operations` replaces the S1 placeholder with the rolling health strip, per-check cards
+(status, source, last checked, remediation), summary counters, the integrations-needing-attention
+list, recent administrative activity, the informational pending-maintenance note (no action — S7
+owns those) and the platform panel the server only sends to a superadmin. Each half loads
+independently, so a failing health call never blanks the summary and vice versa.
 
 ### S7 — Safe maintenance actions
 

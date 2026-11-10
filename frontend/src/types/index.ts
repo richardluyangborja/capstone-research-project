@@ -1825,3 +1825,94 @@ export interface PublicSurveyAnswerInput {
   value_text?: string | null
   value_options?: string[] | null
 }
+
+// --- Module 08 S6: integration and operational health -----------------------
+
+/**
+ * The four-state operational health contract (spec 19 §Health-check contract). There is no
+ * "unknown": an absent optional subsystem is `not_configured`, never a silent success.
+ */
+export type OperationCheckStatusName = 'healthy' | 'degraded' | 'unavailable' | 'not_configured'
+
+/** How a check is sourced — a mocked feed must never read as a live department connection. */
+export type OperationCheckSource = 'application' | 'mocked' | 'external'
+
+/** One bounded, side-effect-free dependency probe. */
+export interface OperationCheck {
+  key: string
+  label: string
+  status: OperationCheckStatusName
+  checked_at: string
+  summary: string
+  remediation: string | null
+  source: OperationCheckSource
+  /** Safe context only — never a path, credential, exception or provider payload. */
+  detail: Record<string, unknown>
+}
+
+export interface OperationsHealth {
+  generated_at: string
+  checks: OperationCheck[]
+}
+
+export interface OperationsHealthResponse {
+  health: OperationsHealth
+  meta: { timezone: string; read_only: boolean; platform: boolean }
+}
+
+/** Integration status counts over the same checks the health endpoint returns. */
+export interface OperationsIntegrationCounts {
+  counts: Record<OperationCheckStatusName, number>
+  total: number
+  attention: Array<{
+    key: string
+    label: string
+    status: OperationCheckStatusName
+    source: OperationCheckSource
+  }>
+  mocked: number
+}
+
+export interface OperationsRecentActivity {
+  id: string
+  action: string
+  severity: AuditSeverity
+  actor: string | null
+  created_at: string | null
+}
+
+/** Platform-only block: absent (null) for an application admin. */
+export interface OperationsPlatformSummary {
+  application: { build: string; runtime: string; environment: string }
+  schema: {
+    state: 'current' | 'pending' | 'unavailable' | 'not_configured'
+    pending: number | null
+  }
+  queue: { driver: string; failed_jobs: number | null }
+  entity_totals: Record<string, number | null>
+  security_events: { warning: number; critical: number }
+}
+
+export interface OperationsSummary {
+  generated_at: string
+  window: { activity_hours: number; configuration_days: number; timezone: string }
+  accounts: { active: number; suspended: number }
+  administrative_activity: {
+    total: number
+    severities: Record<AuditSeverity, number>
+    recent: OperationsRecentActivity[]
+  }
+  integrations: OperationsIntegrationCounts
+  failed_operations: {
+    failed_emails: number | null
+    available: boolean
+    last_failed_at: string | null
+  }
+  maintenance: {
+    retryable_failed_emails: number | null
+    configuration_refresh_available: boolean
+    actions_available: boolean
+  }
+  configuration_changes: { last_7_days: number; window_days: number }
+  platform: OperationsPlatformSummary | null
+}
