@@ -188,7 +188,9 @@ final class OperationsSummary
     }
 
     /**
-     * What maintenance a later slice could offer — S6 executes nothing and shows no action.
+     * The two allow-listed maintenance actions now exist (module 08 slice S7): the settings
+     * snapshot refresh and one failed-email retry. The counts stay bounded and carry no
+     * recipient, subject, body or failure reason.
      *
      * @return array<string, mixed>
      */
@@ -203,13 +205,13 @@ final class OperationsSummary
             return [
                 'retryable_failed_emails' => $retryable,
                 'configuration_refresh_available' => true,
-                'actions_available' => false,
+                'actions_available' => true,
             ];
         } catch (Throwable) {
             return [
                 'retryable_failed_emails' => null,
                 'configuration_refresh_available' => true,
-                'actions_available' => false,
+                'actions_available' => true,
             ];
         }
     }

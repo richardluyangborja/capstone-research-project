@@ -56,6 +56,17 @@ class CommunicationPolicy
         return $subject !== null && $user->can('update', $subject);
     }
 
+    /**
+     * Retrying a rejected message is the send rule again (module 08 slice S7): the maintenance
+     * action exposes the same work an owner could do from the communication detail, so it
+     * delegates rather than inventing a second permission. The failed state is a 422, not a
+     * 403, and stays the delivery service's question.
+     */
+    public function retry(User $user, Communication $communication): bool
+    {
+        return $this->send($user, $communication);
+    }
+
     public function delete(User $user, Communication $communication): bool
     {
         return $this->ownsOrOversees($user, $communication)

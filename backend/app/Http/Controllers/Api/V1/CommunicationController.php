@@ -6,6 +6,7 @@ use App\Enums\CommunicationChannel;
 use App\Enums\CommunicationDirection;
 use App\Enums\CommunicationStatus;
 use App\Events\CommunicationLogged;
+use App\Http\Communications\CommunicationDelivery;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StoreCommunicationRequest;
 use App\Http\Requests\StoreReplyRequest;
@@ -479,22 +480,8 @@ class CommunicationController extends Controller
     ): JsonResponse {
         $this->authorize('send', $communication);
 
-        if (! in_array($communication->status, $from, true) || ! $communication->isSendable()) {
-            throw ValidationException::withMessages([
-                'status' => [sprintf('Only %s can go to the mail gateway.', $expected)],
-            ]);
-        }
-
-        // A rep may pick a person instead of typing an address; a send needs a destination.
-        $communication->fillRecipientFromContact();
-
-        if (($communication->to_address ?? '') === '') {
-            throw ValidationException::withMessages([
-                'to_address' => ['Add a recipient before sending — pick a contact or type an address.'],
-            ]);
-        }
-
-        $communication = $communication->sendThrough($gateway, $actor);
+        $communication = app(CommunicationDelivery::class)
+            ->handToGateway($gateway, $communication, $actor, $from, $expected);
 
         return (new CommunicationResource($communication->load($this->relations())))
             ->additional(['meta' => ['source' => $gateway->source()]])

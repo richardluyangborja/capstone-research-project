@@ -1,6 +1,6 @@
 # Module 08 — Administration & Platform Operations
 
-- Status: **S0 accepted; S1–S6 built; S7–S10 proposed and pending implementation verification**
+- Status: **S0 accepted; S1–S7 built; S8–S10 proposed and pending implementation verification**
 - Owner: Main Planner
 - Depends on: ADR-0004, ADR-0005, ADR-0007, ADR-0016, `00-data-model.md`, `implementation/system-roles.md`
 
@@ -538,8 +538,8 @@ platform } }`:
 - `failed_operations` contains a count of failed email communications (no recipient, subject, body,
   or failure reason).
 - `maintenance` shows the number of retryable failed email records and whether the already-defined
-  configuration refresh is available. S6 exposes no action button and does not execute maintenance;
-  confirmations/actions belong to S7.
+  configuration refresh is available. S6 itself exposes no action button and does not execute
+  maintenance; S7 adds the confirmed actions.
 - `configuration_changes` contains the count of `setting.updated`/`setting.reset` events in the
   last seven days, without returning setting values. Admin counts obey the same security-event
   filtering as activity.
@@ -602,11 +602,12 @@ events exclude security-sensitive rows through `AuditPresenter`. Every count is 
 aggregate, and a failed optional query yields `null`/`available: false` rather than a false `0`.
 `/admin/operations` replaces the S1 placeholder with the rolling health strip, per-check cards
 (status, source, last checked, remediation), summary counters, the integrations-needing-attention
-list, recent administrative activity, the informational pending-maintenance note (no action — S7
-owns those) and the platform panel the server only sends to a superadmin. Each half loads
-independently, so a failing health call never blanks the summary and vice versa.
+list, recent administrative activity, the informational pending-maintenance note and the platform
+panel the server only sends to a superadmin. S7 replaces the note with the confirmed maintenance
+actions. Each half loads independently, so a failing health call never blanks the summary and vice
+versa.
 
-### S7 — Safe maintenance actions
+### S7 — Safe maintenance actions *(built)*
 
 Expose only allow-listed, idempotent, auditable actions: refresh a cached configuration view,
 retry a supported failed delivery, dispatch an already-defined due process, or rebuild a derived
@@ -622,10 +623,28 @@ surfaces, but are not duplicated in the first administration demo.
 
 Acceptance:
 
-- each action has a confirmation, authorization policy, actor, result, and audit event;
-- repeated execution is safe or rejected with an explicit state error;
-- no generic “run command”, arbitrary SQL, migration, backup, or restore endpoint exists;
-- admin and superadmin actions are distinguishable in the audit trail.
+- [x] each action has a confirmation, authorization policy, actor, result, and audit event;
+- [x] repeated execution is safe or rejected with an explicit state error;
+- [x] no generic “run command”, arbitrary SQL, migration, backup, or restore endpoint exists;
+- [x] admin and superadmin actions are distinguishable in the audit trail.
+
+Built as: `POST /admin/maintenance/refresh-configuration` and `POST /admin/maintenance/retry-email`,
+both behind `MaintenanceActionPolicy` and requiring `confirm: true` (`accepted`). The refresh calls
+`EffectiveSettings::refresh()` and audits `maintenance.configuration_refreshed` (info); it is
+idempotent and walks the same allow-listed settings snapshot as `/admin/settings`, never a generic
+cache flush. The retry accepts one ULID `communication_id`, delegates the message state and recipient
+rules to the shared `App\Http\Communications\CommunicationDelivery` used by the module 03 send/retry
+controller, and authorizes the message through `CommunicationPolicy::retry` (which delegates to the
+existing `send` rule). Only a failed outbound email with a recipient can be retried; a sent message,
+non-email channel, missing recipient or unknown id is an explicit 404/422, and a second retry after a
+successful send is a 422 state error. A mocked gateway rejection remains a 200 with `result: failed`.
+Every run audits its actor, result and `actor_role`, so an admin and a superadmin are distinguishable,
+and the audit snapshot carries the communication id/reference without a schema change (the audit
+`subject_id` is a bigint while communications use ULIDs). `OperationsSummary::maintenance.actions_available`
+is now true; `/admin/operations` replaces the S6 pending-maintenance note with a maintenance panel:
+a confirmed configuration refresh and a failed-email picker/retry, both with busy, success, empty and
+error states. The failed-email picker reuses the existing `GET /communications` read with
+`filter[status]=failed&filter[channel]=email`; no new administration read endpoint exists.
 
 ### S8 — Superadmin platform diagnostics
 
