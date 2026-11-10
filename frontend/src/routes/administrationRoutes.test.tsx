@@ -62,6 +62,25 @@ describe('administration route protection', () => {
     expect(screen.queryByText('403')).not.toBeInTheDocument()
   })
 
+  it('guards the operations health route to admin+ only', () => {
+    ;(['manager', 'salesrep'] as const).forEach((role) => {
+      const { unmount } = renderAt('/admin/operations', role)
+
+      expect(screen.getByText('403')).toBeInTheDocument()
+      unmount()
+    })
+
+    ;(['admin', 'superadmin'] as const).forEach((role) => {
+      const { unmount } = renderAt('/admin/operations', role)
+
+      expect(
+        screen.getByRole('heading', { name: 'Operations health', level: 2 }),
+      ).toBeInTheDocument()
+      expect(screen.queryByText('403')).not.toBeInTheDocument()
+      unmount()
+    })
+  })
+
   it('keeps personal settings open to every role', () => {
     ;(['salesrep', 'manager', 'admin', 'superadmin'] as const).forEach((role) => {
       const { unmount } = renderAt('/settings', role)

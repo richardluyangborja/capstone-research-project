@@ -24,6 +24,7 @@ use App\Models\Team;
 use App\Models\User;
 use App\Policies\AdminAccessPolicy;
 use App\Policies\AuditLogPolicy;
+use App\Policies\OperationsHealthPolicy;
 use App\Policies\SettingPolicy;
 use App\Policies\TaskPolicy;
 use App\Policies\TeamAdminPolicy;
@@ -86,6 +87,12 @@ class AppServiceProvider extends ServiceProvider
         // Module 08 S5 — the audit book's read/export boundary. Registered explicitly so the
         // append-only model never inherits a broader auto-discovered policy.
         Gate::policy(AuditLog::class, AuditLogPolicy::class);
+
+        // Module 08 S6 — operational health. An ability, not a model policy: the endpoints are
+        // reads over infrastructure rather than over a record. `platform` fields are omitted
+        // by the summary service for an admin, so no ability needs to guard them separately.
+        Gate::define('viewSummary', [OperationsHealthPolicy::class, 'viewSummary']);
+        Gate::define('viewHealth', [OperationsHealthPolicy::class, 'viewHealth']);
 
         // Module 08 S4 — `notifications.database_enabled` is enforced at send time: the
         // listener vetoes a database delivery when the switch is off.

@@ -9,6 +9,9 @@ import type {
   AdminUserOwnershipImpact,
   AuditLogEntry,
   AuditSeverity,
+  OperationsHealth,
+  OperationsHealthResponse,
+  OperationsSummary,
   Paginated,
   Role,
   UserStatus,
@@ -278,4 +281,24 @@ export const exportAuditLogs = async (filters: AuditLogFilters = {}): Promise<Bl
     responseType: 'blob',
   })
   return data
+}
+
+// --- Module 08 S6 — integration and operational health ----------------------
+
+/**
+ * The role-shaped operations summary. An application admin's payload carries `platform: null`;
+ * the server decides that, so the page renders what it was given rather than hiding a section.
+ */
+export const getOperationsSummary = async (): Promise<OperationsSummary> => {
+  const { data } = await api.get<{ data: OperationsSummary }>('/admin/operations/summary')
+  return data.data
+}
+
+/** The bounded, side-effect-free dependency probes. */
+export const getOperationsHealth = async (): Promise<OperationsHealthResponse> => {
+  const { data } = await api.get<{
+    data: OperationsHealth
+    meta: OperationsHealthResponse['meta']
+  }>('/admin/operations/health')
+  return { health: data.data, meta: data.meta }
 }

@@ -836,8 +836,9 @@ summaries, message drafting) are future submodules.
 **Module 08 — Administration & Platform Operations** is planned in `specs/19` and ADR-0030.
 **S0 (the role/endpoint/settings/audit/threat-model contract), S1 (the shared administration
 shell and route protection), S2 (the user directory and account lifecycle), S3 (teams, roles and
-ownership administration), S4 (organization and CRM settings) and S5 (the immutable audit book)
-are built**; S6–S10 remain proposed.
+ownership administration), S4 (organization and CRM settings), S5 (the immutable audit book) and
+S6 (integration and operational health)
+are built**; S7–S10 remain proposed.
 S1 adds the guarded `/admin` and `/platform` route groups, the all-role `/settings` page,
 `GET /admin/access` capability probe, `RoleRoute`, and inert placeholders named for each later
 slice. The sidebar groups are `Administration`, `Platform Operations` and `Personal`; a role that
@@ -892,6 +893,27 @@ emails again on read, and the CSV neutralises formula injection. An application 
 `security.*` or `auth.login_failed`; a superadmin does. The correlation id is minted once per
 request and cached, so a multi-step mutation's rows share it. `/admin/audit` renders the book with
 grouped event labels, severity badges, a detail panel and the bounded export.
+S6 adds `/admin/operations` with `GET /admin/operations/health` and `GET /admin/operations/summary`,
+behind the `viewSummary`/`viewHealth` abilities (`OperationsHealthPolicy`, admin+). The probes live
+in `App\Http\Operations\OperationsHealthProbe` — 11 application checks (the ten declared keys plus
+an explicit `service_handoff` check for the retired ADR-0027 handoff) and `queue`/`schema` for a
+superadmin only, each exactly `healthy`/`degraded`/`unavailable`/`not_configured` with a safe
+`summary`, optional `remediation`, a `checked_at` and a `source`. Nothing probes with side effects:
+the database check is one `select 1`, storage asks the local adapter's root metadata whether the
+private disk is writable (no probe file, no path, no listing), the email and department checks
+report the bound gateway and whether it is a `Mock*` driver (mocked ⇒ `degraded`, never "live"),
+and the AI check calls only the service's `/health` with a 2-second connect/total bound, returning
+a stable `unavailable` with no URL, token, body or exception. `App\Http\Operations\OperationsSummary`
+aggregates with bounded counts only: accounts by status, the last 24 hours of audit activity, the
+integration status counts (from the same checks), failed emails, the retryable count, the last 7
+days of `setting.*` events, and — for a superadmin alone — an application build/runtime label, a
+safe schema state, bounded failed-job and allow-listed entity totals and the last day's security
+event counts. `platform` is `null` for an admin and their audit counts/rows exclude security rows
+via `AuditPresenter`, so the boundary is the server's, never the page's. `/admin/operations` renders
+the health roll-up, per-check cards, summary counters, the attention list, recent admin activity,
+an informational pending-maintenance note (no action — S7 owns those) and the platform panel the
+server only sends a superadmin; the two halves load independently so one failure never blanks the
+other.
 Dedup/merge and advanced/stored tier scoring are module-01 deferrals
 (ADR-0006), and automatic client aging stays one too (ADR-0018 §6). Other departments are consumed via
 **read-only mocked feeds** (ADR-0005, ADR-0025), not built here.
