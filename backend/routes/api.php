@@ -2,8 +2,6 @@
 
 use App\Http\Controllers\Api\V1\AdminAccessController;
 use App\Http\Controllers\Api\V1\AdminAuditLogController;
-use App\Http\Controllers\Api\V1\AdminMaintenanceController;
-use App\Http\Controllers\Api\V1\AdminDiagnosticsController;
 use App\Http\Controllers\Api\V1\AdminOperationsController;
 use App\Http\Controllers\Api\V1\AdminSettingController;
 use App\Http\Controllers\Api\V1\AdminTeamController;
@@ -129,15 +127,6 @@ Route::prefix('v1')->group(function (): void {
         // the server, so an admin's payload carries no `platform` block at all.
         Route::get('admin/operations/summary', [AdminOperationsController::class, 'summary']);
         Route::get('admin/operations/health', [AdminOperationsController::class, 'health']);
-        // Module 08 slice S8 — superadmin platform diagnostics (spec 19, ADR-0030).
-        Route::get('admin/diagnostics/summary', [AdminDiagnosticsController::class, 'summary']);
-        Route::get('admin/diagnostics/health', [AdminDiagnosticsController::class, 'health']);
-
-        // Module 08 slice S7 — safe maintenance actions (spec 19, ADR-0030). Only the two
-        // allow-listed, idempotent actions below; no generic runner, SQL, migration, backup
-        // or restore endpoint exists.
-        Route::post('admin/maintenance/refresh-configuration', [AdminMaintenanceController::class, 'refreshConfiguration']);
-        Route::post('admin/maintenance/retry-email', [AdminMaintenanceController::class, 'retryEmail']);
 
         // Module 06 dashboard (spec 14, D2) — one role-scoped read over modules 01–05.
         Route::get('dashboard', [DashboardController::class, 'summary']);
