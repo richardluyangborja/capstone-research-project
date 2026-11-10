@@ -203,13 +203,13 @@ final class OperationsSummary
             return [
                 'retryable_failed_emails' => $retryable,
                 'configuration_refresh_available' => true,
-                'actions_available' => true,
+                'actions_available' => false,
             ];
         } catch (Throwable) {
             return [
                 'retryable_failed_emails' => null,
                 'configuration_refresh_available' => true,
-                'actions_available' => true,
+                'actions_available' => false,
             ];
         }
     }
