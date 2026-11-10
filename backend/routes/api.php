@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\V1\AdminAccessController;
 use App\Http\Controllers\Api\V1\AdminAuditLogController;
+use App\Http\Controllers\Api\V1\AdminMaintenanceController;
 use App\Http\Controllers\Api\V1\AdminOperationsController;
 use App\Http\Controllers\Api\V1\AdminSettingController;
 use App\Http\Controllers\Api\V1\AdminTeamController;
@@ -127,6 +128,13 @@ Route::prefix('v1')->group(function (): void {
         // the server, so an admin's payload carries no `platform` block at all.
         Route::get('admin/operations/summary', [AdminOperationsController::class, 'summary']);
         Route::get('admin/operations/health', [AdminOperationsController::class, 'health']);
+
+        // Module 08 slice S7 — safe, allow-listed maintenance actions (spec 19 §S7). Both need
+        // `confirm: true`, both are admin+ through `MaintenanceActionPolicy`, and both call the
+        // owning service rather than duplicating a workflow: the configuration refresh uses
+        // `EffectiveSettings::refresh()`, the email retry uses the module 03 delivery rules.
+        Route::post('admin/maintenance/refresh-configuration', [AdminMaintenanceController::class, 'refreshConfiguration']);
+        Route::post('admin/maintenance/retry-email', [AdminMaintenanceController::class, 'retryEmail']);
 
         // Module 06 dashboard (spec 14, D2) — one role-scoped read over modules 01–05.
         Route::get('dashboard', [DashboardController::class, 'summary']);

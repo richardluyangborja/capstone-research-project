@@ -9,6 +9,9 @@ import type {
   AdminUserOwnershipImpact,
   AuditLogEntry,
   AuditSeverity,
+  Communication,
+  MaintenanceEmailRetryResult,
+  MaintenanceRefreshResult,
   OperationsHealth,
   OperationsHealthResponse,
   OperationsSummary,
@@ -301,4 +304,48 @@ export const getOperationsHealth = async (): Promise<OperationsHealthResponse> =
     meta: OperationsHealthResponse['meta']
   }>('/admin/operations/health')
   return { health: data.data, meta: data.meta }
+}
+
+// --- Module 08 S7 — safe, allow-listed maintenance actions -------------------
+
+/**
+ * Rebuild the effective-configuration snapshot. The server requires `confirm: true` and runs
+ * `EffectiveSettings::refresh()` — never a generic cache flush. Idempotent.
+ */
+export const refreshMaintenanceConfiguration = async (): Promise<MaintenanceRefreshResult> => {
+  const { data } = await api.post<{ data: MaintenanceRefreshResult }>(
+    '/admin/maintenance/refresh-configuration',
+    { confirm: true },
+  )
+  return data.data
+}
+
+/**
+ * Retry exactly one failed outbound email. A mocked gateway rejection is a delivery outcome,
+ * not an HTTP error: the result is `failed` and the page says so.
+ */
+export const retryFailedEmail = async (
+  communicationId: string,
+): Promise<MaintenanceEmailRetryResult> => {
+  const { data } = await api.post<{ data: MaintenanceEmailRetryResult }>(
+    '/admin/maintenance/retry-email',
+    { communication_id: communicationId, confirm: true },
+  )
+  return data.data
+}
+
+/**
+ * The failed outbound emails the maintenance panel offers. It reuses the existing history
+ * book (`GET /communications`) with its failed/email filters and a bounded page size — no
+ * new administration read endpoint exists.
+ */
+export const listRetryableFailedEmails = async (): Promise<Communication[]> => {
+  const { data } = await api.get<Paginated<Communication>>('/communications', {
+    params: {
+      'filter[status]': 'failed',
+      'filter[channel]': 'email',
+      per_page: 50,
+    },
+  })
+  return data.data
 }

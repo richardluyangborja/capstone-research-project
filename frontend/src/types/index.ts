@@ -1916,3 +1916,19 @@ export interface OperationsSummary {
   configuration_changes: { last_7_days: number; window_days: number }
   platform: OperationsPlatformSummary | null
 }
+
+/** The allow-listed configuration refresh result (module 08 slice S7). */
+export interface MaintenanceRefreshResult {
+  result: 'refreshed'
+  refreshed: boolean
+}
+
+/** The outcome of retrying one failed email — a rejected gateway send is still a 200. */
+export interface MaintenanceEmailRetryResult {
+  id: string
+  reference: string
+  status: CommunicationStatus
+  result: 'sent' | 'failed'
+  external_id: string | null
+  failed_reason: string | null
+}

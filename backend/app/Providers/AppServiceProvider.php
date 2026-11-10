@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Http\Operations\MaintenanceAction;
 use App\Integrations\ContractFeed;
 use App\Integrations\DeploymentFeed;
 use App\Integrations\EmailGateway;
@@ -24,6 +25,7 @@ use App\Models\Team;
 use App\Models\User;
 use App\Policies\AdminAccessPolicy;
 use App\Policies\AuditLogPolicy;
+use App\Policies\MaintenanceActionPolicy;
 use App\Policies\OperationsHealthPolicy;
 use App\Policies\SettingPolicy;
 use App\Policies\TaskPolicy;
@@ -93,6 +95,11 @@ class AppServiceProvider extends ServiceProvider
         // by the summary service for an admin, so no ability needs to guard them separately.
         Gate::define('viewSummary', [OperationsHealthPolicy::class, 'viewSummary']);
         Gate::define('viewHealth', [OperationsHealthPolicy::class, 'viewHealth']);
+
+        // Module 08 S7 — the allow-listed maintenance actions. Registered explicitly for the
+        // model-less marker so auto-discovery cannot attach the abilities to a record, and so
+        // there is exactly one policy for both actions.
+        Gate::policy(MaintenanceAction::class, MaintenanceActionPolicy::class);
 
         // Module 08 S4 — `notifications.database_enabled` is enforced at send time: the
         // listener vetoes a database delivery when the switch is off.

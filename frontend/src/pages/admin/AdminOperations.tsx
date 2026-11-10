@@ -9,6 +9,11 @@ import StatCard from '../../components/common/StatCard'
 import { auditActionLabel, auditSeverityMeta } from '../../lib/auditMeta'
 import { formatDateTime } from '../../lib/format'
 import {
+  listRetryableFailedEmails,
+  refreshMaintenanceConfiguration,
+  retryFailedEmail,
+} from '../../lib/admin'
+import {
   loadOperations,
   operationStatusMeta,
   operationStatusOrder,
@@ -16,7 +21,7 @@ import {
 } from '../../lib/operationsMeta'
 import OperationCheckCard from './OperationCheckCard'
 import PlatformOperationsPanel from './PlatformOperationsPanel'
-import type { OperationsHealthResponse, OperationsSummary } from '../../types'
+import type { Communication, OperationsHealthResponse, OperationsSummary } from '../../types'
 
 /** Where each integration check's owner lives, so the page links instead of duplicating it. */
 const ownerRoutes: Record<string, { to: string; label: string }> = {
@@ -31,13 +36,15 @@ const ownerRoutes: Record<string, { to: string; label: string }> = {
 }
 
 /**
- * The operational health dashboard (module 08 slice S6, spec 19 §S6).
+ * The operational health dashboard (module 08 slice S6) and its safe maintenance actions
+ * (slice S7, spec 19 §S7).
  *
- * Read-only: it reads the two admin operations endpoints and renders what they return. It adds
- * no maintenance control (S7 owns those), and it does not decide the role boundary — an
- * application admin's summary simply carries no `platform` block to render. The page has
- * loading, empty, partial and error/retry states, and each half degrades on its own so one
- * failing call never blanks the other.
+ * It reads the two admin operations endpoints and renders what they return. The maintenance
+ * panel appears only when the server says `maintenance.actions_available`: a confirmed
+ * configuration refresh and a retry of one failed outbound email, both through the admin
+ * maintenance endpoints — never a command runner or a generic cache flush. The page does not
+ * decide the role boundary: an application admin's summary simply carries no `platform` block
+ * to render. Each half degrades on its own so one failing call never blanks the other.
  */
 export default function AdminOperations() {
   const [summary, setSummary] = useState<OperationsSummary | null>(null)
@@ -46,6 +53,19 @@ export default function AdminOperations() {
   const [healthError, setHealthError] = useState('')
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
+
+  const [refreshingConfiguration, setRefreshingConfiguration] = useState(false)
+  const [maintenanceNotice, setMaintenanceNotice] = useState('')
+  const [maintenanceError, setMaintenanceError] = useState('')
+
+  const [failedEmails, setFailedEmails] = useState<Communication[]>([])
+  const [failedEmailsLoading, setFailedEmailsLoading] = useState(false)
+  const [failedEmailsError, setFailedEmailsError] = useState('')
+  const [selectedEmailId, setSelectedEmailId] = useState('')
+  const [retryingEmail, setRetryingEmail] = useState(false)
+  const [retryOutcome, setRetryOutcome] = useState<'sent' | 'failed' | ''>('')
+  const [retryNotice, setRetryNotice] = useState('')
+  const [retryError, setRetryError] = useState('')
 
   const load = useCallback(async (initial: boolean) => {
     if (initial) setLoading(true)
@@ -63,16 +83,98 @@ export default function AdminOperations() {
     }
   }, [])
 
+  const loadFailedEmails = useCallback(async () => {
+    setFailedEmailsLoading(true)
+    setFailedEmailsError('')
+
+    try {
+      const emails = await listRetryableFailedEmails()
+      setFailedEmails(emails)
+      setSelectedEmailId((current) =>
+        current && emails.some((email) => email.id === current) ? current : (emails[0]?.id ?? ''),
+      )
+    } catch {
+      setFailedEmails([])
+      setSelectedEmailId('')
+      setFailedEmailsError('Could not load the failed emails. Retry the list.')
+    } finally {
+      setFailedEmailsLoading(false)
+    }
+  }, [])
+
   useEffect(() => {
     void load(true)
   }, [load])
+
+  const actionsAvailable = summary?.maintenance.actions_available ?? false
+
+  useEffect(() => {
+    if (actionsAvailable) void loadFailedEmails()
+  }, [actionsAvailable, loadFailedEmails])
+
+  const refreshConfiguration = () => {
+    if (
+      !window.confirm(
+        'Rebuild the effective configuration snapshot now? This is idempotent and writes an audit event; it is not a cache flush.',
+      )
+    ) {
+      return
+    }
+
+    setRefreshingConfiguration(true)
+    setMaintenanceNotice('')
+    setMaintenanceError('')
+
+    void refreshMaintenanceConfiguration()
+      .then(async () => {
+        setMaintenanceNotice('The effective configuration was refreshed.')
+        await load(false)
+      })
+      .catch(() => setMaintenanceError('Could not refresh the configuration.'))
+      .finally(() => setRefreshingConfiguration(false))
+  }
+
+  const retrySelectedEmail = () => {
+    const email = failedEmails.find((candidate) => candidate.id === selectedEmailId)
+
+    if (!email) return
+
+    if (
+      !window.confirm(
+        `Retry the failed email ${email.reference}? It goes through the mocked mail gateway exactly once.`,
+      )
+    ) {
+      return
+    }
+
+    setRetryingEmail(true)
+    setRetryOutcome('')
+    setRetryNotice('')
+    setRetryError('')
+
+    void retryFailedEmail(email.id)
+      .then(async (result) => {
+        setRetryOutcome(result.result)
+        setRetryNotice(
+          result.result === 'sent'
+            ? 'The gateway accepted the message; it is no longer a failed email.'
+            : 'The mocked gateway rejected the retry again. The message stays failed and can be retried later.',
+        )
+        await Promise.all([load(false), loadFailedEmails()])
+      })
+      .catch(() => setRetryError('Could not retry the email. Nothing was sent.'))
+      .finally(() => setRetryingEmail(false))
+  }
+
+  const recipientLabel = (email: Communication) =>
+    email.to_address ?? email.contact?.email ?? 'No recipient'
 
   if (loading) {
     return (
       <div className="flex flex-col gap-6">
         <PageHeader
           title="Operations health"
-          description="Application dependencies, integration status and administrative activity. Read-only."
+          description="Application dependencies, integration status, administrative activity and safe maintenance."
         />
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3" aria-busy="true">
           {[0, 1, 2, 3, 4, 5].map((key) => (
@@ -91,7 +193,7 @@ export default function AdminOperations() {
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Operations health"
-        description="Application dependencies, integration status and administrative activity. Read-only — no maintenance runs from this page."
+        description="Application dependencies, integration status, administrative activity and safe, allow-listed maintenance."
         actions={
           <button
             type="button"
@@ -310,13 +412,144 @@ export default function AdminOperations() {
             </section>
           </div>
 
-          {/* Pending maintenance — informational only; S7 owns the actions. */}
-          <AlertItem variant="info" title="Pending maintenance">
-            {summary.maintenance.retryable_failed_emails ?? 0} failed email
-            {summary.maintenance.retryable_failed_emails === 1 ? '' : 's'} could be retried and the
-            effective configuration can be refreshed. This page does not run either — maintenance
-            actions arrive in a later slice.
-          </AlertItem>
+          {/* Safe, allow-listed maintenance (S7) — only the two server-supported actions. */}
+          {summary.maintenance.actions_available && (
+            <section
+              className="rounded-lg border border-border bg-card p-4"
+              data-panel="maintenance"
+              aria-labelledby="maintenance-heading"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 id="maintenance-heading" className="text-sm font-semibold text-foreground">
+                  Maintenance
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  Allow-listed actions only · each run is confirmed and audited
+                </p>
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                These actions call the owning service rather than a command runner: the settings
+                refresh rebuilds the effective snapshot and a retry hands exactly one message to
+                the mail gateway.
+              </p>
+
+              <div className="mt-4 grid gap-4 lg:grid-cols-2">
+                <div
+                  className="rounded-md border border-border bg-background p-4"
+                  data-maintenance-action="refresh"
+                >
+                  <h4 className="text-sm font-semibold text-foreground">Configuration refresh</h4>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Rebuild the effective settings snapshot from the allow-list. Idempotent, and
+                    it never clears a generic cache.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={refreshConfiguration}
+                    disabled={refreshingConfiguration}
+                    className="mt-3 inline-flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-60"
+                  >
+                    <RefreshCw
+                      className={`h-4 w-4 ${refreshingConfiguration ? 'animate-spin' : ''}`}
+                      aria-hidden
+                    />
+                    {refreshingConfiguration ? 'Refreshing…' : 'Refresh configuration'}
+                  </button>
+
+                  {maintenanceNotice && (
+                    <div className="mt-3">
+                      <AlertItem variant="success">{maintenanceNotice}</AlertItem>
+                    </div>
+                  )}
+                  {maintenanceError && (
+                    <div className="mt-3">
+                      <AlertItem variant="danger">{maintenanceError}</AlertItem>
+                    </div>
+                  )}
+                </div>
+
+                <div
+                  className="rounded-md border border-border bg-background p-4"
+                  data-maintenance-action="retry-email"
+                >
+                  <h4 className="text-sm font-semibold text-foreground">Retry a failed email</h4>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    One outbound email the mocked gateway rejected. A rejection here is a delivery
+                    outcome, not a page error.
+                  </p>
+
+                  {failedEmailsLoading ? (
+                    <p className="mt-3 text-sm text-muted-foreground" role="status">
+                      Loading failed emails…
+                    </p>
+                  ) : failedEmailsError ? (
+                    <div className="mt-3">
+                      <AlertItem variant="danger" title="Failed emails could not be loaded">
+                        <p>{failedEmailsError}</p>
+                        <button
+                          type="button"
+                          onClick={() => void loadFailedEmails()}
+                          className="mt-2 font-medium text-foreground underline"
+                        >
+                          Retry
+                        </button>
+                      </AlertItem>
+                    </div>
+                  ) : failedEmails.length === 0 ? (
+                    <p className="mt-3 text-sm text-muted-foreground">
+                      No failed outbound emails are waiting to be retried.
+                    </p>
+                  ) : (
+                    <>
+                      <label
+                        htmlFor="failed-email"
+                        className="mt-3 block text-xs font-medium text-foreground"
+                      >
+                        Failed email
+                      </label>
+                      <select
+                        id="failed-email"
+                        value={selectedEmailId}
+                        onChange={(event) => setSelectedEmailId(event.target.value)}
+                        className="mt-1 w-full rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground"
+                      >
+                        {failedEmails.map((email) => (
+                          <option key={email.id} value={email.id}>
+                            {email.reference} — {email.subject} — {recipientLabel(email)}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        onClick={retrySelectedEmail}
+                        disabled={retryingEmail || !selectedEmailId}
+                        className="mt-3 inline-flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2 text-sm font-medium text-foreground hover:bg-muted disabled:opacity-60"
+                      >
+                        <RefreshCw
+                          className={`h-4 w-4 ${retryingEmail ? 'animate-spin' : ''}`}
+                          aria-hidden
+                        />
+                        {retryingEmail ? 'Retrying…' : 'Retry failed email'}
+                      </button>
+                    </>
+                  )}
+
+                  {retryNotice && (
+                    <div className="mt-3">
+                      <AlertItem variant={retryOutcome === 'failed' ? 'warning' : 'success'}>
+                        {retryNotice}
+                      </AlertItem>
+                    </div>
+                  )}
+                  {retryError && (
+                    <div className="mt-3">
+                      <AlertItem variant="danger">{retryError}</AlertItem>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </section>
+          )}
 
           {platform && <PlatformOperationsPanel platform={platform} />}
         </>

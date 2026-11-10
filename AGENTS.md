@@ -836,9 +836,9 @@ summaries, message drafting) are future submodules.
 **Module 08 — Administration & Platform Operations** is planned in `specs/19` and ADR-0030.
 **S0 (the role/endpoint/settings/audit/threat-model contract), S1 (the shared administration
 shell and route protection), S2 (the user directory and account lifecycle), S3 (teams, roles and
-ownership administration), S4 (organization and CRM settings), S5 (the immutable audit book) and
-S6 (integration and operational health)
-are built**; S7–S10 remain proposed.
+ownership administration), S4 (organization and CRM settings), S5 (the immutable audit book),
+S6 (integration and operational health) and S7 (safe maintenance actions)
+are built**; S8–S10 remain proposed.
 S1 adds the guarded `/admin` and `/platform` route groups, the all-role `/settings` page,
 `GET /admin/access` capability probe, `RoleRoute`, and inert placeholders named for each later
 slice. The sidebar groups are `Administration`, `Platform Operations` and `Personal`; a role that
@@ -911,9 +911,20 @@ safe schema state, bounded failed-job and allow-listed entity totals and the las
 event counts. `platform` is `null` for an admin and their audit counts/rows exclude security rows
 via `AuditPresenter`, so the boundary is the server's, never the page's. `/admin/operations` renders
 the health roll-up, per-check cards, summary counters, the attention list, recent admin activity,
-an informational pending-maintenance note (no action — S7 owns those) and the platform panel the
-server only sends a superadmin; the two halves load independently so one failure never blanks the
-other.
+the maintenance panel and the platform panel the server only sends a superadmin; the two halves load
+independently so one failure never blanks the other.
+S7 adds `POST /admin/maintenance/refresh-configuration` and `POST /admin/maintenance/retry-email`,
+both behind `MaintenanceActionPolicy` and requiring `confirm: true`. The refresh calls
+`EffectiveSettings::refresh()` and audits `maintenance.configuration_refreshed`; it is idempotent and
+never a generic cache flush. The retry takes one failed email's `communication_id`, delegates to the
+shared module 03 `CommunicationDelivery` state/recipient rules through `CommunicationPolicy::retry`,
+returns a 200 delivery outcome even when the mocked gateway rejects the retry again, and rejects a
+second retry after a successful send with a 422. Both actions audit the actor and `actor_role`, so an
+admin and a superadmin are distinguishable, and `OperationsSummary::maintenance.actions_available` is
+now true. `/admin/operations` turns the old pending-maintenance note into the maintenance panel: a
+confirmed configuration refresh plus a failed-email picker/retry loaded through the existing
+`GET /communications` read, with busy, success, empty and error states. No command runner, SQL,
+migration, backup, restore or generic cache endpoint is exposed.
 Dedup/merge and advanced/stored tier scoring are module-01 deferrals
 (ADR-0006), and automatic client aging stays one too (ADR-0018 §6). Other departments are consumed via
 **read-only mocked feeds** (ADR-0005, ADR-0025), not built here.
