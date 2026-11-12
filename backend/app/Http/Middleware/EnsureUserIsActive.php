@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\UserSession;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -25,6 +26,18 @@ class EnsureUserIsActive
             auth('api')->logout();
 
             return response()->json(['message' => 'Account suspended.'], 401);
+        }
+
+        if ($user !== null && $request->bearerToken() !== null) {
+            $jti = (string) auth('api')->getPayload()->get('jti');
+            $session = UserSession::query()->where('user_id', $user->id)->where('jti', $jti)->first();
+
+            if ($session === null || $session->revoked_at !== null || $session->expires_at->isPast()) {
+                auth('api')->logout();
+
+                return response()->json(['message' => 'Session expired.'], 401);
+            }
+            $session->forceFill(['last_seen_at' => now()])->save();
         }
 
         return $next($request);

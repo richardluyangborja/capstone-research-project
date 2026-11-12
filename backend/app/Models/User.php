@@ -15,7 +15,7 @@ use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Str;
 use PHPOpenSourceSaver\JWTAuth\Contracts\JWTSubject;
 
-#[Fillable(['name', 'email', 'password', 'role', 'team_id', 'public_id', 'status', 'suspended_at', 'suspended_by', 'status_reason'])]
+#[Fillable(['name', 'email', 'password', 'role', 'team_id', 'public_id', 'status', 'suspended_at', 'suspended_by', 'status_reason', 'preferences'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable implements JWTSubject
 {
@@ -42,7 +42,13 @@ class User extends Authenticatable implements JWTSubject
             'role' => Role::class,
             'status' => UserStatus::class,
             'suspended_at' => 'datetime',
+            'preferences' => 'array',
         ];
+    }
+
+    public function sessions(): HasMany
+    {
+        return $this->hasMany(UserSession::class);
     }
 
     public function team(): BelongsTo

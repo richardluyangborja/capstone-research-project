@@ -39,6 +39,7 @@ use App\Http\Controllers\Api\V1\NotificationController;
 use App\Http\Controllers\Api\V1\OpportunityActivityController;
 use App\Http\Controllers\Api\V1\OpportunityController;
 use App\Http\Controllers\Api\V1\OpportunityStageController;
+use App\Http\Controllers\Api\V1\PersonalSettingsController;
 use App\Http\Controllers\Api\V1\PipelineController;
 use App\Http\Controllers\Api\V1\PlatformDiagnosticController;
 use App\Http\Controllers\Api\V1\PublicLeadController;
@@ -76,6 +77,15 @@ Route::prefix('v1')->group(function (): void {
     Route::middleware(['auth:api', 'active.user'])->group(function (): void {
         Route::get('/auth/me', [AuthController::class, 'me']);
         Route::post('/auth/logout', [AuthController::class, 'logout']);
+
+        // Module 08 S9 — personal profile, preferences, password and own JWT sessions.
+        Route::get('me/settings', [PersonalSettingsController::class, 'show']);
+        Route::patch('me/profile', [PersonalSettingsController::class, 'updateProfile']);
+        Route::patch('me/preferences', [PersonalSettingsController::class, 'updatePreferences']);
+        Route::put('me/password', [PersonalSettingsController::class, 'changePassword']);
+        Route::get('me/sessions', [PersonalSettingsController::class, 'sessions']);
+        Route::delete('me/sessions/{session}', [PersonalSettingsController::class, 'revokeSession']);
+        Route::post('me/sessions/revoke-others', [PersonalSettingsController::class, 'revokeOthers']);
 
         // Module 08 S1 — the administration shell's capability probe (spec 19, ADR-0030).
         // The route is guarded by `AdminAccessPolicy`; non-admins get the standard 403 shape.

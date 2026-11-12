@@ -17,7 +17,16 @@ class FilterDatabaseNotifications
 {
     public function handle(NotificationSending $event): bool
     {
-        if ($event->channel === 'database' && config('notifications.database_enabled', true) === false) {
+        if ($event->channel !== 'database') {
+            return true;
+        }
+
+        if (config('notifications.database_enabled', true) === false) {
+            return false;
+        }
+
+        $mandatory = str_contains(strtolower(class_basename($event->notification)), 'security');
+        if (! $mandatory && data_get($event->notifiable, 'preferences.notification_database') === false) {
             return false;
         }
 

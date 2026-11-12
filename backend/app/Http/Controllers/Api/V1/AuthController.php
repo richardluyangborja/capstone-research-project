@@ -7,6 +7,7 @@ use App\Enums\UserStatus;
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\User;
+use App\Models\UserSession;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -36,6 +37,15 @@ class AuthController extends Controller
             return response()->json(['message' => 'Account suspended.'], 401);
         }
 
+        $payload = auth('api')->setToken($token)->getPayload();
+        UserSession::query()->updateOrCreate(['jti' => (string) $payload->get('jti')], [
+            'user_id' => $user->id,
+            'ip_address' => $request->ip(),
+            'user_agent' => substr((string) $request->userAgent(), 0, 255),
+            'last_seen_at' => now(),
+            'expires_at' => now()->addMinutes((int) auth('api')->factory()->getTTL()),
+            'revoked_at' => null,
+        ]);
         AuditLog::record('auth.login_succeeded', AuditSeverity::Info, $user->id, User::class, $user->id);
 
         return $this->tokenResponse($token);
@@ -49,6 +59,10 @@ class AuthController extends Controller
     public function logout(): JsonResponse
     {
         $user = auth('api')->user();
+        if ($user !== null) {
+            $jti = (string) auth('api')->getPayload()->get('jti');
+            UserSession::query()->where('user_id', $user->id)->where('jti', $jti)->update(['revoked_at' => now()]);
+        }
         auth('api')->logout();
 
         if ($user !== null) {
