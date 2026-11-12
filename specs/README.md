@@ -51,7 +51,7 @@ score or automatic lifecycle transition. These remain tracked module-01 deferral
 | `15-ai-management-reports.md` | 7. AI Management Reports *(built — S1 + S2)* |
 | `18-module-02-refresh.md` | **Refresh** — Opportunity Pipeline Visualization: staffing demand fields, won/lost governance, follow-up sync and view switcher; S2–S5 built (ADR-0029) |
 | `19-administration-and-platform-operations.md` | **Module 08** — admin application operations, superadmin platform diagnostics, and personal settings; S0 accepted, S1–S10 built |
-| `20-employee-performance-and-attendance-profiling.md` | **Module 09** — employee performance, attendance, and compensation profiling; read-only Core 2 integration; S0 accepted, S1–S5 built (ADR-0031) |
+| `20-employee-performance-and-attendance-profiling.md` | **Module 09** — employee performance, attendance, and compensation profiling; read-only Core 2 integration; S0 accepted, S1–S6 built (ADR-0031) |
 
 `16-module-01-refresh.md` is the one exception to the `10+` numbering: it is a **refresh of Module 01**,
 not a later data module. Its ADRs (0023–0026) are the current decisions for that work.
