@@ -1,6 +1,6 @@
 # Module 09 — Employee Performance & Attendance Profiling
 
-- Status: **S0 accepted; S1–S3 built; S4–S7 proposed**
+- Status: **S0 accepted; S1–S4 built; S5–S7 proposed**
 - Depends on: ADR-0004, ADR-0005, ADR-0007, ADR-0016, ADR-0020, ADR-0021, ADR-0025, ADR-0030, ADR-0031, `00-data-model.md`, `specs/14`, `specs/15`, `specs/19`, `implementation/system-roles.md`, `implementation/list-of-departments.md`
 
 ## Purpose
@@ -170,7 +170,7 @@ The new module requires bounded additions to Module 08:
 | **S1** | `feature/module-09-core2-gateway-s1` | Core 2 Integration Gateway & DTOs | Gateway interface, DTOs, deterministic mock, resilience | **Built** |
 | **S2** | `feature/module-09-backend-api-s2` | Backend API Routes & Policy Scoping | `/api/v1/employees`, role masking, CRM KPI aggregation | **Built** |
 | **S3** | `feature/module-09-frontend-directory-s3` | Employee Directory Roster UI | `/employees` table, role filters, quota badges | **Built** |
-| **S4** | `feature/module-09-profile-360-s4` | Employee 360° Profile & Core Tabs | `/employees/:id` with Overview, CRM, Attendance & Appraisals | Proposed |
+| **S4** | `feature/module-09-profile-360-s4` | Employee 360° Profile & Core Tabs | `/employees/:id` with Overview, CRM, Attendance & Appraisals | **Built** |
 | **S5** | `feature/module-09-compensation-s5` | Compensation Profiling & Masking | Base salary, CRM commissions, payslips, manager mask | Proposed |
 | **S6** | `feature/module-09-leaderboard-s6` | Discipline vs. Output Correlation | `/employees/leaderboard` matrix & ranking view | Proposed |
 | **S7** | `feature/module-09-cross-cutting-s7` | Admin, Analytics, AI & Verification | Module 06/07/08 updates, deterministic seeds, test suites | Proposed |
@@ -236,15 +236,24 @@ Acceptance:
 - [x] Period filter (`30d`, `Quarter`, `YTD`) updates figures smoothly.
 - [x] Row click navigates to `/employees/{public_id}`.
 
-### S4 — Frontend Employee 360° Profile & Core Tabs *(Proposed)*
+### S4 — Frontend Employee 360° Profile & Core Tabs *(Built)*
 Deliver `/employees/{public_id}` with header card (Core 2 metadata, tenure, shift) and tabs for
 Overview, CRM Performance, Core 2 Attendance, and HR Appraisals.
 
+Built as: `frontend/src/pages/EmployeeProfile.tsx` replaces the S3 placeholder with the header card,
+Overview, CRM Performance, Core 2 Attendance (late arrivals, undertime, absences and leave-balance
+meters) and HR Appraisals (competency ratings and evaluator notes), each Core 2 section carrying the
+`core2 · HR (read-only)` badge. Profile, performance, attendance and appraisals load in parallel;
+period changes reload performance and attendance. A Core 2 outage shows the unavailable banner and
+`—`/empty states instead of fabricated values, and 403/404 responses get explicit messages.
+Verification: `cd frontend && npm run lint`,
+`npx vitest run src/pages/employeeProfile.test.tsx`, full `npm run test -- --run`, `npm run build`.
+
 Acceptance:
-- [ ] Core 2 sections prominently display the `core2 · HR (read-only)` badge.
-- [ ] Timekeeping tab renders late arrivals, undertime, and leave balance meters.
-- [ ] Appraisals tab renders formal competency evaluation scores.
-- [ ] Graceful fallback (`—`) renders when Core 2 feed is unavailable.
+- [x] Core 2 sections prominently display the `core2 · HR (read-only)` badge.
+- [x] Timekeeping tab renders late arrivals, undertime, and leave balance meters.
+- [x] Appraisals tab renders formal competency evaluation scores.
+- [x] Graceful fallback (`—`) renders when Core 2 feed is unavailable.
 
 ### S5 — Compensation Profiling & Masking *(Proposed)*
 Deliver the Compensation & Salary tab on `/employees/{public_id}`.

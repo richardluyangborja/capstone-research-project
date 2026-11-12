@@ -14,7 +14,7 @@ import Contracts from '../pages/Contracts'
 import DashboardHome from '../pages/DashboardHome'
 import Deployments from '../pages/Deployments'
 import Employees from '../pages/Employees'
-import EmployeeProfilePlaceholder from '../pages/EmployeeProfilePlaceholder'
+import EmployeeProfile from '../pages/EmployeeProfile'
 import FollowUpForm from '../pages/FollowUpForm'
 import FollowUps from '../pages/FollowUps'
 import ImportLeads from '../pages/ImportLeads'
@@ -75,7 +75,7 @@ export const dashboardRoutes: DashboardRoute[] = [
   { path: '/contracts/:id', element: <ContractDetail /> },
   { path: '/deployments', element: <Deployments /> },
   { path: '/employees', element: <Employees /> },
-  { path: '/employees/:id', element: <EmployeeProfilePlaceholder /> },
+  { path: '/employees/:id', element: <EmployeeProfile /> },
   { path: '/billing', element: <Billing /> },
   { path: '/contacts', element: <Contacts /> },
   { path: '/pipeline', element: <Pipeline /> },
