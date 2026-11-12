@@ -72,5 +72,6 @@ class DatabaseSeeder extends Seeder
         $this->call(DemoFollowUpSeeder::class);
         $this->call(DemoSurveySeeder::class);
         $this->call(DemoSurveyInvitationSeeder::class);
+        $this->call(DemoAdministrationSeeder::class);
     }
 }

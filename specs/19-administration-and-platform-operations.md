@@ -1,6 +1,6 @@
 # Module 08 — Administration & Platform Operations
 
-- Status: **S0 accepted; S1–S9 built; S10 proposed and pending implementation verification**
+- Status: **S0 accepted; S1–S10 built**
 - Depends on: ADR-0004, ADR-0005, ADR-0007, ADR-0016, `00-data-model.md`, `implementation/system-roles.md`
 
 ## Purpose
@@ -686,7 +686,7 @@ Acceptance:
 Built as: the authenticated `/me/settings`, `/me/profile`, `/me/preferences`, `/me/password` and `/me/sessions` API surfaces, own-user policies, per-user preference storage and JWT session records containing only `jti`, device metadata and timestamps (never a token or payload). Password changes verify the current password, update the credential, revoke every other recorded session and audit the event. The shared `/settings` page provides profile, personal display/notification preferences, password update and current-session/other-session management; personal changes do not affect organization-level settings.
 Verification: `cd backend && php artisan test --compact tests/Feature/PersonalSettingsTest.php tests/Feature/AuthTest.php`; frontend `npm run lint`, targeted route tests and `npm run build`.
 
-### S10 — Seeds, fixtures, and verification
+### S10 — Seeds, fixtures, and verification *(built)*
 
 Extend deterministic seed data with at least one suspended user, multiple teams, an admin audit
 history, an integration failure, and representative settings. Add backend policy/feature tests and
@@ -694,10 +694,13 @@ frontend route/permission tests for every slice.
 
 Acceptance:
 
-- no faker is introduced;
-- demo accounts remain usable with password `password`;
-- admin and superadmin demo flows are reproducible from `migrate:fresh --seed`;
-- the full backend and frontend suites pass.
+- [x] no faker is introduced;
+- [x] demo accounts remain usable with password `password`;
+- [x] admin and superadmin demo flows are reproducible from `migrate:fresh --seed`;
+- [x] the full backend and frontend suites pass.
+
+Built as: `DemoAdministrationSeeder` adds a suspended salesrep demo account (password remains `password`), representative CRM/notification/AI settings, and admin audit history; the existing deterministic seed retains multiple teams and a mocked failed email. `DemoAdministrationSeedTest` verifies active demo logins, suspended-user login rejection, fixture records and admin/superadmin operations, and reseeding does not duplicate this fixture's setting or audit entries. Frontend route tests exercise application and platform access boundaries across roles. No Faker data was added.
+Verification: `cd backend && php artisan test --compact` (603 passed); `cd frontend && npm run test -- --run` (314 passed); `npm run lint`; `npm run build`.
 
 ## Deferred capabilities
 

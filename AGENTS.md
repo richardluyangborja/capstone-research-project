@@ -827,8 +827,8 @@ summaries, message drafting) are future submodules.
 shell and route protection), S2 (the user directory and account lifecycle), S3 (teams, roles and
 ownership administration), S4 (organization and CRM settings), S5 (the immutable audit book),
 S6 (integration and operational health) and S7 (safe maintenance actions)
-S8 (superadmin platform diagnostics) and S9 (personal settings for every role) are built**; S10
-remains proposed.
+S8 (superadmin platform diagnostics), S9 (personal settings for every role), and S10
+(deterministic seeds and end-to-end verification) are built**.
 S1 adds the guarded `/admin` and `/platform` route groups, the all-role `/settings` page,
 `GET /admin/access` capability probe, `RoleRoute`, and inert placeholders named for each later
 slice. The sidebar groups are `Administration`, `Platform Operations` and `Personal`; a role that
