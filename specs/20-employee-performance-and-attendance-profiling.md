@@ -1,6 +1,6 @@
 # Module 09 — Employee Performance & Attendance Profiling
 
-- Status: **S0 accepted; S1–S7 proposed**
+- Status: **S0 accepted; S1–S2 built; S3–S7 proposed**
 - Depends on: ADR-0004, ADR-0005, ADR-0007, ADR-0016, ADR-0020, ADR-0021, ADR-0025, ADR-0030, ADR-0031, `00-data-model.md`, `specs/14`, `specs/15`, `specs/19`, `implementation/system-roles.md`, `implementation/list-of-departments.md`
 
 ## Purpose
@@ -167,8 +167,8 @@ The new module requires bounded additions to Module 08:
 | Slice | Branch | Focus | Key Deliverable | Status |
 | :--- | :--- | :--- | :--- | :--- |
 | **S0** | `feature/module-09-employees-s0` | Architecture, Spec 20 & ADR-0031 | Formal contract, data boundaries, and threat model | **Accepted** |
-| **S1** | `feature/module-09-core2-gateway-s1` | Core 2 Integration Gateway & DTOs | Gateway interface, DTOs, deterministic mock, resilience | Proposed |
-| **S2** | `feature/module-09-backend-api-s2` | Backend API Routes & Policy Scoping | `/api/v1/employees`, role masking, CRM KPI aggregation | Proposed |
+| **S1** | `feature/module-09-core2-gateway-s1` | Core 2 Integration Gateway & DTOs | Gateway interface, DTOs, deterministic mock, resilience | **Built** |
+| **S2** | `feature/module-09-backend-api-s2` | Backend API Routes & Policy Scoping | `/api/v1/employees`, role masking, CRM KPI aggregation | **Built** |
 | **S3** | `feature/module-09-frontend-directory-s3` | Employee Directory Roster UI | `/employees` table, role filters, quota badges | Proposed |
 | **S4** | `feature/module-09-profile-360-s4` | Employee 360° Profile & Core Tabs | `/employees/:id` with Overview, CRM, Attendance & Appraisals | Proposed |
 | **S5** | `feature/module-09-compensation-s5` | Compensation Profiling & Masking | Base salary, CRM commissions, payslips, manager mask | Proposed |
@@ -189,26 +189,35 @@ Acceptance:
 - [x] Zero CRM database mutations for Core 2 HR records confirmed.
 - [x] Role-based salary masking policy specified.
 
-### S1 — Core 2 Integration Gateway & Deterministic DTOs *(Proposed)*
+### S1 — Core 2 Integration Gateway & Deterministic DTOs *(Built)*
 Deliver `Core2EmployeeGateway`, `MockCore2EmployeeGateway`, and DTOs in `backend/app/Integrations/`.
 Values are deterministically derived from `User.id` (crc32 seed, no Faker). Failure simulation switch
 supported.
 
 Acceptance:
-- [ ] DTOs `Core2EmployeeProfile`, `Core2AttendanceSummary`, `Core2CompensationProfile`, `Core2AppraisalSummary` implemented.
-- [ ] Deterministic fixture output for demo users (Sam, Maria, Liza).
-- [ ] `CRM_CORE2_SIMULATE_FAILURE=true` safely returns `null` without throwing exceptions.
-- [ ] Unit tests verify gateway resilience.
+- [x] DTOs `Core2EmployeeProfile`, `Core2AttendanceSummary`, `Core2CompensationProfile`, `Core2AppraisalSummary` implemented.
+- [x] Deterministic fixture output for demo users (Sam, Maria, Liza).
+- [x] `CRM_CORE2_SIMULATE_FAILURE=true` safely returns `null` without throwing exceptions.
+- [x] Unit tests verify gateway resilience.
 
-### S2 — Backend API Routes & Policy Scoping *(Proposed)*
+### S2 — Backend API Routes & Policy Scoping *(Built)*
 Deliver `EmployeeController`, `EmployeePolicy`, and API resources under `/api/v1/employees`.
 Blend CRM queries with Core 2 DTOs. Enforce strict role-based policy masking.
 
+Built as: `EmployeeController` + `EmployeeResource` + `EmployeePolicy` behind the authenticated
+`/api/v1/employees` reads (directory, profile, performance, attendance, compensation, appraisals).
+The directory and CRM aggregates come from existing CRM tables; Core 2 sections are read-only
+gateway projections that return `null` (never fabricated zeros) when the feed is unavailable.
+Salesreps read the team directory but not another employee's attendance, appraisals or
+compensation; managers see their team with salary masked; admin/superadmin see unmasked figures.
+Verification: `cd backend && php artisan test --compact tests/Feature/EmployeeApiTest.php`
+(9 passed, 43 assertions), including a query-count guard for directory size.
+
 Acceptance:
-- [ ] Salesrep accessing another user's `/compensation` receives `403 Forbidden`.
-- [ ] Manager accessing a team member's `/compensation` receives masked base salary (`is_masked: true`).
-- [ ] Admin / Superadmin receives full unmasked figures.
-- [ ] Feature tests assert policy boundaries and query performance.
+- [x] Salesrep accessing another user's `/compensation` receives `403 Forbidden`.
+- [x] Manager accessing a team member's `/compensation` receives masked base salary (`is_masked: true`).
+- [x] Admin / Superadmin receives full unmasked figures.
+- [x] Feature tests assert policy boundaries and query performance.
 
 ### S3 — Frontend Employee Directory Roster UI *(Proposed)*
 Deliver `/employees` page in frontend with searchable, filterable table. Displays Name, Role, Team,

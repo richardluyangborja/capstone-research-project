@@ -27,6 +27,7 @@ use App\Http\Controllers\Api\V1\ContractController;
 use App\Http\Controllers\Api\V1\ContractRateCardController;
 use App\Http\Controllers\Api\V1\DashboardController;
 use App\Http\Controllers\Api\V1\DeploymentBookController;
+use App\Http\Controllers\Api\V1\EmployeeController;
 use App\Http\Controllers\Api\V1\FollowUpController;
 use App\Http\Controllers\Api\V1\LeadAssignmentController;
 use App\Http\Controllers\Api\V1\LeadController;
@@ -151,6 +152,14 @@ Route::prefix('v1')->group(function (): void {
         // endpoint with fixed, allow-listed queries; every successful access is audited. There
         // is no SQL, schema dump, write action or diagnostic export on this route.
         Route::get('platform/diagnostics', [PlatformDiagnosticController::class, 'show']);
+
+        // Module 09 S2 — read-only employee profiles, CRM output and Core 2 projections.
+        Route::get('employees', [EmployeeController::class, 'index']);
+        Route::get('employees/{employee:public_id}/performance', [EmployeeController::class, 'performance']);
+        Route::get('employees/{employee:public_id}/attendance', [EmployeeController::class, 'attendance']);
+        Route::get('employees/{employee:public_id}/compensation', [EmployeeController::class, 'compensation']);
+        Route::get('employees/{employee:public_id}/appraisals', [EmployeeController::class, 'appraisals']);
+        Route::get('employees/{employee:public_id}', [EmployeeController::class, 'show']);
 
         // Module 06 dashboard (spec 14, D2) — one role-scoped read over modules 01–05.
         Route::get('dashboard', [DashboardController::class, 'summary']);
