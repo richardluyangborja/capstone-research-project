@@ -5,7 +5,7 @@ import { useAuth } from '../../lib/auth-context'
 
 /**
  * The platform-operations landing page (spec 19 S1). Only a superadmin reaches this route; the
- * page links to the bounded diagnostic surface that arrives with S6/S8.
+ * page links to the bounded diagnostic surface delivered by S8.
  */
 export default function PlatformHome() {
   const { user } = useAuth()
@@ -39,7 +39,8 @@ export default function PlatformHome() {
           <div>
             <p className="text-sm font-semibold text-foreground">Diagnostics</p>
             <p className="mt-1 text-xs text-muted-foreground">
-              Runtime capability status arrives with S8. The route is guarded now.
+              Read-only runtime, storage, failed work and allow-listed record totals. Every
+              view is audited.
             </p>
           </div>
         </div>

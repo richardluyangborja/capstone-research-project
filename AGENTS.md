@@ -827,7 +827,7 @@ summaries, message drafting) are future submodules.
 shell and route protection), S2 (the user directory and account lifecycle), S3 (teams, roles and
 ownership administration), S4 (organization and CRM settings), S5 (the immutable audit book),
 S6 (integration and operational health) and S7 (safe maintenance actions)
-are built**; S8–S10 remain proposed.
+and S8 (superadmin platform diagnostics) are built**; S9–S10 remain proposed.
 S1 adds the guarded `/admin` and `/platform` route groups, the all-role `/settings` page,
 `GET /admin/access` capability probe, `RoleRoute`, and inert placeholders named for each later
 slice. The sidebar groups are `Administration`, `Platform Operations` and `Personal`; a role that
@@ -914,6 +914,19 @@ now true. `/admin/operations` turns the old pending-maintenance note into the ma
 confirmed configuration refresh plus a failed-email picker/retry loaded through the existing
 `GET /communications` read, with busy, success, empty and error states. No command runner, SQL,
 migration, backup, restore or generic cache endpoint is exposed.
+S8 adds `GET /platform/diagnostics`, superadmin-only behind `PlatformDiagnosticPolicy` as the
+platform diagnostics read. `App\Http\Diagnostics\PlatformDiagnostics`
+returns runtime labels, the migration book's applied/pending counts and latest version, attachment
+storage usage (count/bytes, writability, free/total space, never a path or file listing), recent
+failed queue jobs (identity/connection/queue/failed-at only; payloads and exception traces are never
+read), an explicit "no failed-request store" state, environment capability labels and a fixed
+allow-list of entity totals. No caller-supplied table name, SQL console, schema dump, credential,
+write action, migration, backup or command runner exists. Fixed reads are bounded; on PostgreSQL each
+runs in a transaction with a 1.5-second `statement_timeout`, and a missing table, refused connection
+or timeout marks only its own section `unavailable`/`timeout` (entity totals become `partial`) rather
+than a false zero. Every successful access appends a `diagnostic.viewed` notice with the sections and
+section states read; `/platform/diagnostics` renders the snapshot and the platform overview links to
+it. No diagnostic export was needed.
 Dedup/merge and advanced/stored tier scoring are module-01 deferrals
 (ADR-0006), and automatic client aging stays one too (ADR-0018 §6). Other departments are consumed via
 **read-only mocked feeds** (ADR-0005, ADR-0025), not built here.

@@ -1932,3 +1932,93 @@ export interface MaintenanceEmailRetryResult {
   external_id: string | null
   failed_reason: string | null
 }
+
+// --- Module 08 S8: superadmin platform diagnostics --------------------------
+
+/**
+ * The explicit state every diagnostic section carries. A missing table, refused connection or
+ * timed-out query is stated — never rendered as a zero (spec 19 §S8 acceptance).
+ */
+export type DiagnosticSectionState =
+  | 'available'
+  | 'degraded'
+  | 'partial'
+  | 'not_configured'
+  | 'unavailable'
+  | 'timeout'
+
+export interface PlatformDiagnosticCapability {
+  key: string
+  label: string
+  state: DiagnosticSectionState
+  /** A configuration label or boolean word — never a credential or provider URL. */
+  value: string
+  summary: string
+}
+
+export interface PlatformDiagnosticEntityCount {
+  label: string
+  count: number | null
+  state: DiagnosticSectionState
+}
+
+export interface PlatformDiagnosticFailedJob {
+  uuid: string
+  connection: string | null
+  queue: string | null
+  failed_at: string | null
+}
+
+export interface PlatformDiagnostics {
+  generated_at: string
+  read_only: boolean
+  application: {
+    state: DiagnosticSectionState
+    build: string
+    runtime: string
+    environment: string
+    timezone: string
+    debug: boolean
+    maintenance_mode: boolean
+  }
+  schema: {
+    state: DiagnosticSectionState
+    applied: number | null
+    pending: number | null
+    latest: string | null
+    batch: number | null
+  }
+  storage: {
+    state: DiagnosticSectionState
+    disk: string
+    writable: boolean
+    attachments: {
+      state: DiagnosticSectionState
+      count: number | null
+      bytes: number | null
+    }
+    free_bytes: number | null
+    total_bytes: number | null
+  }
+  failed_work: {
+    state: DiagnosticSectionState
+    queue: {
+      driver: string
+      state: DiagnosticSectionState
+      count: number | null
+      last_failed_at: string | null
+      recent: PlatformDiagnosticFailedJob[]
+    }
+    requests: { state: DiagnosticSectionState; summary: string }
+  }
+  entity_totals: {
+    state: DiagnosticSectionState
+    counts: Record<string, PlatformDiagnosticEntityCount>
+  }
+  capabilities: PlatformDiagnosticCapability[]
+}
+
+export interface PlatformDiagnosticsResponse {
+  diagnostics: PlatformDiagnostics
+  meta: { timezone: string; read_only: boolean; platform: boolean }
+}

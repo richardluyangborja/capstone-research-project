@@ -40,6 +40,7 @@ use App\Http\Controllers\Api\V1\OpportunityActivityController;
 use App\Http\Controllers\Api\V1\OpportunityController;
 use App\Http\Controllers\Api\V1\OpportunityStageController;
 use App\Http\Controllers\Api\V1\PipelineController;
+use App\Http\Controllers\Api\V1\PlatformDiagnosticController;
 use App\Http\Controllers\Api\V1\PublicLeadController;
 use App\Http\Controllers\Api\V1\PublicSurveyController;
 use App\Http\Controllers\Api\V1\SatisfactionController;
@@ -135,6 +136,11 @@ Route::prefix('v1')->group(function (): void {
         // `EffectiveSettings::refresh()`, the email retry uses the module 03 delivery rules.
         Route::post('admin/maintenance/refresh-configuration', [AdminMaintenanceController::class, 'refreshConfiguration']);
         Route::post('admin/maintenance/retry-email', [AdminMaintenanceController::class, 'retryEmail']);
+
+        // Module 08 slice S8 — superadmin platform diagnostics (spec 19 §S8). One read-only
+        // endpoint with fixed, allow-listed queries; every successful access is audited. There
+        // is no SQL, schema dump, write action or diagnostic export on this route.
+        Route::get('platform/diagnostics', [PlatformDiagnosticController::class, 'show']);
 
         // Module 06 dashboard (spec 14, D2) — one role-scoped read over modules 01–05.
         Route::get('dashboard', [DashboardController::class, 'summary']);
