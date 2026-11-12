@@ -27,6 +27,7 @@ class DatabaseSeeder extends Seeder
             'password' => 'password',
             'role' => Role::Manager,
             'team_id' => $team->id,
+            'core2_employee_id' => 'EMP-2026-0042',
         ]);
 
         $team->update(['manager_id' => $manager->id]);
@@ -37,6 +38,7 @@ class DatabaseSeeder extends Seeder
             'password' => 'password',
             'role' => Role::Salesrep,
             'team_id' => $team->id,
+            'core2_employee_id' => 'EMP-2026-0018',
         ]);
 
         // A second salesrep so assignment/workload/transfer are demonstrable (submodule 03).
@@ -46,6 +48,7 @@ class DatabaseSeeder extends Seeder
             'password' => 'password',
             'role' => Role::Salesrep,
             'team_id' => $team->id,
+            'core2_employee_id' => 'EMP-2026-0027',
         ]);
 
         User::create([

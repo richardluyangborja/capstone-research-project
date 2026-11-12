@@ -61,10 +61,13 @@ final class DashboardStaffPerformance
         $hr = $ids === []
             ? []
             : $this->hr->attendance($ids, $this->period->startDate(), $this->period->endDate());
+        $employeeIds = $staff->mapWithKeys(fn (User $member): array => [$member->id => $member->public_id]);
+        $crmUserIds = $staff->mapWithKeys(fn (User $member): array => [$member->id => $member->id]);
+        $attendanceBenchmark = (float) config('crm.employees.attendance_benchmark_percent', 95.0);
         $hrAvailable = $hr !== null;
 
         $rows = $staff
-            ->map(function (User $member) use ($leads, $qualified, $closed, $csat, $followUps, $hr): array {
+            ->map(function (User $member) use ($leads, $qualified, $closed, $csat, $followUps, $hr, $employeeIds, $crmUserIds, $attendanceBenchmark): array {
                 $won = $closed['won'][$member->id] ?? ['count' => 0, 'value' => 0.0];
                 $lost = $closed['lost'][$member->id] ?? ['count' => 0, 'value' => 0.0];
                 $punctuality = $followUps[$member->id] ?? ['total' => 0, 'on_time' => 0];
@@ -72,7 +75,8 @@ final class DashboardStaffPerformance
 
                 return [
                     'user' => [
-                        'id' => $member->id,
+                        'id' => $employeeIds[$member->id],
+                        'crm_user_id' => $crmUserIds[$member->id],
                         'name' => $member->name,
                         'job_title' => $this->jobTitle($member),
                         'team' => $member->team?->name ?? 'Unassigned',
@@ -85,6 +89,11 @@ final class DashboardStaffPerformance
                     'follow_up_on_time' => $this->followUpOnTime($punctuality['on_time'], $punctuality['total']),
                     'csat' => isset($csat[$member->id]) ? round((float) $csat[$member->id], 2) : null,
                     'hr' => $hrEntry?->toArray(),
+                    'reliability_index' => $hrEntry === null
+                        ? null
+                        : round(($hrEntry->attendanceRate * 0.6) + ($this->followUpOnTime($punctuality['on_time'], $punctuality['total']) * 0.4), 1),
+                    'attendance_benchmark' => $attendanceBenchmark,
+                    'employee_href' => '/employees/'.$employeeIds[$member->id],
                     'minTier' => $this->minTierFor($member),
                 ];
             })

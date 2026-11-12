@@ -76,8 +76,13 @@ export default function EmployeeProfile() {
       ])
       setEmployee(profileResponse.data)
       try {
-        const compensationResponse = await getEmployeeCompensation(id)
-        setCompensation(compensationResponse.data)
+        const compensationResponse = await getEmployeeCompensation(id, selectedRange)
+        setCompensation(compensationResponse.data ? {
+          ...compensationResponse.data,
+          commission_rate_percent: compensationResponse.meta.commission_rate_percent,
+          commission_base: compensationResponse.meta.commission_base,
+          earned_commission: compensationResponse.meta.earned_commission,
+        } : null)
         setCompensationUnavailable(!compensationResponse.meta.core2_available)
         setCompensationForbidden(false)
       } catch (compensationError) {
@@ -296,11 +301,11 @@ export default function EmployeeProfile() {
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <h4 className="font-semibold text-foreground">CRM closed-won deal commissions</h4>
-                    <p className="mt-1 text-sm text-muted-foreground">{currentPerformance.deals_won} deals · {formatCurrency(currentPerformance.won_value)} closed-won value in {rangeLabels[range]}</p>
+                    <p className="mt-1 text-sm text-muted-foreground">{currentPerformance.deals_won} deals · {formatCurrency(compensation.commission_base)} closed-won value in {rangeLabels[range]}</p>
                   </div>
-                  <StatusBadge tone="neutral">Commission rate unavailable</StatusBadge>
+                  <StatusBadge tone="people">{compensation.commission_rate_percent}% commission rate</StatusBadge>
                 </div>
-                <p className="mt-3 text-sm text-muted-foreground">Commission earnings are not calculated until the approved commission-rate setting is available; no rate is assumed.</p>
+                <p className="mt-3 text-sm text-foreground">Earned CRM commission: <span className="font-semibold text-cost">{formatCurrency(compensation.earned_commission)}</span></p>
               </section>
               <section className="rounded-lg border border-border bg-card p-4">
                 <h4 className="mb-4 font-semibold text-foreground">Recent payslips</h4>

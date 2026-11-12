@@ -2,6 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Enums\OpportunityStage;
+use App\Models\Company;
+use App\Models\Opportunity;
 use App\Models\Team;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -136,6 +139,29 @@ class EmployeeApiTest extends TestCase
             ->assertJsonPath('data.profile', null)
             ->assertJsonPath('data.attendance', null)
             ->assertJsonPath('meta.core2_available', false);
+    }
+
+    public function test_compensation_includes_period_won_deal_commission(): void
+    {
+        $employee = User::factory()->salesrep()->create();
+        $company = Company::factory()->client()->ownedBy($employee)->create();
+        $deal = Opportunity::factory()->forCompany($company)->ownedBy($employee)->stage(OpportunityStage::Won)->create([
+            'amount' => 1_000_000,
+        ]);
+        DB::table('opportunities')->where('id', $deal->id)->update([
+            'stage' => OpportunityStage::Won->value,
+            'actual_close_date' => now()->toDateString(),
+        ]);
+
+        config(['crm.employees.commission_rate_percent' => 3.0]);
+        $data = $this->actingAs($employee, 'api')
+            ->getJson("/api/v1/employees/{$employee->public_id}/compensation?range=30d")
+            ->assertOk()
+            ->json('meta');
+
+        $this->assertEquals(3.0, $data['commission_rate_percent']);
+        $this->assertEquals(1_000_000, $data['commission_base']);
+        $this->assertEquals(30_000, $data['earned_commission']);
     }
 
     public function test_salesrep_can_see_teammate_directory_row_but_not_their_attendance(): void

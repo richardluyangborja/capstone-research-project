@@ -31,6 +31,10 @@ class DemoAdministrationSeedTest extends TestCase
             ->where('status', CommunicationStatus::Failed)
             ->exists());
 
+        $this->assertSame('EMP-2026-0042', User::query()->where('email', 'manager@primepower.test')->value('core2_employee_id'));
+        $this->assertSame('EMP-2026-0018', User::query()->where('email', 'salesrep@primepower.test')->value('core2_employee_id'));
+        $this->assertSame('EMP-2026-0027', User::query()->where('email', 'salesrep2@primepower.test')->value('core2_employee_id'));
+
         foreach ([
             'manager@primepower.test',
             'salesrep@primepower.test',

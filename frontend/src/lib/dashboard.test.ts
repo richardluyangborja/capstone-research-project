@@ -220,7 +220,8 @@ const staff = (overrides: Record<string, unknown> = {}) => ({
   data: [
     {
       user: {
-        id: 2,
+        id: '01JEMPLOYEEPUBLICID000000001',
+        crm_user_id: 2,
         name: 'Sam Salesrep',
         job_title: 'Sales representative',
         team: 'Business Development',
@@ -233,6 +234,9 @@ const staff = (overrides: Record<string, unknown> = {}) => ({
       follow_up_on_time: 91,
       csat: 4.25,
       hr: { attendance_rate: 94, leave_days: 3, late_arrivals: 2, source: 'core2' },
+      reliability_index: 92.8,
+      attendance_benchmark: 95,
+      employee_href: '/employees/01JEMPLOYEEPUBLICID000000001',
       minTier: 'personal',
     },
   ],
@@ -307,7 +311,10 @@ describe('getDashboard', () => {
     expect(data.worklist[1].owner).toBe('Unassigned')
 
     expect(data.staff[0]).toMatchObject({
-      id: '2',
+      id: '01JEMPLOYEEPUBLICID000000001',
+      crm_user_id: 2,
+      employee_href: '/employees/01JEMPLOYEEPUBLICID000000001',
+      reliability_index: 92.8,
       name: 'Sam Salesrep',
       initials: 'SS',
       won_value: '₱3,240,000.00',

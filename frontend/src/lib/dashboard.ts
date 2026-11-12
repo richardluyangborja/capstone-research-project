@@ -116,6 +116,10 @@ export interface StaffPerformanceRow {
   attendance_rate: number | null
   leave_days: number | null
   late_arrivals: number | null
+  reliability_index: number | null
+  attendance_benchmark: number
+  employee_href: string
+  crm_user_id: number
 }
 
 export interface DashboardAiInsight {
@@ -377,7 +381,7 @@ interface WireWorklistRow {
 }
 
 interface WireStaffRow {
-  user: { id: number; name: string; job_title: string; team: string }
+  user: { id: string; crm_user_id: number; name: string; job_title: string; team: string }
   leads_handled: number
   qualified: number
   deals_won: number
@@ -391,6 +395,9 @@ interface WireStaffRow {
     late_arrivals: number
     source: string
   } | null
+  reliability_index: number | null
+  attendance_benchmark: number
+  employee_href: string
   minTier: DashboardTier
 }
 
@@ -581,7 +588,8 @@ const initialsFor = (name: string): string => {
 }
 
 const mapStaff = (row: WireStaffRow): StaffPerformanceRow => ({
-  id: String(row.user.id),
+  id: row.user.id,
+  crm_user_id: row.user.crm_user_id,
   name: row.user.name,
   job_title: row.user.job_title,
   team: row.user.team,
@@ -596,6 +604,9 @@ const mapStaff = (row: WireStaffRow): StaffPerformanceRow => ({
   attendance_rate: row.hr?.attendance_rate ?? null,
   leave_days: row.hr?.leave_days ?? null,
   late_arrivals: row.hr?.late_arrivals ?? null,
+  reliability_index: row.reliability_index,
+  attendance_benchmark: row.attendance_benchmark,
+  employee_href: row.employee_href,
 })
 
 const mapAi = (ai: WireAi): DashboardAiReport => ({

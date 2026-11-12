@@ -15,7 +15,7 @@ use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Str;
 use PHPOpenSourceSaver\JWTAuth\Contracts\JWTSubject;
 
-#[Fillable(['name', 'email', 'password', 'role', 'team_id', 'public_id', 'status', 'suspended_at', 'suspended_by', 'status_reason', 'preferences'])]
+#[Fillable(['name', 'email', 'password', 'role', 'team_id', 'public_id', 'status', 'suspended_at', 'suspended_by', 'status_reason', 'preferences', 'core2_employee_id'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable implements JWTSubject
 {

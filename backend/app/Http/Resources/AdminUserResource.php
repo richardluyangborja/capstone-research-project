@@ -29,6 +29,8 @@ class AdminUserResource extends JsonResource
             'name' => $this->name,
             'email' => $this->email,
             'role' => $this->role->value,
+            'core2_employee_id' => $this->core2_employee_id,
+            'core2_linked' => $this->core2_employee_id !== null,
             'status' => $this->status->value,
             'team' => $this->team === null ? null : ['id' => $this->team->id, 'name' => $this->team->name],
             'suspended_at' => $this->suspended_at?->toIso8601String(),

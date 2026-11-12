@@ -174,7 +174,11 @@ const managerDashboard: DashboardData = {
   ],
   staff: [
     {
-      id: '1',
+      id: '01JEMPLOYEE000000000000000001',
+      crm_user_id: 1,
+      employee_href: '/employees/01JEMPLOYEE000000000000000001',
+      reliability_index: 99.4,
+      attendance_benchmark: 95,
       name: 'Maria Manager',
       job_title: 'Sales manager',
       team: 'Business Development',
@@ -191,7 +195,11 @@ const managerDashboard: DashboardData = {
       late_arrivals: 0,
     },
     {
-      id: '2',
+      id: '01JEMPLOYEE000000000000000002',
+      crm_user_id: 2,
+      employee_href: '/employees/01JEMPLOYEE000000000000000002',
+      reliability_index: 92.8,
+      attendance_benchmark: 95,
       name: 'Sam Salesrep',
       job_title: 'Sales representative',
       team: 'Business Development',
@@ -208,7 +216,11 @@ const managerDashboard: DashboardData = {
       late_arrivals: 2,
     },
     {
-      id: '3',
+      id: '01JEMPLOYEE000000000000000003',
+      crm_user_id: 3,
+      employee_href: '/employees/01JEMPLOYEE000000000000000003',
+      reliability_index: 93.4,
+      attendance_benchmark: 95,
       name: 'Liza Lopez',
       job_title: 'Sales representative',
       team: 'Business Development',

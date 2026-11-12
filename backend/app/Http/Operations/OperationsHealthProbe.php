@@ -3,6 +3,7 @@
 namespace App\Http\Operations;
 
 use App\Enums\OperationCheckStatus;
+use App\Integrations\Core2EmployeeGateway;
 use App\Integrations\DeploymentFeed;
 use App\Integrations\EmailGateway;
 use App\Integrations\HrGateway;
@@ -44,7 +45,7 @@ final class OperationsHealthProbe
 
     /** Application-plane keys, in display order (spec 19 §Health-check contract). */
     public const APPLICATION_KEYS = [
-        'database', 'storage', 'email', 'ai', 'hr', 'recruitment',
+        'database', 'storage', 'email', 'ai', 'hr', 'core2_employees', 'recruitment',
         'deployment', 'timekeeping', 'notifications', 'application',
     ];
 
@@ -55,6 +56,7 @@ final class OperationsHealthProbe
         private readonly EffectiveSettings $settings,
         private readonly EmailGateway $email,
         private readonly HrGateway $hr,
+        private readonly Core2EmployeeGateway $core2Employees,
         private readonly RecruitmentFeed $recruitment,
         private readonly DeploymentFeed $deployment,
         private readonly TimekeepingFeed $timekeeping,
@@ -81,6 +83,15 @@ final class OperationsHealthProbe
                 mockedSummary: 'Attendance and leave are mocked (core2 is not connected).',
                 healthySummary: 'Attendance and leave are served by the core2 HR service.',
                 remediation: 'Check the HR service binding and its credentials; the dashboard reads — when it is unavailable.',
+            ),
+            $this->gatewayCheck(
+                key: 'core2_employees',
+                label: 'Core 2 employee profiling feed',
+                gateway: $this->core2Employees,
+                summary: 'Employee profile, attendance, compensation and appraisals, read-only.',
+                mockedSummary: 'Employee profiling is deterministic and mocked (Core 2 is not connected).',
+                healthySummary: 'Employee projections are served by the Core 2 service.',
+                remediation: 'Check the Core 2 employee gateway binding; employee pages show — when this feed is unavailable.',
             ),
             $this->gatewayCheck(
                 key: 'recruitment',

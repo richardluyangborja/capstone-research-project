@@ -72,7 +72,7 @@ describe('Employee 360 profile', () => {
     mockedPerformance.mockReset().mockResolvedValue({ data: performance, meta: { range: '30d' } })
     mockedAttendance.mockReset().mockResolvedValue({ data: attendance, meta: { source: profile.meta.source, read_only: true, as_of: profile.meta.as_of, core2_available: true, range: '30d' } })
     mockedAppraisals.mockReset().mockResolvedValue({ data: appraisals, meta: { source: profile.meta.source, read_only: true, as_of: profile.meta.as_of, core2_available: true } })
-    mockedCompensation.mockReset().mockResolvedValue({ data: { user_id: profile.data.id, base_salary: 45000, fixed_allowances: 5000, is_masked: false, recent_payslips: [{ period: '2026-10', gross_pay: 50000, net_pay: 46000, status: 'released' }] }, meta: { source: profile.meta.source, read_only: true, as_of: profile.meta.as_of, core2_available: true } })
+    mockedCompensation.mockReset().mockResolvedValue({ data: { user_id: profile.data.id, base_salary: 45000, fixed_allowances: 5000, is_masked: false, commission_rate_percent: 2.5, commission_base: 1250000, earned_commission: 31250, recent_payslips: [{ period: '2026-10', gross_pay: 50000, net_pay: 46000, status: 'released' }] }, meta: { source: profile.meta.source, read_only: true, as_of: profile.meta.as_of, core2_available: true, range: '30d', commission_rate_percent: 2.5, commission_base: 1250000, earned_commission: 31250 } })
   })
 
   it('shows the Core 2 identity details and overview metrics', async () => {
@@ -121,13 +121,14 @@ describe('Employee 360 profile', () => {
     fireEvent.click(screen.getByRole('tab', { name: 'Compensation' }))
     expect(screen.getByText('₱45,000.00')).toBeInTheDocument()
     expect(screen.getByText(/2 deals · ₱1,250,000.00 closed-won value/)).toBeInTheDocument()
-    expect(screen.getByText('Commission rate unavailable')).toBeInTheDocument()
+    expect(screen.getByText('2.5% commission rate')).toBeInTheDocument()
+    expect(screen.getByText('₱31,250.00')).toBeInTheDocument()
     expect(screen.getByText('₱50,000.00')).toBeInTheDocument()
     expect(screen.getByText('₱46,000.00')).toBeInTheDocument()
   })
 
   it('renders masked manager salary and keeps payslip amounts masked', async () => {
-    mockedCompensation.mockResolvedValue({ data: { user_id: profile.data.id, base_salary: null, fixed_allowances: null, is_masked: true, recent_payslips: [{ period: '2026-10', gross_pay: null, net_pay: null, status: 'released' }] }, meta: { source: profile.meta.source, read_only: true, as_of: profile.meta.as_of, core2_available: true } })
+    mockedCompensation.mockResolvedValue({ data: { user_id: profile.data.id, base_salary: null, fixed_allowances: null, is_masked: true, commission_rate_percent: 2.5, commission_base: 1250000, earned_commission: 31250, recent_payslips: [{ period: '2026-10', gross_pay: null, net_pay: null, status: 'released' }] }, meta: { source: profile.meta.source, read_only: true, as_of: profile.meta.as_of, core2_available: true, range: '30d', commission_rate_percent: 2.5, commission_base: 1250000, earned_commission: 31250 } })
     renderPage()
     await screen.findByText('Senior Account Executive')
     fireEvent.click(screen.getByRole('tab', { name: 'Compensation' }))

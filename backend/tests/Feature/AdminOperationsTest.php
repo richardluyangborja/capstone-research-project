@@ -31,7 +31,7 @@ class AdminOperationsTest extends TestCase
     private const STATUSES = ['healthy', 'degraded', 'unavailable', 'not_configured'];
 
     private const APPLICATION_KEYS = [
-        'database', 'storage', 'email', 'ai', 'hr', 'recruitment',
+        'database', 'storage', 'email', 'ai', 'hr', 'core2_employees', 'recruitment',
         'deployment', 'timekeeping', 'notifications', 'application',
     ];
 
@@ -132,7 +132,7 @@ class AdminOperationsTest extends TestCase
                 ->json('data.checks'),
         )->keyBy('key');
 
-        foreach (['hr', 'recruitment', 'deployment', 'timekeeping'] as $key) {
+        foreach (['hr', 'core2_employees', 'recruitment', 'deployment', 'timekeeping'] as $key) {
             $check = $checks[$key];
             $this->assertSame('mocked', $check['source'], "{$key} should be marked as a mocked source.");
             $this->assertSame('degraded', $check['status']);

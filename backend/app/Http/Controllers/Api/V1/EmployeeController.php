@@ -145,7 +145,17 @@ class EmployeeController extends Controller
     public function compensation(Request $request, User $employee, Core2EmployeeGateway $core2): JsonResponse
     {
         Gate::authorize('viewEmployeeCompensation', $employee);
+        $validated = $request->validate(['range' => ['nullable', Rule::in(['30d', 'quarter', 'ytd'])]]);
+        $range = (string) ($validated['range'] ?? '30d');
+        $period = $this->period($range);
         $summary = $core2->compensation($employee->id);
+        $wonValue = (float) Opportunity::query()
+            ->where('owner_id', $employee->id)
+            ->where('stage', OpportunityStage::Won)
+            ->whereBetween('actual_close_date', [$period[0]->toDateString(), $period[1]->toDateString()])
+            ->sum('amount');
+        $commissionRate = (float) config('crm.employees.commission_rate_percent', 2.5);
+        $commission = round($wonValue * $commissionRate / 100, 2);
         $masked = $summary !== null
             && $request->user()->role === Role::Manager
             && ! $request->user()->is($employee)
@@ -161,7 +171,12 @@ class EmployeeController extends Controller
                     ? array_map(fn (array $payslip): array => [...$payslip, 'gross_pay' => null, 'net_pay' => null], $summary->recentPayslips)
                     : $summary->recentPayslips,
             ],
-            'meta' => $this->provenance($summary !== null),
+            'meta' => $this->provenance($summary !== null) + [
+                'range' => $range,
+                'commission_rate_percent' => $commissionRate,
+                'commission_base' => $wonValue,
+                'earned_commission' => $commission,
+            ],
         ]);
     }
 
