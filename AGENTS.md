@@ -941,8 +941,8 @@ the demo logins, suspension rejection, fixture records and admin/superadmin read
 and the administration route tests cover application/platform access boundaries. No Faker was introduced.
 **Module 09 — Employee Performance & Attendance Profiling** is specified in `specs/20` and ADR-0031:
 read-only Core 2 HR projections beside CRM output, with role-based masking. **S1 (gateway + deterministic
-DTOs), S2 (employee API + policy scoping), S3 (the `/employees` directory roster) and S4 (the
-Employee 360 profile) are built**; S5–S7 remain proposed. `Core2EmployeeGateway`/
+DTOs), S2 (employee API + policy scoping), S3 (the `/employees` directory roster), S4 (the
+Employee 360 profile) and S5 (compensation + manager masking) are built**; S6–S7 remain proposed. `Core2EmployeeGateway`/
 `MockCore2EmployeeGateway` derive values deterministically from the user id (no Faker) and return `null`
 when the feed is unavailable; `/api/v1/employees` serves the directory, profile, performance, attendance,
 compensation and appraisals, where a salesrep sees only the team directory, a manager sees team figures
@@ -954,6 +954,10 @@ S4 replaces that placeholder with the Employee 360 profile: header metadata, Ove
 Core 2 Attendance (late arrivals, undertime, absences, leave meters) and HR Appraisals (competency
 scores and notes), each HR section badged `core2 · HR (read-only)` and falling back to `—`/empty
 states when the feed is unavailable.
+S5 adds the Compensation tab: PHP base salary/allowances and payslips, `₱ ••••••` masking for a manager
+viewing a subordinate, a 403 notice for out-of-scope viewers, and the period's closed-won deal count/value
+— commission amounts are not computed because no approved rate source exists (the tab says so rather than
+assuming a rate).
 Dedup/merge and advanced/stored tier scoring are module-01 deferrals
 (ADR-0006), and automatic client aging stays one too (ADR-0018 §6). Other departments are consumed via
 **read-only mocked feeds** (ADR-0005, ADR-0025), not built here.
