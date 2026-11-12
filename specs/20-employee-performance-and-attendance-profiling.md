@@ -1,6 +1,6 @@
 # Module 09 — Employee Performance & Attendance Profiling
 
-- Status: **S0 accepted; S1–S2 built; S3–S7 proposed**
+- Status: **S0 accepted; S1–S3 built; S4–S7 proposed**
 - Depends on: ADR-0004, ADR-0005, ADR-0007, ADR-0016, ADR-0020, ADR-0021, ADR-0025, ADR-0030, ADR-0031, `00-data-model.md`, `specs/14`, `specs/15`, `specs/19`, `implementation/system-roles.md`, `implementation/list-of-departments.md`
 
 ## Purpose
@@ -169,7 +169,7 @@ The new module requires bounded additions to Module 08:
 | **S0** | `feature/module-09-employees-s0` | Architecture, Spec 20 & ADR-0031 | Formal contract, data boundaries, and threat model | **Accepted** |
 | **S1** | `feature/module-09-core2-gateway-s1` | Core 2 Integration Gateway & DTOs | Gateway interface, DTOs, deterministic mock, resilience | **Built** |
 | **S2** | `feature/module-09-backend-api-s2` | Backend API Routes & Policy Scoping | `/api/v1/employees`, role masking, CRM KPI aggregation | **Built** |
-| **S3** | `feature/module-09-frontend-directory-s3` | Employee Directory Roster UI | `/employees` table, role filters, quota badges | Proposed |
+| **S3** | `feature/module-09-frontend-directory-s3` | Employee Directory Roster UI | `/employees` table, role filters, quota badges | **Built** |
 | **S4** | `feature/module-09-profile-360-s4` | Employee 360° Profile & Core Tabs | `/employees/:id` with Overview, CRM, Attendance & Appraisals | Proposed |
 | **S5** | `feature/module-09-compensation-s5` | Compensation Profiling & Masking | Base salary, CRM commissions, payslips, manager mask | Proposed |
 | **S6** | `feature/module-09-leaderboard-s6` | Discipline vs. Output Correlation | `/employees/leaderboard` matrix & ranking view | Proposed |
@@ -219,14 +219,22 @@ Acceptance:
 - [x] Admin / Superadmin receives full unmasked figures.
 - [x] Feature tests assert policy boundaries and query performance.
 
-### S3 — Frontend Employee Directory Roster UI *(Proposed)*
+### S3 — Frontend Employee Directory Roster UI *(Built)*
 Deliver `/employees` page in frontend with searchable, filterable table. Displays Name, Role, Team,
 Won Revenue (₱), Quota Attainment (%), and Attendance Rate (%).
 
+Built as: `frontend/src/pages/Employees.tsx` renders the API-scoped directory through the shared
+`DataTable`, with search, role and period (`30d`/`quarter`/`ytd`) filters, pagination, a Core 2
+unavailable banner and em-dash fallbacks. The sidebar gains an **Employees** link for every role and
+`/employees/:id` opens a profile placeholder until S4. Quota attainment renders `—` with an explicit
+"planned for a later module slice" title because no quota source exists yet; won revenue and
+attendance are live. Verification: `cd frontend && npm run lint`,
+`npx vitest run src/pages/employees.test.tsx src/components/layout/sidebar.test.tsx`, `npm run build`.
+
 Acceptance:
-- [ ] Top-level "Employees" navigation added to sidebar for authorized roles.
-- [ ] Period filter (`30d`, `Quarter`, `YTD`) updates figures smoothly.
-- [ ] Row click navigates to `/employees/{public_id}`.
+- [x] Top-level "Employees" navigation added to sidebar for authorized roles.
+- [x] Period filter (`30d`, `Quarter`, `YTD`) updates figures smoothly.
+- [x] Row click navigates to `/employees/{public_id}`.
 
 ### S4 — Frontend Employee 360° Profile & Core Tabs *(Proposed)*
 Deliver `/employees/{public_id}` with header card (Core 2 metadata, tenure, shift) and tabs for

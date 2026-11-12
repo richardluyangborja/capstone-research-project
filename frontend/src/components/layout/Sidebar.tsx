@@ -81,6 +81,7 @@ const groups: NavGroup[] = [
           { to: '/accounts', label: 'Account Book', icon: Building2, end: true },
           { to: '/contracts', label: 'Contracts', icon: FileCheck },
           { to: '/deployments', label: 'Deployments', icon: Truck },
+          { to: '/employees', label: 'Employees', icon: UsersRound },
           {
             to: '/billing',
             label: 'Billing',
