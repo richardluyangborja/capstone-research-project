@@ -1,6 +1,6 @@
 # Module 08 — Administration & Platform Operations
 
-- Status: **S0 accepted; S1–S7 built; S8–S10 proposed and pending implementation verification**
+- Status: **S0 accepted; S1–S8 built; S9–S10 proposed and pending implementation verification**
 - Depends on: ADR-0004, ADR-0005, ADR-0007, ADR-0016, `00-data-model.md`, `implementation/system-roles.md`
 
 ## Purpose
@@ -653,10 +653,24 @@ status. Add a redacted diagnostic export only if needed for support.
 
 Acceptance:
 
-- diagnostics are read-only and use fixed queries;
-- responses exclude secrets, tokens, hashes, document paths, message bodies, and unrestricted PII;
-- every diagnostic access is audited;
-- a query timeout or unavailable subsystem is surfaced explicitly.
+- [x] diagnostics are read-only and use fixed queries;
+- [x] responses exclude secrets, tokens, hashes, document paths, message bodies, and unrestricted PII;
+- [x] every diagnostic access is audited;
+- [x] a query timeout or unavailable subsystem is surfaced explicitly.
+
+Built as: `GET /platform/diagnostics`, a superadmin-only read behind `PlatformDiagnosticPolicy`
+(no diagnostic export was needed). `App\Http\Diagnostics\PlatformDiagnostics` returns runtime
+labels, the migration book's applied/pending counts and latest version, attachment storage
+usage (count/bytes, writability and free/total space — never a path or file listing), recent
+failed queue jobs (identity/connection/queue/failed-at only; `payload` and `exception` are never
+read), an explicit "no failed-request store" state, environment capability labels, and a fixed
+allow-list of entity totals. There is no caller-supplied table name, SQL console, schema dump,
+credential, write action, migration, backup or command runner. Each fixed read is bounded and, on
+PostgreSQL, runs in a transaction with a 1.5-second `statement_timeout`; a missing table, refused
+connection or timeout marks only its own section `unavailable`/`timeout` (entity totals become
+`partial`), never a false zero. Every successful access appends a `diagnostic.viewed` notice with
+the sections and section states read. `/platform/diagnostics` renders the snapshot, and the
+platform overview links to it.
 
 ### S9 — Personal settings for every role
 

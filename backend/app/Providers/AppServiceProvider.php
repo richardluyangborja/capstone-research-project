@@ -27,6 +27,7 @@ use App\Policies\AdminAccessPolicy;
 use App\Policies\AuditLogPolicy;
 use App\Policies\MaintenanceActionPolicy;
 use App\Policies\OperationsHealthPolicy;
+use App\Policies\PlatformDiagnosticPolicy;
 use App\Policies\SettingPolicy;
 use App\Policies\TaskPolicy;
 use App\Policies\TeamAdminPolicy;
@@ -100,6 +101,11 @@ class AppServiceProvider extends ServiceProvider
         // model-less marker so auto-discovery cannot attach the abilities to a record, and so
         // there is exactly one policy for both actions.
         Gate::policy(MaintenanceAction::class, MaintenanceActionPolicy::class);
+
+        // Module 08 S8 — the read-only platform diagnostics. This is an ability, not a model
+        // policy: the payload is infrastructure and fixed aggregate queries, not a record.
+        // Only a superadmin may enter the `/platform` plane (spec 19 §Endpoint inventory).
+        Gate::define('viewPlatformDiagnostics', [PlatformDiagnosticPolicy::class, 'view']);
 
         // Module 08 S4 — `notifications.database_enabled` is enforced at send time: the
         // listener vetoes a database delivery when the switch is off.

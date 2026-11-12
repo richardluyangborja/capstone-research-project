@@ -16,6 +16,7 @@ import type {
   OperationsHealthResponse,
   OperationsSummary,
   Paginated,
+  PlatformDiagnosticsResponse,
   Role,
   UserStatus,
 } from '../types'
@@ -348,4 +349,19 @@ export const listRetryableFailedEmails = async (): Promise<Communication[]> => {
     },
   })
   return data.data
+}
+
+// --- Module 08 S8 — superadmin platform diagnostics -------------------------
+
+/**
+ * The bounded, read-only platform diagnostics. The server owns the superadmin boundary and
+ * appends one `diagnostic.viewed` audit row on every successful call.
+ */
+export const getPlatformDiagnostics = async (): Promise<PlatformDiagnosticsResponse> => {
+  const { data } = await api.get<{
+    data: PlatformDiagnosticsResponse['diagnostics']
+    meta: PlatformDiagnosticsResponse['meta']
+  }>('/platform/diagnostics')
+
+  return { diagnostics: data.data, meta: data.meta }
 }
