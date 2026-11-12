@@ -67,6 +67,9 @@ return [
         'hr' => [
             'simulate_failure' => (bool) env('CRM_HR_SIMULATE_FAILURE', false),
         ],
+        'core2_employees' => [
+            'simulate_failure' => (bool) env('CRM_CORE2_SIMULATE_FAILURE', false),
+        ],
     ],
 
     /*
