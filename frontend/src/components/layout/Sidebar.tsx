@@ -24,6 +24,7 @@ import {
   SquareKanban,
   Target,
   Truck,
+  Trophy,
   Upload,
   UserCog,
   UserPlus,
@@ -82,6 +83,7 @@ const groups: NavGroup[] = [
           { to: '/contracts', label: 'Contracts', icon: FileCheck },
           { to: '/deployments', label: 'Deployments', icon: Truck },
           { to: '/employees', label: 'Employees', icon: UsersRound },
+          { to: '/employees/leaderboard', label: 'Employee Leaderboard', icon: Trophy, roles: ['manager', 'admin', 'superadmin'] },
           {
             to: '/billing',
             label: 'Billing',

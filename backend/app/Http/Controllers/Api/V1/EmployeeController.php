@@ -77,6 +77,15 @@ class EmployeeController extends Controller
         ]);
     }
 
+    public function leaderboard(Request $request, Core2EmployeeGateway $core2): JsonResponse
+    {
+        abort_unless($request->user()->role === Role::Manager || $request->user()->role->isAdmin(), 403);
+
+        $request->merge(['per_page' => 100, 'range' => $request->query('range', '30d')]);
+
+        return $this->index($request, $core2);
+    }
+
     public function show(Request $request, User $employee, Core2EmployeeGateway $core2): JsonResponse
     {
         Gate::authorize('viewEmployee', $employee);

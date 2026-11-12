@@ -104,6 +104,12 @@ describe('Sidebar', () => {
     expect(screen.getByRole('link', { name: 'Contracts' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Deployments' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Employees' })).toHaveAttribute('href', '/employees')
+    expect(screen.queryByRole('link', { name: 'Employee Leaderboard' })).not.toBeInTheDocument()
+  })
+
+  it('shows the employee leaderboard to managers but not salesreps', () => {
+    renderSidebar('manager')
+    expect(screen.getByRole('link', { name: 'Employee Leaderboard' })).toHaveAttribute('href', '/employees/leaderboard')
   })
 
   it('shows personal settings to every role and no administration plane to a salesrep', () => {

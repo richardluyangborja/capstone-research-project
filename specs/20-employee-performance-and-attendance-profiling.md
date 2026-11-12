@@ -1,6 +1,6 @@
 # Module 09 — Employee Performance & Attendance Profiling
 
-- Status: **S0 accepted; S1–S5 built; S6–S7 proposed**
+- Status: **S0 accepted; S1–S6 built (S6 quota quadrants deferred); S7 proposed**
 - Depends on: ADR-0004, ADR-0005, ADR-0007, ADR-0016, ADR-0020, ADR-0021, ADR-0025, ADR-0030, ADR-0031, `00-data-model.md`, `specs/14`, `specs/15`, `specs/19`, `implementation/system-roles.md`, `implementation/list-of-departments.md`
 
 ## Purpose
@@ -172,7 +172,7 @@ The new module requires bounded additions to Module 08:
 | **S3** | `feature/module-09-frontend-directory-s3` | Employee Directory Roster UI | `/employees` table, role filters, quota badges | **Built** |
 | **S4** | `feature/module-09-profile-360-s4` | Employee 360° Profile & Core Tabs | `/employees/:id` with Overview, CRM, Attendance & Appraisals | **Built** |
 | **S5** | `feature/module-09-compensation-s5` | Compensation Profiling & Masking | Base salary, CRM commissions, payslips, manager mask | **Built** |
-| **S6** | `feature/module-09-leaderboard-s6` | Discipline vs. Output Correlation | `/employees/leaderboard` matrix & ranking view | Proposed |
+| **S6** | `feature/module-09-leaderboard-s6` | Discipline vs. Output Correlation | `/employees/leaderboard` matrix & ranking view | **Built** |
 | **S7** | `feature/module-09-cross-cutting-s7` | Admin, Analytics, AI & Verification | Module 06/07/08 updates, deterministic seeds, test suites | Proposed |
 
 ---
@@ -274,14 +274,24 @@ Acceptance:
 - [ ] Commissions earned from CRM deals match actual closed-won opportunities. *(deferred: no commission-rate source; the tab shows closed-won deal count/value instead of inventing a rate)*
 - [x] Single currency PHP formatting (`₱1,234.56`) strictly applied.
 
-### S6 — Discipline vs. Output Correlation & Leaderboard *(Proposed)*
+### S6 — Discipline vs. Output Correlation & Leaderboard *(Built; quota-dependent quadrants deferred)*
 Deliver `/employees/leaderboard` featuring the "Discipline vs. Output" matrix.
 Plots Attendance Rate (%) against Quota Attainment (%) across four operational quadrants.
 
+Built as: `GET /employees/leaderboard` (manager+) returns the same scoped employee metrics as the
+directory; `/employees/leaderboard` renders the four quadrant panels, period filter, summary cards and
+a team ranking table sortable by won revenue or attendance. Because no approved quota source exists,
+quota attainment renders `—`, the quadrant panels stay empty with an explicit "classification
+unavailable" notice, and staff are never assigned to a quadrant from invented values. The backend test
+covers the manager+ boundary and team scoping.
+Verification: `cd backend && php artisan test --compact tests/Feature/EmployeeApiTest.php` (10 passed);
+`cd frontend && npm run lint`, `npx vitest run src/pages/employeeLeaderboard.test.tsx`, full
+`npm run test -- --run`, `npm run build`.
+
 Acceptance:
-- [ ] Scatter/quadrant visual categorizes staff into Top Performers, Coaching Candidates, Burnout Risks, and Critical PIP.
-- [ ] Interactive tooltips show rep revenue and attendance stats.
-- [ ] Team ranking table supports sorting by revenue, quota %, and punctuality.
+- [ ] Scatter/quadrant visual categorizes staff into Top Performers, Coaching Candidates, Burnout Risks, and Critical PIP. *(deferred: needs a quota-attainment source; panels render an explicit unavailable state)*
+- [ ] Interactive tooltips show rep revenue and attendance stats. *(deferred with the quadrant visual; ranking rows link to the profile)*
+- [ ] Team ranking table supports sorting by revenue, quota %, and punctuality. *(revenue and attendance sort today; quota sorting waits on the quota source)*
 
 ### S7 — Cross-Cutting Extensions, Deterministic Seeds & Verification *(Proposed)*
 Deliver companion updates to Modules 06, 07, and 08. Extend database seeders with deterministic

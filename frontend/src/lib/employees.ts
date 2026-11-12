@@ -139,6 +139,11 @@ export const getEmployeeAppraisals = async (id: string) => {
   return data
 }
 
+export const getEmployeeLeaderboard = async (range: EmployeeRange = '30d'): Promise<EmployeeDirectoryResponse> => {
+  const { data } = await api.get<EmployeeDirectoryResponse>('/employees/leaderboard', { params: { range } })
+  return data
+}
+
 export const listEmployees = async (filters: EmployeeFilters = {}): Promise<EmployeeDirectoryResponse> => {
   const params: Record<string, string | number> = {}
   if (filters.search) params.search = filters.search
