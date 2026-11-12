@@ -487,8 +487,8 @@ authorization boundary.
 `key`, human-readable `label`, `status`, `checked_at`, short safe `summary`, optional `remediation`,
 and `source` (`application`, `mocked`, or `external`). `status` is exactly one of `healthy`,
 `degraded`, `unavailable`, or `not_configured`. The application-plane keys are `database`,
-`storage`, `email`, `ai`, `hr`, `recruitment`, `deployment`, `timekeeping`, `notifications`, and
-`application`. Superadmins additionally receive `queue` and `schema` checks where the corresponding
+`storage`, `email`, `ai`, `hr`, `core2_employees`, `recruitment`, `deployment`, `timekeeping`,
+`service_handoff`, `notifications`, and `application`. Superadmins additionally receive `queue` and `schema` checks where the corresponding
 subsystem exists; absence is represented explicitly, never as healthy.
 
 Probe behavior is constrained as follows:
