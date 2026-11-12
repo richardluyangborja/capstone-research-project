@@ -28,6 +28,7 @@ use App\Models\User;
 use App\Models\UserSession;
 use App\Policies\AdminAccessPolicy;
 use App\Policies\AuditLogPolicy;
+use App\Policies\EmployeePolicy;
 use App\Policies\MaintenanceActionPolicy;
 use App\Policies\OperationsHealthPolicy;
 use App\Policies\PersonalSettingsPolicy;
@@ -84,6 +85,10 @@ class AppServiceProvider extends ServiceProvider
         // (not `UserPolicy`) on purpose: auto-discovery would silently claim every `users`
         // ability across the CRM, so it is registered explicitly for the User model.
         Gate::policy(User::class, UserAdminPolicy::class);
+        Gate::define('viewEmployee', [EmployeePolicy::class, 'view']);
+        Gate::define('viewEmployeeAttendance', [EmployeePolicy::class, 'viewAttendance']);
+        Gate::define('viewEmployeeAppraisals', [EmployeePolicy::class, 'viewAppraisals']);
+        Gate::define('viewEmployeeCompensation', [EmployeePolicy::class, 'viewCompensation']);
         Gate::policy(UserSession::class, UserSessionPolicy::class);
         Gate::define('viewPersonalSettings', [PersonalSettingsPolicy::class, 'view']);
         Gate::define('updatePersonalProfile', [PersonalSettingsPolicy::class, 'updateProfile']);
