@@ -934,6 +934,11 @@ S9 adds the all-role personal-settings surface: `GET /me/settings`, `PATCH /me/p
 notification toggles), `FilterDatabaseNotifications` honours the database toggle, and the `user_sessions`
 table records each JWT session so a password change revokes the caller's other sessions. `/settings`
 renders Profile, Preferences, Security and Sessions against `frontend/src/lib/personalSettings.ts`.
+S10 closes the module with deterministic administration fixtures and verification: `DemoAdministrationSeeder`
+adds a suspended demo account (password `password`, so login is refused), representative CRM/notification/AI
+settings and admin audit history without duplicating rows on reseed; `DemoAdministrationSeedTest` proves
+the demo logins, suspension rejection, fixture records and admin/superadmin reads from `migrate:fresh --seed`,
+and the administration route tests cover application/platform access boundaries. No Faker was introduced.
 Dedup/merge and advanced/stored tier scoring are module-01 deferrals
 (ADR-0006), and automatic client aging stays one too (ADR-0018 §6). Other departments are consumed via
 **read-only mocked feeds** (ADR-0005, ADR-0025), not built here.
