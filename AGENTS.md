@@ -885,7 +885,7 @@ request and cached, so a multi-step mutation's rows share it. `/admin/audit` ren
 grouped event labels, severity badges, a detail panel and the bounded export.
 S6 adds `/admin/operations` with `GET /admin/operations/health` and `GET /admin/operations/summary`,
 behind the `viewSummary`/`viewHealth` abilities (`OperationsHealthPolicy`, admin+). The probes live
-in `App\Http\Operations\OperationsHealthProbe` — 11 application checks (the ten declared keys plus
+in `App\Http\Operations\OperationsHealthProbe` — 12 application checks (the 11 declared keys plus
 an explicit `service_handoff` check for the retired ADR-0027 handoff) and `queue`/`schema` for a
 superadmin only, each exactly `healthy`/`degraded`/`unavailable`/`not_configured` with a safe
 `summary`, optional `remediation`, a `checked_at` and a `source`. Nothing probes with side effects:
@@ -943,7 +943,9 @@ and the administration route tests cover application/platform access boundaries.
 read-only Core 2 HR projections beside CRM output, with role-based masking. **S1 (gateway + deterministic
 DTOs), S2 (employee API + policy scoping), S3 (the `/employees` directory roster), S4 (the
 Employee 360 profile) and S5 (compensation + manager masking) are built**; S6 (the leaderboard) is
-built with its quota-dependent quadrants deferred; S7 remains proposed. `Core2EmployeeGateway`/
+built with its quota-dependent quadrants deferred, and S7 (cross-cutting settings/health/scorecard
+links, deterministic Core 2 seed mappings and verification) is built with the Module 07 `workforce`
+report variant deferred. `Core2EmployeeGateway`/
 `MockCore2EmployeeGateway` derive values deterministically from the user id (no Faker) and return `null`
 when the feed is unavailable; `/api/v1/employees` serves the directory, profile, performance, attendance,
 compensation and appraisals, where a salesrep sees only the team directory, a manager sees team figures
@@ -963,6 +965,12 @@ S6 adds `/employees/leaderboard` (manager+): four discipline-vs-output quadrant 
 and a team ranking sortable by won revenue or attendance, fed by `GET /employees/leaderboard`. Quota
 attainment and therefore quadrant classification/sorting remain an explicit `—`/unavailable state until
 an approved quota source exists; nothing is guessed.
+S7 closes the module's cross-cutting work: employee settings (quota default, commission rate, attendance
+benchmark, salary mask, Core 2 failure switch) join the Module 08 allow-list, a `core2_employees` health
+check joins the operations view, Module 06 scorecards link to `/employees/{id}` with a derived
+`reliability_index`, compensation returns period-scoped closed-won commission, and the demo seed maps
+users to deterministic `core2_employee_id` values. The Module 07 `workforce` report variant remains
+deferred.
 Dedup/merge and advanced/stored tier scoring are module-01 deferrals
 (ADR-0006), and automatic client aging stays one too (ADR-0018 §6). Other departments are consumed via
 **read-only mocked feeds** (ADR-0005, ADR-0025), not built here.
