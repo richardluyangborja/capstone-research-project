@@ -43,6 +43,24 @@ class EmployeeApiTest extends TestCase
         $this->assertLessThan(20, $queries, 'Employee CRM metrics should be aggregated, not queried per employee.');
     }
 
+    public function test_leaderboard_is_manager_plus_and_returns_role_scoped_employee_metrics(): void
+    {
+        $team = Team::create(['name' => 'Sales']);
+        $otherTeam = Team::create(['name' => 'Other']);
+        $manager = User::factory()->manager()->create(['team_id' => $team->id, 'name' => 'Ava Manager']);
+        $teammate = User::factory()->salesrep()->create(['team_id' => $team->id, 'name' => 'Zoe Representative']);
+        User::factory()->salesrep()->create(['team_id' => $otherTeam->id]);
+
+        $this->actingAs($teammate, 'api')->getJson('/api/v1/employees/leaderboard')->assertForbidden();
+
+        $response = $this->actingAs($manager, 'api')
+            ->getJson('/api/v1/employees/leaderboard?range=quarter')
+            ->assertOk();
+        $this->assertSame(2, $response->json('meta.total'));
+        $this->assertSame('quarter', $response->json('meta.range'));
+        $this->assertSame([$manager->public_id, $teammate->public_id], array_column($response->json('data'), 'id'));
+    }
+
     public function test_salesrep_cannot_read_another_employees_compensation(): void
     {
         $rep = User::factory()->salesrep()->create();
