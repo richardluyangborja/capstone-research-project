@@ -81,6 +81,33 @@ describe('administration route protection', () => {
     })
   })
 
+  it('protects every application administration screen from manager and salesrep roles', () => {
+    const applicationRoutes = [
+      '/admin',
+      '/admin/users',
+      '/admin/teams',
+      '/admin/settings',
+      '/admin/audit',
+      '/admin/operations',
+    ] as const
+
+    applicationRoutes.forEach((path) => {
+      ;(['manager', 'salesrep'] as const).forEach((role) => {
+        const { unmount } = renderAt(path, role)
+        expect(screen.getByText('403')).toBeInTheDocument()
+        unmount()
+      })
+    })
+  })
+
+  it('protects every platform screen from application admins', () => {
+    ;(['/platform', '/platform/diagnostics'] as const).forEach((path) => {
+      const { unmount } = renderAt(path, 'admin')
+      expect(screen.getByText('403')).toBeInTheDocument()
+      unmount()
+    })
+  })
+
   it('keeps personal settings open to every role', () => {
     ;(['salesrep', 'manager', 'admin', 'superadmin'] as const).forEach((role) => {
       const { unmount } = renderAt('/settings', role)
