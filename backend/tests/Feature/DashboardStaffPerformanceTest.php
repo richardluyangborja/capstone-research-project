@@ -100,11 +100,12 @@ class DashboardStaffPerformanceTest extends TestCase
 
         $this->assertSame([
             'user', 'leads_handled', 'qualified', 'deals_won', 'won_value',
-            'conversion_rate', 'follow_up_on_time', 'csat', 'hr', 'minTier',
+            'conversion_rate', 'follow_up_on_time', 'csat', 'hr', 'reliability_index', 'attendance_benchmark', 'employee_href', 'minTier',
         ], array_keys($row));
 
         $this->assertSame([
-            'id' => $this->rep->id,
+            'id' => $this->rep->public_id,
+            'crm_user_id' => $this->rep->id,
             'name' => 'Sam Salesrep',
             'job_title' => 'Sales representative',
             'team' => 'Business Development',
@@ -118,6 +119,12 @@ class DashboardStaffPerformanceTest extends TestCase
         $this->assertEquals(33.3, $row['follow_up_on_time']);
         $this->assertEquals(4.5, $row['csat']);
         $this->assertSame('personal', $row['minTier']);
+        $this->assertSame('/employees/'.$this->rep->public_id, $row['employee_href']);
+        $this->assertEquals(
+            round(($row['hr']['attendance_rate'] * 0.6) + ($row['follow_up_on_time'] * 0.4), 1),
+            $row['reliability_index'],
+        );
+        $this->assertEquals(95.0, $row['attendance_benchmark']);
 
         $this->assertSame('core2', $row['hr']['source']);
         $this->assertSame(

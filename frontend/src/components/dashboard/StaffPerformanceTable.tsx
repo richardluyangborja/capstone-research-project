@@ -39,7 +39,9 @@ export default function StaffPerformanceTable({ rows, note, caption }: StaffPerf
             {row.initials}
           </span>
           <div className="flex flex-col">
-            <span className="font-medium text-foreground">{row.name}</span>
+            <Link to={row.employee_href} className="font-medium text-primary hover:underline">
+              {row.name}
+            </Link>
             <span className="text-xs text-muted-foreground">
               {row.job_title} · {row.team}
             </span>
@@ -103,6 +105,14 @@ export default function StaffPerformanceTable({ rows, note, caption }: StaffPerf
       ),
     },
     {
+      key: 'reliability',
+      header: 'Reliability',
+      headerClassName: 'text-right',
+      className: 'text-right',
+      render: (row) =>
+        row.reliability_index === null ? '—' : `${row.reliability_index}%`,
+    },
+    {
       key: 'attendance',
       header: 'Attendance',
       headerClassName: 'text-right',
@@ -110,6 +120,14 @@ export default function StaffPerformanceTable({ rows, note, caption }: StaffPerf
       render: (row) => (
         <span className={attendanceTone(row.attendance_rate)}>
           {row.attendance_rate === null ? '—' : `${row.attendance_rate}%`}
+          {row.attendance_rate !== null && row.attendance_rate < row.attendance_benchmark && (
+            <span
+              className="ml-1 text-xs"
+              title={`Below ${row.attendance_benchmark}% benchmark`}
+            >
+              !
+            </span>
+          )}
         </span>
       ),
     },

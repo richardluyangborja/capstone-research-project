@@ -59,6 +59,9 @@ export interface EmployeeCompensation {
   base_salary: number | null
   fixed_allowances: number | null
   is_masked: boolean
+  commission_rate_percent: number
+  commission_base: number
+  earned_commission: number
   recent_payslips: Array<{
     period: string
     gross_pay: number | null
@@ -123,11 +126,20 @@ export const getEmployeeAttendance = async (id: string, range: EmployeeRange) =>
   return data
 }
 
-export const getEmployeeCompensation = async (id: string) => {
+export const getEmployeeCompensation = async (id: string, range: EmployeeRange = '30d') => {
   const { data } = await api.get<{
     data: EmployeeCompensation | null
-    meta: { source: string; read_only: boolean; as_of: string; core2_available: boolean }
-  }>(`/employees/${id}/compensation`)
+    meta: {
+      source: string
+      read_only: boolean
+      as_of: string
+      core2_available: boolean
+      range: EmployeeRange
+      commission_rate_percent: number
+      commission_base: number
+      earned_commission: number
+    }
+  }>(`/employees/${id}/compensation`, { params: { range } })
   return data
 }
 
