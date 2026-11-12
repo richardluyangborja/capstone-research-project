@@ -11,21 +11,24 @@ import {
   getEmployee,
   getEmployeeAppraisals,
   getEmployeeAttendance,
+  getEmployeeCompensation,
   getEmployeePerformance,
   type EmployeeAppraisal,
   type EmployeeAttendance,
+  type EmployeeCompensation,
   type EmployeePerformance,
   type EmployeeRange,
   type EmployeeRow,
 } from '../lib/employees'
 
-type Tab = 'overview' | 'performance' | 'attendance' | 'appraisals'
+type Tab = 'overview' | 'performance' | 'attendance' | 'appraisals' | 'compensation'
 
 const tabs: { id: Tab; label: string }[] = [
   { id: 'overview', label: 'Overview' },
   { id: 'performance', label: 'CRM Performance' },
   { id: 'attendance', label: 'Core 2 Attendance' },
   { id: 'appraisals', label: 'HR Appraisals' },
+  { id: 'compensation', label: 'Compensation' },
 ]
 
 const rangeLabels: Record<EmployeeRange, string> = {
@@ -52,6 +55,9 @@ export default function EmployeeProfile() {
   const [performance, setPerformance] = useState<EmployeePerformance | null>(null)
   const [attendance, setAttendance] = useState<EmployeeAttendance | null>(null)
   const [appraisals, setAppraisals] = useState<EmployeeAppraisal[] | null>(null)
+  const [compensation, setCompensation] = useState<EmployeeCompensation | null>(null)
+  const [compensationUnavailable, setCompensationUnavailable] = useState(false)
+  const [compensationForbidden, setCompensationForbidden] = useState(false)
   const [core2Available, setCore2Available] = useState(true)
   const [range, setRange] = useState<EmployeeRange>('30d')
   const [tab, setTab] = useState<Tab>('overview')
@@ -69,6 +75,22 @@ export default function EmployeeProfile() {
         getEmployeeAppraisals(id),
       ])
       setEmployee(profileResponse.data)
+      try {
+        const compensationResponse = await getEmployeeCompensation(id)
+        setCompensation(compensationResponse.data)
+        setCompensationUnavailable(!compensationResponse.meta.core2_available)
+        setCompensationForbidden(false)
+      } catch (compensationError) {
+        const status = (compensationError as { response?: { status?: number } }).response?.status
+        if (status === 403) {
+          setCompensation(null)
+          setCompensationUnavailable(false)
+          setCompensationForbidden(true)
+        } else {
+          setCompensationUnavailable(true)
+          setCompensationForbidden(false)
+        }
+      }
       setPerformance(performanceResponse.data)
       setAttendance(attendanceResponse.data)
       setAppraisals(appraisalResponse.data)
@@ -241,6 +263,63 @@ export default function EmployeeProfile() {
             </section>
             <p className="text-xs text-muted-foreground">{getProvenanceLine()}</p>
           </> : <EmptyState title="Attendance unavailable" description="Core 2 did not return timekeeping data for this period." />}
+        </section>
+      )}
+
+      {tab === 'compensation' && (
+        <section className="space-y-4" role="tabpanel" aria-label="Compensation">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h3 className="font-semibold text-foreground">Compensation &amp; salary</h3>
+            <Core2Badge />
+          </div>
+          {compensationForbidden ? (
+            <AlertItem variant="warning">Compensation is restricted to the employee, their authorized manager, and administrators.</AlertItem>
+          ) : compensationUnavailable ? (
+            <EmptyState title="Compensation unavailable" description="Core 2 did not return compensation data. Values are not estimated or replaced with zero." />
+          ) : compensation ? (
+            <>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <StatCard
+                  label="Base salary"
+                  value={compensation.is_masked ? '₱ ••••••' : formatCurrency(compensation.base_salary)}
+                  domain="cost"
+                  hint={compensation.is_masked ? 'Hidden by manager salary policy' : 'Monthly · PHP'}
+                />
+                <StatCard
+                  label="Fixed allowances"
+                  value={compensation.is_masked ? '₱ ••••••' : formatCurrency(compensation.fixed_allowances)}
+                  domain="cost"
+                  hint={compensation.is_masked ? 'Hidden by manager salary policy' : 'Monthly · PHP'}
+                />
+              </div>
+              <section className="rounded-lg border border-border bg-card p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <h4 className="font-semibold text-foreground">CRM closed-won deal commissions</h4>
+                    <p className="mt-1 text-sm text-muted-foreground">{currentPerformance.deals_won} deals · {formatCurrency(currentPerformance.won_value)} closed-won value in {rangeLabels[range]}</p>
+                  </div>
+                  <StatusBadge tone="neutral">Commission rate unavailable</StatusBadge>
+                </div>
+                <p className="mt-3 text-sm text-muted-foreground">Commission earnings are not calculated until the approved commission-rate setting is available; no rate is assumed.</p>
+              </section>
+              <section className="rounded-lg border border-border bg-card p-4">
+                <h4 className="mb-4 font-semibold text-foreground">Recent payslips</h4>
+                {compensation.recent_payslips.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No payslip records were returned.</p>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm">
+                      <thead className="border-b border-border text-xs uppercase text-muted-foreground"><tr><th className="px-3 py-2">Period</th><th className="px-3 py-2 text-right">Gross pay</th><th className="px-3 py-2 text-right">Net pay</th><th className="px-3 py-2">Status</th></tr></thead>
+                      <tbody>{compensation.recent_payslips.map((payslip) => <tr key={payslip.period} className="border-b border-border last:border-0"><td className="px-3 py-3">{payslip.period}</td><td className="px-3 py-3 text-right">{payslip.gross_pay === null ? '—' : formatCurrency(payslip.gross_pay)}</td><td className="px-3 py-3 text-right">{payslip.net_pay === null ? '—' : formatCurrency(payslip.net_pay)}</td><td className="px-3 py-3 capitalize">{payslip.status}</td></tr>)}</tbody>
+                    </table>
+                  </div>
+                )}
+              </section>
+              <p className="text-xs text-muted-foreground">Source: Core 2 HR, Attendance &amp; Payroll (read-only). Compensation data is an external projection.</p>
+            </>
+          ) : (
+            <EmptyState title="Compensation unavailable" description="No compensation data was returned." />
+          )}
         </section>
       )}
 
