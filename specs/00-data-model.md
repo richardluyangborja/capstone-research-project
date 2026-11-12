@@ -362,6 +362,21 @@ are never stored or returned. A separate `admin_invitations` table is not requir
 mocked invitation uses a signed, expiring token, and a new table is added only if revocable
 acceptance tracking needs it.
 
+## Employee performance & attendance profiling (module 09, proposed in spec 20, ADR-0031)
+
+S0 defines the contract. Core 2 employee data is strictly a **read-only projection**; no persistent database
+tables are added for external HR, timekeeping, payroll, or appraisal records. Data is assembled dynamically
+via `Core2EmployeeGateway` (`backend/app/Integrations/`).
+
+**User addition** — `core2_employee_id` (nullable string, e.g. `EMP-2026-0042`, unique when present; external mapping
+key linking CRM user accounts to Core 2 master personnel records).
+
+**Integration DTOs (read-only, non-persisted)**:
+- `Core2EmployeeProfile` — `employee_reference`, `official_title`, `department`, `employment_status`, `tenure_months`, `shift_schedule`, `direct_manager`.
+- `Core2AttendanceSummary` — `user_id`, `attendance_rate`, `days_present`, `late_arrivals_count`, `late_arrivals_minutes`, `undertime_hours`, `absences_count`, `leave_balances`.
+- `Core2CompensationProfile` — `user_id`, `base_salary` (nullable/masked), `fixed_allowances` (nullable/masked), `is_masked`, `recent_payslips`.
+- `Core2AppraisalSummary` — `appraisal_id`, `period_label`, `overall_rating`, `competencies`, `evaluator_notes`, `conducted_at`.
+
 ## Indexes / constraints (highlights)
 
 - Unique: `leads.reference`, `companies.reference`, `opportunities.reference`, `contracts.reference`,
