@@ -952,7 +952,8 @@ compensation and appraisals, where a salesrep sees only the team directory, a ma
 with base salary masked, and admin/superadmin see unmasked values. No Core 2 record is written by the CRM.
 S3 adds the `/employees` directory page (search, role and period filters, pagination, won revenue,
 attendance and an explicit em dash for quota until a source exists) plus an `/employees/:id` placeholder
-(now replaced by S4); missing Core 2 data renders `—` rather than a fabricated figure.
+(now replaced by S4); the sidebar puts it in an **Employees** section as **Employee Book** beside the
+manager+ **Employee Leaderboard**. Missing Core 2 data renders `—` rather than a fabricated figure.
 S4 replaces that placeholder with the Employee 360 profile: header metadata, Overview, CRM Performance,
 Core 2 Attendance (late arrivals, undertime, absences, leave meters) and HR Appraisals (competency
 scores and notes), each HR section badged `core2 · HR (read-only)` and falling back to `—`/empty

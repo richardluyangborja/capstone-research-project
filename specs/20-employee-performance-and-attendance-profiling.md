@@ -225,14 +225,15 @@ Won Revenue (₱), Quota Attainment (%), and Attendance Rate (%).
 
 Built as: `frontend/src/pages/Employees.tsx` renders the API-scoped directory through the shared
 `DataTable`, with search, role and period (`30d`/`quarter`/`ytd`) filters, pagination, a Core 2
-unavailable banner and em-dash fallbacks. The sidebar gains an **Employees** link for every role and
-`/employees/:id` opens a profile placeholder until S4. Quota attainment renders `—` with an explicit
+unavailable banner and em-dash fallbacks. The sidebar gains an **Employees** section holding the
+**Employee Book** for every role and the manager+ **Employee Leaderboard**; `/employees/:id` opens a
+profile placeholder until S4. Quota attainment renders `—` with an explicit
 "planned for a later module slice" title because no quota source exists yet; won revenue and
 attendance are live. Verification: `cd frontend && npm run lint`,
 `npx vitest run src/pages/employees.test.tsx src/components/layout/sidebar.test.tsx`, `npm run build`.
 
 Acceptance:
-- [x] Top-level "Employees" navigation added to sidebar for authorized roles.
+- [x] Top-level "Employees" navigation added to sidebar for authorized roles. *(an **Employees** section with **Employee Book** and **Employee Leaderboard** entries)*
 - [x] Period filter (`30d`, `Quarter`, `YTD`) updates figures smoothly.
 - [x] Row click navigates to `/employees/{public_id}`.
 

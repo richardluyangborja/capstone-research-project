@@ -103,7 +103,7 @@ describe('Sidebar', () => {
     expect(screen.queryByRole('link', { name: 'Billing' })).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Contracts' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Deployments' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Employees' })).toHaveAttribute('href', '/employees')
+    expect(screen.getByRole('link', { name: 'Employee Book' })).toHaveAttribute('href', '/employees')
     expect(screen.queryByRole('link', { name: 'Employee Leaderboard' })).not.toBeInTheDocument()
   })
 
