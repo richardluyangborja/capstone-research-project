@@ -941,11 +941,15 @@ the demo logins, suspension rejection, fixture records and admin/superadmin read
 and the administration route tests cover application/platform access boundaries. No Faker was introduced.
 **Module 09 — Employee Performance & Attendance Profiling** is specified in `specs/20` and ADR-0031:
 read-only Core 2 HR projections beside CRM output, with role-based masking. **S1 (gateway + deterministic
-DTOs) and S2 (employee API + policy scoping) are built**; S3–S7 remain proposed. `Core2EmployeeGateway`/
+DTOs), S2 (employee API + policy scoping) and S3 (the `/employees` directory roster) are built**;
+S4–S7 remain proposed. `Core2EmployeeGateway`/
 `MockCore2EmployeeGateway` derive values deterministically from the user id (no Faker) and return `null`
 when the feed is unavailable; `/api/v1/employees` serves the directory, profile, performance, attendance,
 compensation and appraisals, where a salesrep sees only the team directory, a manager sees team figures
 with base salary masked, and admin/superadmin see unmasked values. No Core 2 record is written by the CRM.
+S3 adds the `/employees` directory page (search, role and period filters, pagination, won revenue,
+attendance and an explicit em dash for quota until a source exists) and a `/employees/:id` placeholder
+for S4; missing Core 2 data renders `—` rather than a fabricated figure.
 Dedup/merge and advanced/stored tier scoring are module-01 deferrals
 (ADR-0006), and automatic client aging stays one too (ADR-0018 §6). Other departments are consumed via
 **read-only mocked feeds** (ADR-0005, ADR-0025), not built here.
