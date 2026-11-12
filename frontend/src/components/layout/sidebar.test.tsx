@@ -103,6 +103,7 @@ describe('Sidebar', () => {
     expect(screen.queryByRole('link', { name: 'Billing' })).not.toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Contracts' })).toBeInTheDocument()
     expect(screen.getByRole('link', { name: 'Deployments' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Employees' })).toHaveAttribute('href', '/employees')
   })
 
   it('shows personal settings to every role and no administration plane to a salesrep', () => {
