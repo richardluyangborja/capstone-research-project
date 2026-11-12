@@ -827,7 +827,8 @@ summaries, message drafting) are future submodules.
 shell and route protection), S2 (the user directory and account lifecycle), S3 (teams, roles and
 ownership administration), S4 (organization and CRM settings), S5 (the immutable audit book),
 S6 (integration and operational health) and S7 (safe maintenance actions)
-and S8 (superadmin platform diagnostics) are built**; S9–S10 remain proposed.
+S8 (superadmin platform diagnostics) and S9 (personal settings for every role) are built**; S10
+remains proposed.
 S1 adds the guarded `/admin` and `/platform` route groups, the all-role `/settings` page,
 `GET /admin/access` capability probe, `RoleRoute`, and inert placeholders named for each later
 slice. The sidebar groups are `Administration`, `Platform Operations` and `Personal`; a role that
@@ -927,6 +928,12 @@ or timeout marks only its own section `unavailable`/`timeout` (entity totals bec
 than a false zero. Every successful access appends a `diagnostic.viewed` notice with the sections and
 section states read; `/platform/diagnostics` renders the snapshot and the platform overview links to
 it. No diagnostic export was needed.
+S9 adds the all-role personal-settings surface: `GET /me/settings`, `PATCH /me/profile`,
+`PATCH /me/preferences`, `PUT /me/password` and `GET|DELETE /me/sessions`, behind the own-user
+`PersonalSettingsPolicy`/`UserSessionPolicy`. Preferences are stored per user (theme, table density,
+notification toggles), `FilterDatabaseNotifications` honours the database toggle, and the `user_sessions`
+table records each JWT session so a password change revokes the caller's other sessions. `/settings`
+renders Profile, Preferences, Security and Sessions against `frontend/src/lib/personalSettings.ts`.
 Dedup/merge and advanced/stored tier scoring are module-01 deferrals
 (ADR-0006), and automatic client aging stays one too (ADR-0018 §6). Other departments are consumed via
 **read-only mocked feeds** (ADR-0005, ADR-0025), not built here.
