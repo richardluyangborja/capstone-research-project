@@ -39,6 +39,40 @@ export interface EmployeeFilters {
   per_page?: number
 }
 
+export interface EmployeeAttendance {
+  user_id: string
+  attendance_rate: number
+  days_present: number
+  late_arrivals_count: number
+  late_arrivals_minutes: number
+  undertime_hours: number
+  absences_count: number
+  leave_balances: {
+    vacation_leave_remaining: number
+    sick_leave_remaining: number
+    emergency_leave_remaining: number
+  }
+}
+
+export interface EmployeeAppraisal {
+  appraisal_id: string
+  period_label: string
+  overall_rating: number
+  competencies: Record<string, number>
+  evaluator_notes: string
+  conducted_at: string
+}
+
+export interface EmployeeDetailResponse {
+  data: EmployeeRow
+  meta: {
+    source: string
+    read_only: boolean
+    as_of: string
+    core2_available: boolean
+  }
+}
+
 export interface EmployeeDirectoryResponse {
   data: EmployeeRow[]
   links: { first: string | null; last: string | null; prev: string | null; next: string | null }
@@ -53,6 +87,35 @@ export interface EmployeeDirectoryResponse {
     core2_available: boolean
     range: EmployeeRange
   }
+}
+
+export const getEmployee = async (id: string): Promise<EmployeeDetailResponse> => {
+  const { data } = await api.get<EmployeeDetailResponse>(`/employees/${id}`)
+  return data
+}
+
+export const getEmployeePerformance = async (id: string, range: EmployeeRange) => {
+  const { data } = await api.get<{ data: EmployeePerformance; meta: { range: EmployeeRange } }>(
+    `/employees/${id}/performance`,
+    { params: { range } },
+  )
+  return data
+}
+
+export const getEmployeeAttendance = async (id: string, range: EmployeeRange) => {
+  const { data } = await api.get<{
+    data: EmployeeAttendance | null
+    meta: { source: string; read_only: boolean; as_of: string; core2_available: boolean; range: EmployeeRange }
+  }>(`/employees/${id}/attendance`, { params: { range } })
+  return data
+}
+
+export const getEmployeeAppraisals = async (id: string) => {
+  const { data } = await api.get<{
+    data: EmployeeAppraisal[] | null
+    meta: { source: string; read_only: boolean; as_of: string; core2_available: boolean }
+  }>(`/employees/${id}/appraisals`)
+  return data
 }
 
 export const listEmployees = async (filters: EmployeeFilters = {}): Promise<EmployeeDirectoryResponse> => {
