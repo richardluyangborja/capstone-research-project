@@ -1,6 +1,6 @@
 # Module 08 — Administration & Platform Operations
 
-- Status: **S0 accepted; S1–S8 built; S9–S10 proposed and pending implementation verification**
+- Status: **S0 accepted; S1–S9 built; S10 proposed and pending implementation verification**
 - Depends on: ADR-0004, ADR-0005, ADR-0007, ADR-0016, `00-data-model.md`, `implementation/system-roles.md`
 
 ## Purpose
@@ -672,17 +672,19 @@ connection or timeout marks only its own section `unavailable`/`timeout` (entity
 the sections and section states read. `/platform/diagnostics` renders the snapshot, and the
 platform overview links to it.
 
-### S9 — Personal settings for every role
+### S9 — Personal settings for every role *(built)*
 
-Deliver `/settings/profile`, `/settings/preferences`, `/settings/security`, and a notification
-preferences panel. Keep organization settings and admin navigation separate.
+Deliver the personal settings page for `/settings/profile`, `/settings/preferences`, `/settings/security`, and notification preferences. Keep organization settings and admin navigation separate.
 
 Acceptance:
 
-- every authenticated role can update only their own allowed preferences;
-- password changes require the current password and invalidate other sessions if supported;
-- notification preference changes do not disable mandatory security notifications;
-- the sidebar/footer exposes Settings for every role.
+- [x] every authenticated role can update only their own allowed preferences;
+- [x] password changes require the current password and invalidate other sessions;
+- [x] notification preference changes do not disable mandatory security notifications;
+- [x] the sidebar/footer exposes Settings for every role.
+
+Built as: the authenticated `/me/settings`, `/me/profile`, `/me/preferences`, `/me/password` and `/me/sessions` API surfaces, own-user policies, per-user preference storage and JWT session records containing only `jti`, device metadata and timestamps (never a token or payload). Password changes verify the current password, update the credential, revoke every other recorded session and audit the event. The shared `/settings` page provides profile, personal display/notification preferences, password update and current-session/other-session management; personal changes do not affect organization-level settings.
+Verification: `cd backend && php artisan test --compact tests/Feature/PersonalSettingsTest.php tests/Feature/AuthTest.php`; frontend `npm run lint`, targeted route tests and `npm run build`.
 
 ### S10 — Seeds, fixtures, and verification
 

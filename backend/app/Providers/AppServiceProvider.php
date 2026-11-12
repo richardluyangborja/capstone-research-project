@@ -23,15 +23,18 @@ use App\Models\AuditLog;
 use App\Models\Setting;
 use App\Models\Team;
 use App\Models\User;
+use App\Models\UserSession;
 use App\Policies\AdminAccessPolicy;
 use App\Policies\AuditLogPolicy;
 use App\Policies\MaintenanceActionPolicy;
 use App\Policies\OperationsHealthPolicy;
+use App\Policies\PersonalSettingsPolicy;
 use App\Policies\PlatformDiagnosticPolicy;
 use App\Policies\SettingPolicy;
 use App\Policies\TaskPolicy;
 use App\Policies\TeamAdminPolicy;
 use App\Policies\UserAdminPolicy;
+use App\Policies\UserSessionPolicy;
 use App\Settings\EffectiveSettings;
 use Illuminate\Notifications\Events\NotificationSending;
 use Illuminate\Support\Facades\Event;
@@ -78,6 +81,11 @@ class AppServiceProvider extends ServiceProvider
         // (not `UserPolicy`) on purpose: auto-discovery would silently claim every `users`
         // ability across the CRM, so it is registered explicitly for the User model.
         Gate::policy(User::class, UserAdminPolicy::class);
+        Gate::policy(UserSession::class, UserSessionPolicy::class);
+        Gate::define('viewPersonalSettings', [PersonalSettingsPolicy::class, 'view']);
+        Gate::define('updatePersonalProfile', [PersonalSettingsPolicy::class, 'updateProfile']);
+        Gate::define('updatePersonalPreferences', [PersonalSettingsPolicy::class, 'updatePreferences']);
+        Gate::define('changePersonalPassword', [PersonalSettingsPolicy::class, 'changePassword']);
 
         // Module 08 S3 — team administration. Registered explicitly alongside the user policy
         // so the application plane owns both halves of the organizational model.
