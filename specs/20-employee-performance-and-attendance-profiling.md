@@ -1,6 +1,6 @@
 # Module 09 — Employee Performance & Attendance Profiling
 
-- Status: **S0 accepted; S1–S4 built; S5–S7 proposed**
+- Status: **S0 accepted; S1–S5 built; S6–S7 proposed**
 - Depends on: ADR-0004, ADR-0005, ADR-0007, ADR-0016, ADR-0020, ADR-0021, ADR-0025, ADR-0030, ADR-0031, `00-data-model.md`, `specs/14`, `specs/15`, `specs/19`, `implementation/system-roles.md`, `implementation/list-of-departments.md`
 
 ## Purpose
@@ -171,7 +171,7 @@ The new module requires bounded additions to Module 08:
 | **S2** | `feature/module-09-backend-api-s2` | Backend API Routes & Policy Scoping | `/api/v1/employees`, role masking, CRM KPI aggregation | **Built** |
 | **S3** | `feature/module-09-frontend-directory-s3` | Employee Directory Roster UI | `/employees` table, role filters, quota badges | **Built** |
 | **S4** | `feature/module-09-profile-360-s4` | Employee 360° Profile & Core Tabs | `/employees/:id` with Overview, CRM, Attendance & Appraisals | **Built** |
-| **S5** | `feature/module-09-compensation-s5` | Compensation Profiling & Masking | Base salary, CRM commissions, payslips, manager mask | Proposed |
+| **S5** | `feature/module-09-compensation-s5` | Compensation Profiling & Masking | Base salary, CRM commissions, payslips, manager mask | **Built** |
 | **S6** | `feature/module-09-leaderboard-s6` | Discipline vs. Output Correlation | `/employees/leaderboard` matrix & ranking view | Proposed |
 | **S7** | `feature/module-09-cross-cutting-s7` | Admin, Analytics, AI & Verification | Module 06/07/08 updates, deterministic seeds, test suites | Proposed |
 
@@ -255,15 +255,24 @@ Acceptance:
 - [x] Appraisals tab renders formal competency evaluation scores.
 - [x] Graceful fallback (`—`) renders when Core 2 feed is unavailable.
 
-### S5 — Compensation Profiling & Masking *(Proposed)*
+### S5 — Compensation Profiling & Masking *(Built)*
 Deliver the Compensation & Salary tab on `/employees/{public_id}`.
 Renders Base Salary (₱), Fixed Allowances, CRM Closed-Won Deal Commissions, and Payslip summary.
 
+Built as: the profile gains a **Compensation** tab backed by `GET /employees/{public_id}/compensation`.
+Base salary and fixed allowances render in PHP, the manager mask renders `₱ ••••••` (and the API
+already nulls payslip amounts for a manager viewing a subordinate), payslips show period/gross/net/status,
+and a 403 shows the restricted-access notice instead of figures. The CRM side shows the closed-won deal
+count and value for the selected period; an explicit "commission rate unavailable" badge states that no
+commission amount is calculated because no approved commission-rate source exists — no rate is assumed.
+Verification: `cd frontend && npm run lint`,
+`npx vitest run src/pages/employeeProfile.test.tsx`, full `npm run test -- --run`, `npm run build`.
+
 Acceptance:
-- [ ] Sales reps can view only their own compensation.
-- [ ] Subordinate base salary is masked (`₱ ••••••`) for managers.
-- [ ] Commissions earned from CRM deals match actual closed-won opportunities.
-- [ ] Single currency PHP formatting (`₱1,234.56`) strictly applied.
+- [x] Sales reps can view only their own compensation.
+- [x] Subordinate base salary is masked (`₱ ••••••`) for managers.
+- [ ] Commissions earned from CRM deals match actual closed-won opportunities. *(deferred: no commission-rate source; the tab shows closed-won deal count/value instead of inventing a rate)*
+- [x] Single currency PHP formatting (`₱1,234.56`) strictly applied.
 
 ### S6 — Discipline vs. Output Correlation & Leaderboard *(Proposed)*
 Deliver `/employees/leaderboard` featuring the "Discipline vs. Output" matrix.

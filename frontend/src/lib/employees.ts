@@ -54,6 +54,19 @@ export interface EmployeeAttendance {
   }
 }
 
+export interface EmployeeCompensation {
+  user_id: string
+  base_salary: number | null
+  fixed_allowances: number | null
+  is_masked: boolean
+  recent_payslips: Array<{
+    period: string
+    gross_pay: number | null
+    net_pay: number | null
+    status: string
+  }>
+}
+
 export interface EmployeeAppraisal {
   appraisal_id: string
   period_label: string
@@ -107,6 +120,14 @@ export const getEmployeeAttendance = async (id: string, range: EmployeeRange) =>
     data: EmployeeAttendance | null
     meta: { source: string; read_only: boolean; as_of: string; core2_available: boolean; range: EmployeeRange }
   }>(`/employees/${id}/attendance`, { params: { range } })
+  return data
+}
+
+export const getEmployeeCompensation = async (id: string) => {
+  const { data } = await api.get<{
+    data: EmployeeCompensation | null
+    meta: { source: string; read_only: boolean; as_of: string; core2_available: boolean }
+  }>(`/employees/${id}/compensation`)
   return data
 }
 
