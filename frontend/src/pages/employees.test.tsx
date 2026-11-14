@@ -15,6 +15,9 @@ const response: EmployeeDirectoryResponse = {
       role: 'salesrep',
       team: { id: '01JTEAMID000000000000000001', name: 'Business Development' },
       profile: null,
+      quota: { monthly: 500000, quarterly: 500000 },
+      quota_attainment: 250,
+      can_update_quota: false,
       performance: {
         leads_handled: 4,
         deals_won: 2,
@@ -61,7 +64,7 @@ describe('Employee directory', () => {
     expect(within(row).getByText('Business Development')).toBeInTheDocument()
     expect(within(row).getByText('₱1,250,000.00')).toBeInTheDocument()
     expect(within(row).getByText('96%')).toBeInTheDocument()
-    expect(within(row).getByTitle('Quota source is planned for a later module slice')).toHaveTextContent('—')
+    expect(within(row).getByText('250%')).toBeInTheDocument()
   })
 
   it('sends search, role and period filters to the API', async () => {
@@ -86,6 +89,6 @@ describe('Employee directory', () => {
     expect(await screen.findByText(/Core 2 HR Service Unavailable/)).toBeInTheDocument()
     const name = await screen.findByRole('link', { name: 'Sam Salesrep' })
     const row = name.closest('tr') as HTMLElement
-    expect(within(row).getAllByText('—')).toHaveLength(2)
+    expect(within(row).getAllByText('—')).toHaveLength(1)
   })
 })

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Enums\ActivityStatus;
+use App\Enums\AuditSeverity;
 use App\Enums\LeadStatus;
 use App\Enums\OpportunityStage;
 use App\Enums\Role;
@@ -12,8 +13,10 @@ use App\Integrations\Core2AppraisalSummary;
 use App\Integrations\Core2EmployeeGateway;
 use App\Integrations\Core2EmployeeProfile;
 use App\Models\Activity;
+use App\Models\AuditLog;
 use App\Models\Lead;
 use App\Models\Opportunity;
+use App\Models\Setting;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
@@ -45,9 +48,13 @@ class EmployeeController extends Controller
         $paginator = $query->paginate((int) ($validated['per_page'] ?? 20));
         $users = collect($paginator->items());
         $rows = $this->buildPerformance($users, $period);
+        $quotas = $this->quotasFor($users);
         $attendanceUsers = $users->filter(fn (User $employee): bool => $actor->role !== Role::Salesrep || $employee->is($actor))->values();
         $attendance = $this->attendanceFor($core2, $attendanceUsers, $period);
-        $data = $users->map(function (User $employee) use ($actor, $core2, $rows, $attendance): EmployeeResource {
+        $data = $users->map(function (User $employee) use ($actor, $core2, $rows, $attendance, $quotas, $validated): EmployeeResource {
+            $quota = $quotas[$employee->id];
+            $employee->setAttribute('quota', $quota);
+            $employee->setAttribute('quota_attainment', $this->quotaAttainment($rows[$employee->id]['won_value'] ?? 0, $quota, $validated['range'] ?? '30d'));
             $employee->setAttribute('performance', $rows[$employee->id] ?? $this->emptyPerformance());
             $employee->setAttribute('attendance', $attendance === null ? null : ($attendance[$employee->id] ?? null));
             $profile = $actor->role === Role::Salesrep && ! $employee->is($actor)
@@ -93,6 +100,9 @@ class EmployeeController extends Controller
         $employees = collect([$employee->load('team:id,name')]);
         $mayViewAttendance = $request->user()->role !== Role::Salesrep || $request->user()->is($employee);
         $attendance = $mayViewAttendance ? $this->attendanceFor($core2, $employees, $period) : null;
+        $quota = $this->quotaFor($employee);
+        $employee->setAttribute('quota', $quota);
+        $employee->setAttribute('quota_attainment', $this->quotaAttainment($this->buildPerformance($employees, $period)[$employee->id]['won_value'] ?? 0, $quota, '30d'));
         $employee->setAttribute('performance', $this->buildPerformance($employees, $period)[$employee->id] ?? $this->emptyPerformance());
         $employee->setAttribute('attendance', $attendance === null ? null : ($attendance[$employee->id] ?? null));
         $profile = $request->user()->role === Role::Salesrep && ! $request->user()->is($employee)
@@ -104,6 +114,49 @@ class EmployeeController extends Controller
             'data' => (new EmployeeResource($employee))->resolve($request),
             'meta' => $this->provenance($attendance !== null),
         ]);
+    }
+
+    public function updateQuota(Request $request, User $employee): JsonResponse
+    {
+        Gate::authorize('updateEmployeeQuota', $employee);
+        $unknown = array_diff(array_keys($request->all()), ['monthly_quota', 'quarterly_quota']);
+        if ($unknown !== []) {
+            abort(422, 'Only monthly_quota and quarterly_quota are accepted.');
+        }
+
+        $validated = $request->validate([
+            'monthly_quota' => ['sometimes', 'nullable', 'numeric', 'min:0', 'max:1000000000'],
+            'quarterly_quota' => ['sometimes', 'nullable', 'numeric', 'min:0', 'max:1000000000'],
+        ]);
+
+        if ($validated === []) {
+            abort(422, 'Provide at least one quota value.');
+        }
+
+        $before = $this->quotaFor($employee);
+        foreach (['monthly' => 'monthly_quota', 'quarterly' => 'quarterly_quota'] as $period => $field) {
+            if (! array_key_exists($field, $validated)) {
+                continue;
+            }
+
+            $key = "crm.quota.{$period}_php";
+            $value = $validated[$field] === null ? null : (float) $validated[$field];
+            if ($value === null || $value === (float) config('crm.employees.quota_default_php', 500000)) {
+                Setting::query()->where('scope', 'user')->where('scope_id', $employee->id)->where('key', $key)->delete();
+            } else {
+                Setting::query()->updateOrCreate(
+                    ['scope' => 'user', 'scope_id' => $employee->id, 'key' => $key],
+                    ['value' => $value, 'updated_by' => $request->user()->id],
+                );
+            }
+        }
+
+        $after = $this->quotaFor($employee);
+        if ($before !== $after) {
+            AuditLog::record('employee.quota_updated', AuditSeverity::Info, $request->user()->id, User::class, $employee->id, $before, $after);
+        }
+
+        return response()->json(['data' => $after]);
     }
 
     public function performance(Request $request, User $employee): JsonResponse
@@ -285,6 +338,42 @@ class EmployeeController extends Controller
         };
 
         return [$start, $end];
+    }
+
+    /** @param Collection<int, User> $employees
+     * @return array<int, array{monthly: float, quarterly: float}>
+     */
+    private function quotasFor(Collection $employees): array
+    {
+        $employeeIds = $employees->pluck('id')->all();
+        $overrides = Setting::query()->where('scope', 'user')->whereIn('scope_id', $employeeIds)
+            ->whereIn('key', ['crm.quota.monthly_php', 'crm.quota.quarterly_php'])
+            ->get(['scope_id', 'key', 'value'])->groupBy('scope_id');
+        $default = (float) config('crm.employees.quota_default_php', 500000);
+        $quotas = [];
+
+        foreach ($employeeIds as $employeeId) {
+            $rows = $overrides->get($employeeId, collect())->keyBy('key');
+            $quotas[$employeeId] = [
+                'monthly' => (float) ($rows->get('crm.quota.monthly_php')?->value ?? $default),
+                'quarterly' => (float) ($rows->get('crm.quota.quarterly_php')?->value ?? $default),
+            ];
+        }
+
+        return $quotas;
+    }
+
+    /** @return array{monthly: float, quarterly: float} */
+    private function quotaFor(User $employee): array
+    {
+        return $this->quotasFor(collect([$employee]))[$employee->id];
+    }
+
+    private function quotaAttainment(float $wonValue, array $quotaTargets, string $range): ?float
+    {
+        $quota = $quotaTargets[$range === 'quarter' ? 'quarterly' : 'monthly'];
+
+        return $quota <= 0 ? null : round($wonValue / $quota * 100, 1);
     }
 
     private function profileArray(Core2EmployeeProfile $profile): array

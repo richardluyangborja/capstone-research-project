@@ -13,6 +13,7 @@ import {
   getEmployeeAttendance,
   getEmployeeCompensation,
   getEmployeePerformance,
+  updateEmployeeQuota,
   type EmployeeAppraisal,
   type EmployeeAttendance,
   type EmployeeCompensation,
@@ -63,6 +64,11 @@ export default function EmployeeProfile() {
   const [tab, setTab] = useState<Tab>('overview')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [monthlyQuota, setMonthlyQuota] = useState('')
+  const [quarterlyQuota, setQuarterlyQuota] = useState('')
+  const [quotaSaving, setQuotaSaving] = useState(false)
+  const [quotaMessage, setQuotaMessage] = useState('')
+  const canManageQuota = employee?.can_update_quota ?? false
 
   const load = useCallback(async (selectedRange: EmployeeRange) => {
     setLoading(true)
@@ -75,6 +81,8 @@ export default function EmployeeProfile() {
         getEmployeeAppraisals(id),
       ])
       setEmployee(profileResponse.data)
+      setMonthlyQuota(String(profileResponse.data.quota.monthly))
+      setQuarterlyQuota(String(profileResponse.data.quota.quarterly))
       try {
         const compensationResponse = await getEmployeeCompensation(id, selectedRange)
         setCompensation(compensationResponse.data ? {
@@ -206,6 +214,34 @@ export default function EmployeeProfile() {
             <StatCard label="Won revenue" value={formatCurrency(currentPerformance.won_value)} domain="cost" />
             <StatCard label="Attendance" value={attendance ? `${attendance.attendance_rate}%` : '—'} domain="people" />
           </div>
+          <section className="rounded-lg border border-border bg-card p-4">
+            <h3 className="font-semibold text-foreground">Quota targets</h3>
+            <dl className="mt-3 grid grid-cols-2 gap-4 text-sm">
+              <Metric label="Monthly quota" value={formatCurrency(employee.quota.monthly)} />
+              <Metric label="Quarterly quota" value={formatCurrency(employee.quota.quarterly)} />
+              <Metric label={`Attainment · ${rangeLabels[range]}`} value={employee.quota_attainment === null ? '—' : `${employee.quota_attainment}%`} />
+            </dl>
+            {canManageQuota && <form className="mt-4 grid gap-3 border-t border-border pt-4 sm:grid-cols-2" onSubmit={async (event) => {
+              event.preventDefault()
+              setQuotaSaving(true)
+              setQuotaMessage('')
+              try {
+                const quota = await updateEmployeeQuota(id, { monthly_quota: Number(monthlyQuota), quarterly_quota: Number(quarterlyQuota) })
+                setEmployee({ ...employee, quota })
+                setQuotaMessage('Quota targets saved.')
+                await load(range)
+              } catch {
+                setQuotaMessage('Could not save quota targets. Check the values and try again.')
+              } finally {
+                setQuotaSaving(false)
+              }
+            }}>
+              <label className="text-sm text-foreground">Monthly quota (PHP)<input type="number" min="0" max="1000000000" step="0.01" value={monthlyQuota} onChange={(event) => setMonthlyQuota(event.target.value)} className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2" required /></label>
+              <label className="text-sm text-foreground">Quarterly quota (PHP)<input type="number" min="0" max="1000000000" step="0.01" value={quarterlyQuota} onChange={(event) => setQuarterlyQuota(event.target.value)} className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2" required /></label>
+              <button type="submit" disabled={quotaSaving} className="w-fit rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50">{quotaSaving ? 'Saving…' : 'Save quota'}</button>
+              {quotaMessage && <p role="status" className="self-center text-sm text-muted-foreground">{quotaMessage}</p>}
+            </form>}
+          </section>
           <div className="grid gap-4 lg:grid-cols-2">
             <section className="rounded-lg border border-border bg-card p-4">
               <div className="mb-4 flex items-center justify-between"><h3 className="font-semibold text-foreground">CRM performance</h3><StatusBadge tone="activity">{rangeLabels[range]}</StatusBadge></div>

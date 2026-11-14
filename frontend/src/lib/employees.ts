@@ -29,6 +29,9 @@ export interface EmployeeRow {
   } | null
   performance: EmployeePerformance
   attendance: { attendance_rate: number; late_arrivals_count: number } | null
+  quota: { monthly: number; quarterly: number }
+  quota_attainment: number | null
+  can_update_quota: boolean
 }
 
 export interface EmployeeFilters {
@@ -103,6 +106,11 @@ export interface EmployeeDirectoryResponse {
     core2_available: boolean
     range: EmployeeRange
   }
+}
+
+export const updateEmployeeQuota = async (id: string, quota: { monthly_quota?: number; quarterly_quota?: number }) => {
+  const { data } = await api.patch<{ data: { monthly: number; quarterly: number } }>(`/employees/${id}/quota`, quota)
+  return data.data
 }
 
 export const getEmployee = async (id: string): Promise<EmployeeDetailResponse> => {

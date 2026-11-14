@@ -25,7 +25,9 @@ class EffectiveSettings
     public function overrides(): array
     {
         return Cache::remember(SettingRegistry::CACHE_KEY, now()->addDay(), function (): array {
-            return Setting::query()->pluck('value', 'key')->all();
+            return Setting::query()->where('scope', 'system')->where(function ($query): void {
+                $query->where('scope_id', 0)->orWhereNull('scope_id');
+            })->pluck('value', 'key')->all();
         });
     }
 

@@ -103,7 +103,9 @@ export default function Employees() {
       header: 'Quota attainment',
       headerClassName: 'text-right',
       className: 'text-right text-muted-foreground',
-      render: () => <span title="Quota source is planned for a later module slice">—</span>,
+      render: (employee) => employee.quota_attainment === null
+        ? <span title="Quota is zero; attainment is not defined">—</span>
+        : <span>{employee.quota_attainment}%</span>,
     },
     {
       key: 'attendance',
