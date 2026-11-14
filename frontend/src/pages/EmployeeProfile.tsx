@@ -57,7 +57,6 @@ export default function EmployeeProfile() {
   const [attendance, setAttendance] = useState<EmployeeAttendance | null>(null)
   const [appraisals, setAppraisals] = useState<EmployeeAppraisal[] | null>(null)
   const [compensation, setCompensation] = useState<EmployeeCompensation | null>(null)
-  const [compensationUnavailable, setCompensationUnavailable] = useState(false)
   const [compensationForbidden, setCompensationForbidden] = useState(false)
   const [core2Available, setCore2Available] = useState(true)
   const [range, setRange] = useState<EmployeeRange>('30d')
@@ -85,22 +84,14 @@ export default function EmployeeProfile() {
       setQuarterlyQuota(String(profileResponse.data.quota.quarterly))
       try {
         const compensationResponse = await getEmployeeCompensation(id, selectedRange)
-        setCompensation(compensationResponse.data ? {
-          ...compensationResponse.data,
-          commission_rate_percent: compensationResponse.meta.commission_rate_percent,
-          commission_base: compensationResponse.meta.commission_base,
-          earned_commission: compensationResponse.meta.earned_commission,
-        } : null)
-        setCompensationUnavailable(!compensationResponse.meta.core2_available)
+        setCompensation(compensationResponse.data)
         setCompensationForbidden(false)
       } catch (compensationError) {
         const status = (compensationError as { response?: { status?: number } }).response?.status
         if (status === 403) {
           setCompensation(null)
-          setCompensationUnavailable(false)
           setCompensationForbidden(true)
         } else {
-          setCompensationUnavailable(true)
           setCompensationForbidden(false)
         }
       }
@@ -315,20 +306,18 @@ export default function EmployeeProfile() {
           </div>
           {compensationForbidden ? (
             <AlertItem variant="warning">Compensation is restricted to the employee, their authorized manager, and administrators.</AlertItem>
-          ) : compensationUnavailable ? (
-            <EmptyState title="Compensation unavailable" description="Core 2 did not return compensation data. Values are not estimated or replaced with zero." />
           ) : compensation ? (
             <>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <StatCard
                   label="Base salary"
-                  value={compensation.is_masked ? '₱ ••••••' : formatCurrency(compensation.base_salary)}
+                  value={compensation.is_masked ? '₱ ••••••' : compensation.base_salary === null ? '—' : formatCurrency(compensation.base_salary)}
                   domain="cost"
                   hint={compensation.is_masked ? 'Hidden by manager salary policy' : 'Monthly · PHP'}
                 />
                 <StatCard
                   label="Fixed allowances"
-                  value={compensation.is_masked ? '₱ ••••••' : formatCurrency(compensation.fixed_allowances)}
+                  value={compensation.is_masked ? '₱ ••••••' : compensation.fixed_allowances === null ? '—' : formatCurrency(compensation.fixed_allowances)}
                   domain="cost"
                   hint={compensation.is_masked ? 'Hidden by manager salary policy' : 'Monthly · PHP'}
                 />
@@ -337,11 +326,18 @@ export default function EmployeeProfile() {
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <h4 className="font-semibold text-foreground">CRM closed-won deal commissions</h4>
-                    <p className="mt-1 text-sm text-muted-foreground">{currentPerformance.deals_won} deals · {formatCurrency(compensation.commission_base)} closed-won value in {rangeLabels[range]}</p>
+                    <p className="mt-1 text-sm text-muted-foreground">{currentPerformance.deals_won} deals · {formatCurrency(compensation.commission.won_value)} closed-won value in {rangeLabels[range]}</p>
                   </div>
-                  <StatusBadge tone="people">{compensation.commission_rate_percent}% commission rate</StatusBadge>
+                  <StatusBadge tone="people">{compensation.commission.tier_applied === 'accelerator' ? 'Accelerator Active' : 'Baseline rate'} · {compensation.commission.baseline_rate_percent}% / {compensation.commission.accelerator_rate_percent}%</StatusBadge>
                 </div>
-                <p className="mt-3 text-sm text-foreground">Earned CRM commission: <span className="font-semibold text-cost">{formatCurrency(compensation.earned_commission)}</span></p>
+                <dl className="mt-4 grid gap-3 border-t border-border pt-4 text-sm sm:grid-cols-2">
+                  <Metric label="Won value" value={formatCurrency(compensation.commission.won_value)} />
+                  <Metric label="Quota" value={formatCurrency(compensation.commission.quota_value)} />
+                  <Metric label="Attainment" value={compensation.commission.attainment_percent === null ? '—' : `${compensation.commission.attainment_percent}%`} />
+                  <Metric label="Baseline commission" value={formatCurrency(compensation.commission.baseline_commission)} />
+                  <Metric label="Accelerator commission" value={formatCurrency(compensation.commission.accelerator_commission)} />
+                </dl>
+                <p className="mt-3 text-sm text-foreground">Total earned commission: <span className="font-semibold text-cost">{formatCurrency(compensation.commission.total_earned_commission)}</span></p>
               </section>
               <section className="rounded-lg border border-border bg-card p-4">
                 <h4 className="mb-4 font-semibold text-foreground">Recent payslips</h4>
@@ -356,7 +352,7 @@ export default function EmployeeProfile() {
                   </div>
                 )}
               </section>
-              <p className="text-xs text-muted-foreground">Source: Core 2 HR, Attendance &amp; Payroll (read-only). Compensation data is an external projection.</p>
+              <p className="text-xs text-muted-foreground">CRM commission is calculated from closed-won deals and quota. Salary and payslip data: Core 2 HR, Attendance &amp; Payroll (read-only).</p>
             </>
           ) : (
             <EmptyState title="Compensation unavailable" description="No compensation data was returned." />

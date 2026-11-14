@@ -153,15 +153,21 @@ class EmployeeApiTest extends TestCase
             'actual_close_date' => now()->toDateString(),
         ]);
 
-        config(['crm.employees.commission_rate_percent' => 3.0]);
+        config([
+            'crm.employees.commission_rate_baseline_percent' => 3.0,
+            'crm.employees.commission_rate_accelerator_percent' => 4.0,
+        ]);
         $data = $this->actingAs($employee, 'api')
             ->getJson("/api/v1/employees/{$employee->public_id}/compensation?range=30d")
             ->assertOk()
-            ->json('meta');
+            ->json('data.commission');
 
-        $this->assertEquals(3.0, $data['commission_rate_percent']);
-        $this->assertEquals(1_000_000, $data['commission_base']);
-        $this->assertEquals(30_000, $data['earned_commission']);
+        $this->assertEquals(500000, $data['quota_value']);
+        $this->assertEquals(3.0, $data['baseline_rate_percent']);
+        $this->assertEquals(4.0, $data['accelerator_rate_percent']);
+        $this->assertEquals(15000, $data['baseline_commission']);
+        $this->assertEquals(20000, $data['accelerator_commission']);
+        $this->assertEquals(35000, $data['total_earned_commission']);
     }
 
     public function test_salesrep_can_see_teammate_directory_row_but_not_their_attendance(): void

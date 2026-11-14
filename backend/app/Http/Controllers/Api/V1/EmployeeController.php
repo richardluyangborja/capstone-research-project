@@ -207,29 +207,43 @@ class EmployeeController extends Controller
             ->where('stage', OpportunityStage::Won)
             ->whereBetween('actual_close_date', [$period[0]->toDateString(), $period[1]->toDateString()])
             ->sum('amount');
-        $commissionRate = (float) config('crm.employees.commission_rate_percent', 2.5);
-        $commission = round($wonValue * $commissionRate / 100, 2);
+        $quotaTargets = $this->quotaFor($employee);
+        $quotaValue = $quotaTargets[$range === 'quarter' ? 'quarterly' : 'monthly'];
+        $baselineRate = (float) config('crm.employees.commission_rate_baseline_percent', 2.0);
+        $acceleratorRate = (float) config('crm.employees.commission_rate_accelerator_percent', 3.5);
+        $baselineBase = $quotaValue > 0 ? min($wonValue, $quotaValue) : $wonValue;
+        $acceleratorBase = $quotaValue > 0 ? max(0, $wonValue - $quotaValue) : 0;
+        $baselineCommission = round($baselineBase * $baselineRate / 100, 2);
+        $acceleratorCommission = round($acceleratorBase * $acceleratorRate / 100, 2);
+        $earnedCommission = round($baselineCommission + $acceleratorCommission, 2);
+        $attainment = $quotaValue > 0 ? round($wonValue / $quotaValue * 100, 1) : null;
         $masked = $summary !== null
             && $request->user()->role === Role::Manager
             && ! $request->user()->is($employee)
             && (bool) config('crm.employees.salary_mask_for_managers', true);
 
         return response()->json([
-            'data' => $summary === null ? null : [
+            'data' => [
                 'user_id' => $employee->public_id,
-                'base_salary' => $masked ? null : $summary->baseSalary,
-                'fixed_allowances' => $masked ? null : $summary->fixedAllowances,
+                'base_salary' => $summary === null || $masked ? null : $summary->baseSalary,
+                'fixed_allowances' => $summary === null || $masked ? null : $summary->fixedAllowances,
                 'is_masked' => $masked,
-                'recent_payslips' => $masked
+                'recent_payslips' => $summary === null ? [] : ($masked
                     ? array_map(fn (array $payslip): array => [...$payslip, 'gross_pay' => null, 'net_pay' => null], $summary->recentPayslips)
-                    : $summary->recentPayslips,
+                    : $summary->recentPayslips),
+                'commission' => [
+                    'won_value' => $wonValue,
+                    'quota_value' => $quotaValue,
+                    'attainment_percent' => $attainment,
+                    'baseline_rate_percent' => $baselineRate,
+                    'accelerator_rate_percent' => $acceleratorRate,
+                    'baseline_commission' => $baselineCommission,
+                    'accelerator_commission' => $acceleratorCommission,
+                    'total_earned_commission' => $earnedCommission,
+                    'tier_applied' => $acceleratorBase > 0 ? 'accelerator' : 'baseline',
+                ],
             ],
-            'meta' => $this->provenance($summary !== null) + [
-                'range' => $range,
-                'commission_rate_percent' => $commissionRate,
-                'commission_base' => $wonValue,
-                'earned_commission' => $commission,
-            ],
+            'meta' => $this->provenance($summary !== null) + ['range' => $range],
         ]);
     }
 

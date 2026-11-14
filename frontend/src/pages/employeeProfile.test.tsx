@@ -75,7 +75,7 @@ describe('Employee 360 profile', () => {
     mockedPerformance.mockReset().mockResolvedValue({ data: performance, meta: { range: '30d' } })
     mockedAttendance.mockReset().mockResolvedValue({ data: attendance, meta: { source: profile.meta.source, read_only: true, as_of: profile.meta.as_of, core2_available: true, range: '30d' } })
     mockedAppraisals.mockReset().mockResolvedValue({ data: appraisals, meta: { source: profile.meta.source, read_only: true, as_of: profile.meta.as_of, core2_available: true } })
-    mockedCompensation.mockReset().mockResolvedValue({ data: { user_id: profile.data.id, base_salary: 45000, fixed_allowances: 5000, is_masked: false, commission_rate_percent: 2.5, commission_base: 1250000, earned_commission: 31250, recent_payslips: [{ period: '2026-10', gross_pay: 50000, net_pay: 46000, status: 'released' }] }, meta: { source: profile.meta.source, read_only: true, as_of: profile.meta.as_of, core2_available: true, range: '30d', commission_rate_percent: 2.5, commission_base: 1250000, earned_commission: 31250 } })
+    mockedCompensation.mockReset().mockResolvedValue({ data: { user_id: profile.data.id, base_salary: 45000, fixed_allowances: 5000, is_masked: false, commission: { won_value: 1250000, quota_value: 500000, attainment_percent: 250, baseline_rate_percent: 2, accelerator_rate_percent: 3.5, baseline_commission: 10000, accelerator_commission: 26250, total_earned_commission: 36250, tier_applied: 'accelerator' }, recent_payslips: [{ period: '2026-10', gross_pay: 50000, net_pay: 46000, status: 'released' }] }, meta: { source: profile.meta.source, read_only: true, as_of: profile.meta.as_of, core2_available: true, range: '30d', commission: { won_value: 1250000, quota_value: 500000, attainment_percent: 250, baseline_rate_percent: 2, accelerator_rate_percent: 3.5, baseline_commission: 10000, accelerator_commission: 26250, total_earned_commission: 36250, tier_applied: 'accelerator' } } })
   })
 
   it('shows the Core 2 identity details and overview metrics', async () => {
@@ -124,14 +124,25 @@ describe('Employee 360 profile', () => {
     fireEvent.click(screen.getByRole('tab', { name: 'Compensation' }))
     expect(screen.getByText('₱45,000.00')).toBeInTheDocument()
     expect(screen.getByText(/2 deals · ₱1,250,000.00 closed-won value/)).toBeInTheDocument()
-    expect(screen.getByText('2.5% commission rate')).toBeInTheDocument()
-    expect(screen.getByText('₱31,250.00')).toBeInTheDocument()
+    expect(screen.getByText(/Accelerator Active/)).toBeInTheDocument()
+    expect(screen.getByText('₱10,000.00')).toBeInTheDocument()
+    expect(screen.getByText('₱26,250.00')).toBeInTheDocument()
+    expect(screen.getByText('₱36,250.00')).toBeInTheDocument()
     expect(screen.getByText('₱50,000.00')).toBeInTheDocument()
     expect(screen.getByText('₱46,000.00')).toBeInTheDocument()
   })
 
+  it('keeps CRM commission visible when Core 2 compensation is unavailable', async () => {
+    mockedCompensation.mockResolvedValue({ data: { user_id: profile.data.id, base_salary: null, fixed_allowances: null, is_masked: false, commission: { won_value: 1250000, quota_value: 500000, attainment_percent: 250, baseline_rate_percent: 2, accelerator_rate_percent: 3.5, baseline_commission: 10000, accelerator_commission: 26250, total_earned_commission: 36250, tier_applied: 'accelerator' }, recent_payslips: [] }, meta: { source: profile.meta.source, read_only: true, as_of: profile.meta.as_of, core2_available: false, range: '30d', commission: { won_value: 1250000, quota_value: 500000, attainment_percent: 250, baseline_rate_percent: 2, accelerator_rate_percent: 3.5, baseline_commission: 10000, accelerator_commission: 26250, total_earned_commission: 36250, tier_applied: 'accelerator' } } })
+    renderPage()
+    await screen.findByText('Senior Account Executive')
+    fireEvent.click(screen.getByRole('tab', { name: 'Compensation' }))
+    expect(screen.getByText('₱36,250.00')).toBeInTheDocument()
+    expect(screen.getAllByText('—').length).toBeGreaterThan(0)
+  })
+
   it('renders masked manager salary and keeps payslip amounts masked', async () => {
-    mockedCompensation.mockResolvedValue({ data: { user_id: profile.data.id, base_salary: null, fixed_allowances: null, is_masked: true, commission_rate_percent: 2.5, commission_base: 1250000, earned_commission: 31250, recent_payslips: [{ period: '2026-10', gross_pay: null, net_pay: null, status: 'released' }] }, meta: { source: profile.meta.source, read_only: true, as_of: profile.meta.as_of, core2_available: true, range: '30d', commission_rate_percent: 2.5, commission_base: 1250000, earned_commission: 31250 } })
+    mockedCompensation.mockResolvedValue({ data: { user_id: profile.data.id, base_salary: null, fixed_allowances: null, is_masked: true, commission: { won_value: 1250000, quota_value: 500000, attainment_percent: 250, baseline_rate_percent: 2, accelerator_rate_percent: 3.5, baseline_commission: 10000, accelerator_commission: 26250, total_earned_commission: 36250, tier_applied: 'accelerator' }, recent_payslips: [{ period: '2026-10', gross_pay: null, net_pay: null, status: 'released' }] }, meta: { source: profile.meta.source, read_only: true, as_of: profile.meta.as_of, core2_available: true, range: '30d', commission: { won_value: 1250000, quota_value: 500000, attainment_percent: 250, baseline_rate_percent: 2, accelerator_rate_percent: 3.5, baseline_commission: 10000, accelerator_commission: 26250, total_earned_commission: 36250, tier_applied: 'accelerator' } } })
     renderPage()
     await screen.findByText('Senior Account Executive')
     fireEvent.click(screen.getByRole('tab', { name: 'Compensation' }))
