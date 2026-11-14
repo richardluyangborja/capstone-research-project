@@ -62,9 +62,17 @@ export interface EmployeeCompensation {
   base_salary: number | null
   fixed_allowances: number | null
   is_masked: boolean
-  commission_rate_percent: number
-  commission_base: number
-  earned_commission: number
+  commission: {
+    won_value: number
+    quota_value: number
+    attainment_percent: number | null
+    baseline_rate_percent: number
+    accelerator_rate_percent: number
+    baseline_commission: number
+    accelerator_commission: number
+    total_earned_commission: number
+    tier_applied: 'baseline' | 'accelerator'
+  }
   recent_payslips: Array<{
     period: string
     gross_pay: number | null
@@ -143,9 +151,7 @@ export const getEmployeeCompensation = async (id: string, range: EmployeeRange =
       as_of: string
       core2_available: boolean
       range: EmployeeRange
-      commission_rate_percent: number
-      commission_base: number
-      earned_commission: number
+      commission: EmployeeCompensation['commission']
     }
   }>(`/employees/${id}/compensation`, { params: { range } })
   return data

@@ -287,7 +287,8 @@ class AdminSettingTest extends TestCase
     public function test_employee_settings_are_allow_listed_validated_and_applied_at_runtime(): void
     {
         $this->assertNotNull(SettingRegistry::find('crm.employees.quota_default_php'));
-        $this->assertNotNull(SettingRegistry::find('crm.employees.commission_rate_percent'));
+        $this->assertNotNull(SettingRegistry::find('crm.employees.commission_rate_baseline_percent'));
+        $this->assertNotNull(SettingRegistry::find('crm.employees.commission_rate_accelerator_percent'));
         $this->assertNotNull(SettingRegistry::find('crm.employees.attendance_benchmark_percent'));
         $this->assertNotNull(SettingRegistry::find('crm.employees.salary_mask_for_managers'));
         $this->assertNotNull(SettingRegistry::find('crm.integrations.core2_employees.simulate_failure'));
@@ -295,7 +296,8 @@ class AdminSettingTest extends TestCase
         $this->actingAs(User::factory()->admin()->create(), 'api')
             ->patchJson('/api/v1/admin/settings', ['settings' => [
                 'crm.employees.quota_default_php' => 600000,
-                'crm.employees.commission_rate_percent' => 3,
+                'crm.employees.commission_rate_baseline_percent' => 2.25,
+                'crm.employees.commission_rate_accelerator_percent' => 4,
                 'crm.employees.attendance_benchmark_percent' => 96,
                 'crm.employees.salary_mask_for_managers' => false,
                 'crm.integrations.core2_employees.simulate_failure' => true,
@@ -303,7 +305,8 @@ class AdminSettingTest extends TestCase
             ->assertOk();
 
         $this->assertSame(600000.0, (float) config('crm.employees.quota_default_php'));
-        $this->assertSame(3.0, (float) config('crm.employees.commission_rate_percent'));
+        $this->assertSame(2.25, (float) config('crm.employees.commission_rate_baseline_percent'));
+        $this->assertSame(4.0, (float) config('crm.employees.commission_rate_accelerator_percent'));
         $this->assertSame(96.0, (float) config('crm.employees.attendance_benchmark_percent'));
         $this->assertFalse(config('crm.employees.salary_mask_for_managers'));
         $this->assertTrue(config('crm.integrations.core2_employees.simulate_failure'));
