@@ -104,7 +104,7 @@ export default function Employees() {
       headerClassName: 'text-right',
       className: 'text-right text-muted-foreground',
       render: (employee) => employee.quota_attainment === null
-        ? <span title="Quota is zero; attainment is not defined">—</span>
+        ? <span title="Quota is zero or attendance data is unavailable">—</span>
         : <span>{employee.quota_attainment}%</span>,
     },
     {

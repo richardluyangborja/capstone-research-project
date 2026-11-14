@@ -210,6 +210,7 @@ export default function EmployeeProfile() {
             <dl className="mt-3 grid grid-cols-2 gap-4 text-sm">
               <Metric label="Monthly quota" value={formatCurrency(employee.quota.monthly)} />
               <Metric label="Quarterly quota" value={formatCurrency(employee.quota.quarterly)} />
+              <Metric label={`Adjusted quota · ${rangeLabels[range]}`} value={employee.adjusted_quota === null ? '—' : formatCurrency(employee.adjusted_quota)} />
               <Metric label={`Attainment · ${rangeLabels[range]}`} value={employee.quota_attainment === null ? '—' : `${employee.quota_attainment}%`} />
             </dl>
             {canManageQuota && <form className="mt-4 grid gap-3 border-t border-border pt-4 sm:grid-cols-2" onSubmit={async (event) => {
@@ -286,7 +287,8 @@ export default function EmployeeProfile() {
               <StatCard label="Absences" value={attendance.absences_count} domain="activity" />
             </div>
             <section className="rounded-lg border border-border bg-card p-4">
-              <h3 className="mb-4 font-semibold text-foreground">Remaining leave balance</h3>
+              <h3 className="mb-4 font-semibold text-foreground">Approved leave &amp; remaining balance</h3>
+              <p className="mb-4 text-sm text-muted-foreground">{attendance.approved_leave_days} approved leave days counted for this period. Adjustments use weekdays only; public holidays are not excluded.</p>
               <div className="grid gap-5 sm:grid-cols-3">
                 <LeaveMeter label="Vacation leave" value={attendance.leave_balances.vacation_leave_remaining} max={15} />
                 <LeaveMeter label="Sick leave" value={attendance.leave_balances.sick_leave_remaining} max={15} />

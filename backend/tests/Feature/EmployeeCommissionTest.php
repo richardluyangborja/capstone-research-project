@@ -19,6 +19,7 @@ class EmployeeCommissionTest extends TestCase
     {
         config(['crm.employees.commission_rate_baseline_percent' => 2, 'crm.employees.commission_rate_accelerator_percent' => 3.5]);
         $employee = User::factory()->salesrep()->create();
+        $this->noLeave($employee);
         $this->setWonRevenue($employee, 400000);
 
         $commission = $this->actingAs($employee, 'api')
@@ -37,6 +38,7 @@ class EmployeeCommissionTest extends TestCase
     public function test_commission_at_quota_has_no_accelerator_component(): void
     {
         $employee = User::factory()->salesrep()->create();
+        $this->noLeave($employee);
         $this->setWonRevenue($employee, 500000);
 
         $commission = $this->actingAs($employee, 'api')
@@ -53,6 +55,7 @@ class EmployeeCommissionTest extends TestCase
     {
         config(['crm.employees.commission_rate_baseline_percent' => 2, 'crm.employees.commission_rate_accelerator_percent' => 3.5]);
         $employee = User::factory()->salesrep()->create();
+        $this->noLeave($employee);
         $this->setWonRevenue($employee, 1250000);
 
         $commission = $this->actingAs($employee, 'api')
@@ -85,6 +88,7 @@ class EmployeeCommissionTest extends TestCase
     public function test_quarter_range_uses_quarterly_quota(): void
     {
         $employee = User::factory()->salesrep()->create();
+        $this->noLeave($employee);
         Setting::query()->create(['scope' => 'user', 'scope_id' => $employee->id, 'key' => 'crm.quota.quarterly_php', 'value' => 1000000]);
         $this->setWonRevenue($employee, 750000);
 
@@ -94,6 +98,11 @@ class EmployeeCommissionTest extends TestCase
 
         $this->assertEquals(1000000, $commission['quota_value']);
         $this->assertEquals(75, $commission['attainment_percent']);
+    }
+
+    private function noLeave(User $employee): void
+    {
+        config(['crm.integrations.core2_employees.simulate_failure' => true]);
     }
 
     private function setWonRevenue(User $employee, float $amount): void

@@ -15,6 +15,7 @@ final readonly class Core2AttendanceSummary
         public int $lateArrivalsMinutes,
         public float $undertimeHours,
         public int $absencesCount,
+        public float $approvedLeaveDays,
         public array $leaveBalances,
     ) {}
 }

@@ -154,6 +154,7 @@ class EmployeeApiTest extends TestCase
         ]);
 
         config([
+            'crm.integrations.core2_employees.simulate_failure' => true,
             'crm.employees.commission_rate_baseline_percent' => 3.0,
             'crm.employees.commission_rate_accelerator_percent' => 4.0,
         ]);

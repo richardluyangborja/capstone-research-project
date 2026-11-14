@@ -17,6 +17,7 @@ const response: EmployeeDirectoryResponse = {
       profile: null,
       quota: { monthly: 500000, quarterly: 500000 },
       quota_attainment: 250,
+      adjusted_quota: null,
       can_update_quota: false,
       performance: {
         leads_handled: 4,

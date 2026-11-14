@@ -10,6 +10,7 @@ use App\Enums\Role;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\EmployeeResource;
 use App\Integrations\Core2AppraisalSummary;
+use App\Integrations\Core2AttendanceSummary;
 use App\Integrations\Core2EmployeeGateway;
 use App\Integrations\Core2EmployeeProfile;
 use App\Models\Activity;
@@ -51,10 +52,14 @@ class EmployeeController extends Controller
         $quotas = $this->quotasFor($users);
         $attendanceUsers = $users->filter(fn (User $employee): bool => $actor->role !== Role::Salesrep || $employee->is($actor))->values();
         $attendance = $this->attendanceFor($core2, $attendanceUsers, $period);
-        $data = $users->map(function (User $employee) use ($actor, $core2, $rows, $attendance, $quotas, $validated): EmployeeResource {
+        $data = $users->map(function (User $employee) use ($actor, $core2, $rows, $attendance, $quotas, $validated, $period): EmployeeResource {
             $quota = $quotas[$employee->id];
             $employee->setAttribute('quota', $quota);
-            $employee->setAttribute('quota_attainment', $this->quotaAttainment($rows[$employee->id]['won_value'] ?? 0, $quota, $validated['range'] ?? '30d'));
+            $attendanceRow = $attendance[$employee->id] ?? null;
+            $periodQuota = $quota[($validated['range'] ?? '30d') === 'quarter' ? 'quarterly' : 'monthly'];
+            $adjustedQuota = $attendanceRow === null ? null : $this->adjustedQuota($periodQuota, $period, $attendanceRow['approved_leave_days']);
+            $employee->setAttribute('adjusted_quota', $adjustedQuota);
+            $employee->setAttribute('quota_attainment', $adjustedQuota === null ? null : $this->quotaAttainment($rows[$employee->id]['won_value'] ?? 0, $adjustedQuota));
             $employee->setAttribute('performance', $rows[$employee->id] ?? $this->emptyPerformance());
             $employee->setAttribute('attendance', $attendance === null ? null : ($attendance[$employee->id] ?? null));
             $profile = $actor->role === Role::Salesrep && ! $employee->is($actor)
@@ -102,7 +107,10 @@ class EmployeeController extends Controller
         $attendance = $mayViewAttendance ? $this->attendanceFor($core2, $employees, $period) : null;
         $quota = $this->quotaFor($employee);
         $employee->setAttribute('quota', $quota);
-        $employee->setAttribute('quota_attainment', $this->quotaAttainment($this->buildPerformance($employees, $period)[$employee->id]['won_value'] ?? 0, $quota, '30d'));
+        $leaveProration = $attendance[$employee->id] ?? null;
+        $adjustedQuota = $leaveProration === null ? null : $this->adjustedQuota($quota['monthly'], $period, $leaveProration['approved_leave_days']);
+        $employee->setAttribute('adjusted_quota', $adjustedQuota);
+        $employee->setAttribute('quota_attainment', $this->quotaAttainment($this->buildPerformance($employees, $period)[$employee->id]['won_value'] ?? 0, $adjustedQuota ?? $quota['monthly']));
         $employee->setAttribute('performance', $this->buildPerformance($employees, $period)[$employee->id] ?? $this->emptyPerformance());
         $employee->setAttribute('attendance', $attendance === null ? null : ($attendance[$employee->id] ?? null));
         $profile = $request->user()->role === Role::Salesrep && ! $request->user()->is($employee)
@@ -183,8 +191,11 @@ class EmployeeController extends Controller
         return response()->json([
             'data' => $summary === null ? null : [
                 'user_id' => $employee->public_id,
-                'attendance_rate' => $summary->attendanceRate,
+                'attendance_rate' => $this->proratedAttendanceRate($summary, $period),
                 'days_present' => $summary->daysPresent,
+                'approved_leave_days' => $summary->approvedLeaveDays,
+                'standard_business_days' => $this->businessDays($period),
+                'net_working_days' => max(1.0, $this->businessDays($period) - $summary->approvedLeaveDays),
                 'late_arrivals_count' => $summary->lateArrivalsCount,
                 'late_arrivals_minutes' => $summary->lateArrivalsMinutes,
                 'undertime_hours' => $summary->undertimeHours,
@@ -202,6 +213,7 @@ class EmployeeController extends Controller
         $range = (string) ($validated['range'] ?? '30d');
         $period = $this->period($range);
         $summary = $core2->compensation($employee->id);
+        $attendanceSummary = $core2->attendance($employee->id, $period[0]->toDateString(), $period[1]->toDateString());
         $wonValue = (float) Opportunity::query()
             ->where('owner_id', $employee->id)
             ->where('stage', OpportunityStage::Won)
@@ -209,6 +221,10 @@ class EmployeeController extends Controller
             ->sum('amount');
         $quotaTargets = $this->quotaFor($employee);
         $quotaValue = $quotaTargets[$range === 'quarter' ? 'quarterly' : 'monthly'];
+        $adjustedQuota = $attendanceSummary === null
+            ? $quotaValue
+            : $this->adjustedQuota($quotaValue, $period, $attendanceSummary->approvedLeaveDays);
+        $quotaValue = $adjustedQuota;
         $baselineRate = (float) config('crm.employees.commission_rate_baseline_percent', 2.0);
         $acceleratorRate = (float) config('crm.employees.commission_rate_accelerator_percent', 3.5);
         $baselineBase = $quotaValue > 0 ? min($wonValue, $quotaValue) : $wonValue;
@@ -335,10 +351,46 @@ class EmployeeController extends Controller
             if ($summary === null) {
                 return null;
             }
-            $result[$employee->id] = ['attendance_rate' => $summary->attendanceRate, 'late_arrivals_count' => $summary->lateArrivalsCount];
+            $result[$employee->id] = [
+                'attendance_rate' => $this->proratedAttendanceRate($summary, $period),
+                'late_arrivals_count' => $summary->lateArrivalsCount,
+                'approved_leave_days' => $summary->approvedLeaveDays,
+            ];
         }
 
         return $result;
+    }
+
+    /** @param array{0: CarbonImmutable, 1: CarbonImmutable} $period */
+    private function businessDays(array $period): int
+    {
+        $days = 0;
+        for ($date = $period[0]->startOfDay(); $date->lessThanOrEqualTo($period[1]->startOfDay()); $date = $date->addDay()) {
+            if ($date->isWeekday()) {
+                $days++;
+            }
+        }
+
+        return $days;
+    }
+
+    /** @param array{0: CarbonImmutable, 1: CarbonImmutable} $period */
+    private function adjustedQuota(float $quota, array $period, float $approvedLeaveDays, string $range = '30d'): float
+    {
+        $standardDays = $this->businessDays($period);
+        if ($standardDays === 0) {
+            return $quota;
+        }
+        $netDays = max(1, $standardDays - max(0, $approvedLeaveDays));
+
+        return round($quota * $netDays / $standardDays, 2);
+    }
+
+    private function proratedAttendanceRate(Core2AttendanceSummary $summary, array $period): float
+    {
+        $netDays = max(1, $this->businessDays($period) - max(0, $summary->approvedLeaveDays));
+
+        return min(100.0, round($summary->daysPresent / $netDays * 100, 2));
     }
 
     /** @return array{0: CarbonImmutable, 1: CarbonImmutable} */
@@ -383,10 +435,8 @@ class EmployeeController extends Controller
         return $this->quotasFor(collect([$employee]))[$employee->id];
     }
 
-    private function quotaAttainment(float $wonValue, array $quotaTargets, string $range): ?float
+    private function quotaAttainment(float $wonValue, float $quota): ?float
     {
-        $quota = $quotaTargets[$range === 'quarter' ? 'quarterly' : 'monthly'];
-
         return $quota <= 0 ? null : round($wonValue / $quota * 100, 1);
     }
 

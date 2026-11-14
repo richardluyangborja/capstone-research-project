@@ -31,6 +31,7 @@ export interface EmployeeRow {
   attendance: { attendance_rate: number; late_arrivals_count: number } | null
   quota: { monthly: number; quarterly: number }
   quota_attainment: number | null
+  adjusted_quota: number | null
   can_update_quota: boolean
 }
 
@@ -46,6 +47,9 @@ export interface EmployeeAttendance {
   user_id: string
   attendance_rate: number
   days_present: number
+  approved_leave_days: number
+  standard_business_days: number
+  net_working_days: number
   late_arrivals_count: number
   late_arrivals_minutes: number
   undertime_hours: number
