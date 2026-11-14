@@ -19,7 +19,7 @@ class Setting extends Model
 {
     use HasUlids;
 
-    protected $fillable = ['key', 'value', 'updated_by'];
+    protected $fillable = ['scope', 'scope_id', 'key', 'value', 'updated_by'];
 
     protected function casts(): array
     {

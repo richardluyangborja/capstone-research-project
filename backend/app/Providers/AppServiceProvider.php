@@ -89,6 +89,7 @@ class AppServiceProvider extends ServiceProvider
         Gate::define('viewEmployeeAttendance', [EmployeePolicy::class, 'viewAttendance']);
         Gate::define('viewEmployeeAppraisals', [EmployeePolicy::class, 'viewAppraisals']);
         Gate::define('viewEmployeeCompensation', [EmployeePolicy::class, 'viewCompensation']);
+        Gate::define('updateEmployeeQuota', [EmployeePolicy::class, 'updateQuota']);
         Gate::policy(UserSession::class, UserSessionPolicy::class);
         Gate::define('viewPersonalSettings', [PersonalSettingsPolicy::class, 'view']);
         Gate::define('updatePersonalProfile', [PersonalSettingsPolicy::class, 'updateProfile']);

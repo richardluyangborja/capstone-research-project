@@ -42,6 +42,15 @@ class EmployeePolicy
                 && $employee->team_id === $user->team_id);
     }
 
+    public function updateQuota(User $user, User $employee): bool
+    {
+        return $user->role->isAdmin()
+            || ($user->role === Role::Manager
+                && $employee->role === Role::Salesrep
+                && $user->team_id !== null
+                && $employee->team_id === $user->team_id);
+    }
+
     public function viewCompensation(User $user, User $employee): bool
     {
         return $user->is($employee)

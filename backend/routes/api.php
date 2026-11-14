@@ -155,6 +155,7 @@ Route::prefix('v1')->group(function (): void {
 
         // Module 09 S2 — read-only employee profiles, CRM output and Core 2 projections.
         Route::get('employees/leaderboard', [EmployeeController::class, 'leaderboard']);
+        Route::patch('employees/{employee:public_id}/quota', [EmployeeController::class, 'updateQuota']);
         Route::get('employees', [EmployeeController::class, 'index']);
         Route::get('employees/{employee:public_id}/performance', [EmployeeController::class, 'performance']);
         Route::get('employees/{employee:public_id}/attendance', [EmployeeController::class, 'attendance']);

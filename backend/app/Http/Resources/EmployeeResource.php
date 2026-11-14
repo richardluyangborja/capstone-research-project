@@ -20,6 +20,9 @@ class EmployeeResource extends JsonResource
             'profile' => $this->resource->getAttribute('core2_profile'),
             'performance' => $this->resource->getAttribute('performance'),
             'attendance' => $this->resource->getAttribute('attendance'),
+            'quota' => $this->resource->getAttribute('quota'),
+            'quota_attainment' => $this->resource->getAttribute('quota_attainment'),
+            'can_update_quota' => $request->user()?->can('updateEmployeeQuota', $this->resource) ?? false,
         ];
     }
 }

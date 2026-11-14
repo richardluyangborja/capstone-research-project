@@ -10,17 +10,17 @@ vi.mock('../lib/employees', () => ({ getEmployeeLeaderboard: vi.fn() }))
 const response: EmployeeDirectoryResponse = {
   data: [
     {
-      id: 'employee-1', name: 'Sam Salesrep', role: 'salesrep', team: { id: 'team-1', name: 'Sales' }, profile: null,
+      id: 'employee-1', name: 'Sam Salesrep', role: 'salesrep', team: { id: 'team-1', name: 'Sales' }, profile: null, quota: { monthly: 500000, quarterly: 1500000 }, quota_attainment: null, can_update_quota: false,
       performance: { leads_handled: 5, deals_won: 2, won_value: 1200000, conversion_rate: 50, open_pipeline_count: 1, open_pipeline_value: 500000, follow_up_on_time: 100 },
       attendance: { attendance_rate: 97, late_arrivals_count: 1 },
     },
     {
-      id: 'employee-2', name: 'Liza Salesrep', role: 'salesrep', team: { id: 'team-1', name: 'Sales' }, profile: null,
+      id: 'employee-2', name: 'Liza Salesrep', role: 'salesrep', team: { id: 'team-1', name: 'Sales' }, profile: null, quota: { monthly: 500000, quarterly: 1500000 }, quota_attainment: null, can_update_quota: false,
       performance: { leads_handled: 3, deals_won: 1, won_value: 600000, conversion_rate: 50, open_pipeline_count: 2, open_pipeline_value: 900000, follow_up_on_time: 80 },
       attendance: { attendance_rate: 90, late_arrivals_count: 3 },
     },
     {
-      id: 'employee-3', name: 'Maria Manager', role: 'manager', team: { id: 'team-1', name: 'Sales' }, profile: null,
+      id: 'employee-3', name: 'Maria Manager', role: 'manager', team: { id: 'team-1', name: 'Sales' }, profile: null, quota: { monthly: 500000, quarterly: 1500000 }, quota_attainment: null, can_update_quota: false,
       performance: { leads_handled: 0, deals_won: 0, won_value: 0, conversion_rate: 0, open_pipeline_count: 0, open_pipeline_value: 0, follow_up_on_time: 100 },
       attendance: { attendance_rate: 98, late_arrivals_count: 0 },
     },
