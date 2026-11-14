@@ -48,6 +48,7 @@ final class MockCore2EmployeeGateway implements Core2EmployeeGateway
             lateArrivalsMinutes: ($seed % 4) * (8 + ($seed % 7)),
             undertimeHours: round(($seed % 6) / 2, 1),
             absencesCount: $absences,
+            approvedLeaveDays: (float) ($seed % 3) / 2,
             leaveBalances: [
                 'vacation_leave_remaining' => (float) (5 + ($seed % 11)),
                 'sick_leave_remaining' => (float) (3 + ($seed % 8)),

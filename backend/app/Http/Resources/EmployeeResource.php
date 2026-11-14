@@ -21,6 +21,7 @@ class EmployeeResource extends JsonResource
             'performance' => $this->resource->getAttribute('performance'),
             'attendance' => $this->resource->getAttribute('attendance'),
             'quota' => $this->resource->getAttribute('quota'),
+            'adjusted_quota' => $this->resource->getAttribute('adjusted_quota'),
             'quota_attainment' => $this->resource->getAttribute('quota_attainment'),
             'can_update_quota' => $request->user()?->can('updateEmployeeQuota', $this->resource) ?? false,
         ];

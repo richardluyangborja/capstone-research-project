@@ -31,6 +31,7 @@ const profile: EmployeeDetailResponse = {
     },
     quota: { monthly: 500000, quarterly: 1500000 },
     quota_attainment: 250,
+    adjusted_quota: 466666.67,
     can_update_quota: false,
     performance: { leads_handled: 4, deals_won: 2, won_value: 1250000, conversion_rate: 50, open_pipeline_count: 3, open_pipeline_value: 800000, follow_up_on_time: 90 },
     attendance: { attendance_rate: 96, late_arrivals_count: 1 },
@@ -42,6 +43,9 @@ const attendance: EmployeeAttendance = {
   user_id: profile.data.id,
   attendance_rate: 96,
   days_present: 21,
+  approved_leave_days: 1.5,
+  standard_business_days: 22,
+  net_working_days: 20.5,
   late_arrivals_count: 2,
   late_arrivals_minutes: 18,
   undertime_hours: 1.5,
@@ -93,6 +97,8 @@ describe('Employee 360 profile', () => {
     fireEvent.click(screen.getByRole('tab', { name: 'Core 2 Attendance' }))
     expect(screen.getByText('Late arrivals')).toBeInTheDocument()
     expect(screen.getByText('18 minutes total')).toBeInTheDocument()
+    expect(screen.getByText(/1.5 approved leave days counted/i)).toBeInTheDocument()
+    expect(screen.getByText(/public holidays are not excluded/i)).toBeInTheDocument()
     expect(screen.getByText('1.5 hrs')).toBeInTheDocument()
     expect(screen.getByText('8 days')).toBeInTheDocument()
     expect(screen.getByRole('progressbar', { name: 'Vacation leave' })).toHaveAttribute('aria-valuenow', '8')

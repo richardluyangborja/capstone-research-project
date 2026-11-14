@@ -27,6 +27,7 @@ class Core2EmployeeGatewayTest extends TestCase
         $this->assertSame(42, $attendance->userId);
         $this->assertSame(42, $compensation->userId);
         $this->assertIsArray($attendance->leaveBalances);
+        $this->assertGreaterThanOrEqual(0.0, $attendance->approvedLeaveDays);
         $this->assertNotEmpty($appraisals);
         $this->assertGreaterThanOrEqual(0.0, $attendance->attendanceRate);
         $this->assertLessThanOrEqual(100.0, $attendance->attendanceRate);
