@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { ArrowLeft, CalendarClock, Clock3, RefreshCw, UserRound } from 'lucide-react'
+import { ArrowLeft, CalendarClock, Clock3, RefreshCw, ShieldAlert, UserRound } from 'lucide-react'
 import AlertItem from '../components/common/AlertItem'
 import EmptyState from '../components/common/EmptyState'
 import InfoPopover from '../components/common/InfoPopover'
 import PageHeader from '../components/common/PageHeader'
 import StatCard from '../components/common/StatCard'
 import StatusBadge from '../components/common/StatusBadge'
+import DiscrepancyDialog from '../components/employees/DiscrepancyDialog'
+import EmployeeDiscrepancyPanel from '../components/employees/EmployeeDiscrepancyPanel'
 import { formatCurrency, formatDateTime } from '../lib/format'
 import {
   getEmployee,
@@ -14,10 +16,16 @@ import {
   getEmployeeAttendance,
   getEmployeeCompensation,
   getEmployeePerformance,
+  listEmployeeDiscrepancies,
+  raiseEmployeeDiscrepancy,
+  resolveEmployeeDiscrepancy,
   updateEmployeeQuota,
+  type DiscrepancyCategory,
   type EmployeeAppraisal,
   type EmployeeAttendance,
   type EmployeeCompensation,
+  type EmployeeDiscrepanciesResponse,
+  type EmployeeDiscrepancy,
   type EmployeePerformance,
   type EmployeeRange,
   type EmployeeRow,
@@ -69,17 +77,25 @@ export default function EmployeeProfile() {
   const [annualQuota, setAnnualQuota] = useState('')
   const [quotaSaving, setQuotaSaving] = useState(false)
   const [quotaMessage, setQuotaMessage] = useState('')
+  const [discrepancies, setDiscrepancies] = useState<EmployeeDiscrepancy[]>([])
+  const [discrepancyMeta, setDiscrepancyMeta] = useState<EmployeeDiscrepanciesResponse['meta'] | null>(null)
+  const [discrepancyDialogOpen, setDiscrepancyDialogOpen] = useState(false)
+  const [discrepancyBusy, setDiscrepancyBusy] = useState(false)
+  const [resolvingId, setResolvingId] = useState<string | null>(null)
+  const [discrepancyMessage, setDiscrepancyMessage] = useState<{ text: string; tone: 'info' | 'danger' } | null>(null)
   const canManageQuota = employee?.can_update_quota ?? false
 
   const load = useCallback(async (selectedRange: EmployeeRange) => {
     setLoading(true)
     setError('')
     try {
-      const [profileResponse, performanceResponse, attendanceResponse, appraisalResponse] = await Promise.all([
+      const [profileResponse, performanceResponse, attendanceResponse, appraisalResponse, discrepancyResponse] = await Promise.all([
         getEmployee(id, selectedRange),
         getEmployeePerformance(id, selectedRange),
         getEmployeeAttendance(id, selectedRange),
         getEmployeeAppraisals(id),
+        // A teammate's disputes are not a salesrep's to read (ADR-0033), so a 403 simply hides the panel.
+        listEmployeeDiscrepancies(id).catch(() => null),
       ])
       setEmployee(profileResponse.data)
       setMonthlyQuota(String(profileResponse.data.quota.monthly))
@@ -101,6 +117,8 @@ export default function EmployeeProfile() {
       setPerformance(performanceResponse.data)
       setAttendance(attendanceResponse.data)
       setAppraisals(appraisalResponse.data)
+      setDiscrepancies(discrepancyResponse?.data ?? [])
+      setDiscrepancyMeta(discrepancyResponse?.meta ?? null)
       setCore2Available(profileResponse.meta.core2_available && attendanceResponse.meta.core2_available && appraisalResponse.meta.core2_available)
     } catch (requestError) {
       const status = (requestError as { response?: { status?: number } }).response?.status
@@ -121,6 +139,35 @@ export default function EmployeeProfile() {
   const selectRange = (next: EmployeeRange) => {
     setRange(next)
     void load(next)
+  }
+
+  const submitDiscrepancy = async (category: DiscrepancyCategory, explanation: string) => {
+    setDiscrepancyBusy(true)
+    setDiscrepancyMessage(null)
+    try {
+      await raiseEmployeeDiscrepancy(id, { category, explanation })
+      setDiscrepancyDialogOpen(false)
+      setDiscrepancyMessage({ text: 'Discrepancy submitted — your manager and the administrators have been notified.', tone: 'info' })
+      await load(range)
+    } catch {
+      setDiscrepancyMessage({ text: 'Could not submit the discrepancy. Check the explanation and try again.', tone: 'danger' })
+    } finally {
+      setDiscrepancyBusy(false)
+    }
+  }
+
+  const resolveDiscrepancy = async (discrepancyId: string, note?: string) => {
+    setResolvingId(discrepancyId)
+    setDiscrepancyMessage(null)
+    try {
+      await resolveEmployeeDiscrepancy(id, discrepancyId, note)
+      setDiscrepancyMessage({ text: 'Discrepancy resolved.', tone: 'info' })
+      await load(range)
+    } catch {
+      setDiscrepancyMessage({ text: 'Could not resolve the discrepancy. It may already have been settled.', tone: 'danger' })
+    } finally {
+      setResolvingId(null)
+    }
   }
 
   if (loading && employee === null) {
@@ -147,6 +194,16 @@ export default function EmployeeProfile() {
       ? attendance
       : null
 
+  // Module 09 T4 — the open flag set the API already computed, so no extra request decides a badge.
+  // The list's meta `open` is a count; the categories come from the rows themselves (or the detail block).
+  const openCategories: DiscrepancyCategory[] = discrepancies.length > 0
+    ? discrepancies.filter((item) => item.status === 'open').map((item) => item.category)
+    : employee.discrepancies?.open ?? []
+  const canRaiseDiscrepancy = discrepancyMeta?.can_raise ?? employee.discrepancies?.can_raise ?? false
+  const canResolveDiscrepancy = discrepancyMeta?.can_resolve ?? employee.discrepancies?.can_resolve ?? false
+  const attendanceUnderReview = openCategories.includes('attendance') || openCategories.includes('leave_balance')
+  const compensationUnderReview = openCategories.includes('commission_calculation') || openCategories.includes('missing_deal')
+
   return (
     <div className="space-y-6">
       <Link to="/employees" className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline">
@@ -156,7 +213,23 @@ export default function EmployeeProfile() {
       <PageHeader
         title={employee.name}
         description={`${roleLabels[employee.role]} · ${employee.team?.name ?? 'Unassigned'}`}
-        actions={<Core2Badge />}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            {canRaiseDiscrepancy && (
+              <button
+                type="button"
+                onClick={() => {
+                  setDiscrepancyMessage(null)
+                  setDiscrepancyDialogOpen(true)
+                }}
+                className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm font-medium text-foreground hover:bg-muted"
+              >
+                <ShieldAlert className="h-4 w-4" aria-hidden="true" /> Report a discrepancy
+              </button>
+            )}
+            <Core2Badge />
+          </div>
+        }
       />
 
       <section className="rounded-lg border border-border bg-card p-5" aria-label="Core 2 employee details">
@@ -188,6 +261,7 @@ export default function EmployeeProfile() {
         </AlertItem>
       )}
       {error && <AlertItem variant="danger">{error}</AlertItem>}
+      {discrepancyMessage && <AlertItem variant={discrepancyMessage.tone}>{discrepancyMessage.text}</AlertItem>}
 
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border">
         <div className="flex flex-wrap gap-1" role="tablist" aria-label="Employee profile sections">
@@ -274,6 +348,14 @@ export default function EmployeeProfile() {
               </dl> : <p className="text-sm text-muted-foreground">Attendance data: —</p>}
             </section>
           </div>
+          {(discrepancies.length > 0 || canResolveDiscrepancy) && (
+            <EmployeeDiscrepancyPanel
+              discrepancies={discrepancies}
+              canResolve={canResolveDiscrepancy}
+              busyId={resolvingId}
+              onResolve={resolveDiscrepancy}
+            />
+          )}
         </div>
       )}
 
@@ -298,7 +380,13 @@ export default function EmployeeProfile() {
 
       {tab === 'attendance' && (
         <section className="space-y-4" role="tabpanel" aria-label="Core 2 attendance">
-          <div className="flex flex-wrap items-center justify-between gap-3"><h3 className="font-semibold text-foreground">Timekeeping summary · {rangeLabels[range]}</h3><Core2Badge /></div>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="font-semibold text-foreground">Timekeeping summary · {rangeLabels[range]}</h3>
+              {attendanceUnderReview && <StatusBadge tone="warm">Under Review</StatusBadge>}
+            </div>
+            <Core2Badge />
+          </div>
           {attendance ? <>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <StatCard label="Attendance rate" value={`${attendance.attendance_rate}%`} domain={attendance.attendance_rate >= 95 ? 'people' : 'cost'} />
@@ -323,7 +411,10 @@ export default function EmployeeProfile() {
       {tab === 'compensation' && (
         <section className="space-y-4" role="tabpanel" aria-label="Compensation">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <h3 className="font-semibold text-foreground">Compensation &amp; salary</h3>
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="font-semibold text-foreground">Compensation &amp; salary</h3>
+              {compensationUnderReview && <StatusBadge tone="warm">Under Review</StatusBadge>}
+            </div>
             <Core2Badge />
           </div>
           {compensationForbidden ? (
@@ -400,6 +491,14 @@ export default function EmployeeProfile() {
       )}
 
       <div className="flex items-center gap-2 text-xs text-muted-foreground"><CalendarClock className="h-3.5 w-3.5" aria-hidden="true" /> HR data is a read-only projection; Core 2 remains the system of record.</div>
+
+      {discrepancyDialogOpen && (
+        <DiscrepancyDialog
+          busy={discrepancyBusy}
+          onConfirm={submitDiscrepancy}
+          onCancel={() => setDiscrepancyDialogOpen(false)}
+        />
+      )}
     </div>
   )
 }

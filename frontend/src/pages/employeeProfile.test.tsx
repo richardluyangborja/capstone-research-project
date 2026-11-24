@@ -10,9 +10,22 @@ vi.mock('../lib/employees', () => ({
   getEmployeeAttendance: vi.fn(),
   getEmployeeAppraisals: vi.fn(),
   getEmployeeCompensation: vi.fn(),
+  listEmployeeDiscrepancies: vi.fn(),
+  raiseEmployeeDiscrepancy: vi.fn(),
+  resolveEmployeeDiscrepancy: vi.fn(),
 }))
 
-import { getEmployee, getEmployeeAppraisals, getEmployeeAttendance, getEmployeeCompensation, getEmployeePerformance } from '../lib/employees'
+import {
+  getEmployee,
+  getEmployeeAppraisals,
+  getEmployeeAttendance,
+  getEmployeeCompensation,
+  getEmployeePerformance,
+  listEmployeeDiscrepancies,
+  raiseEmployeeDiscrepancy,
+  resolveEmployeeDiscrepancy,
+} from '../lib/employees'
+import type { EmployeeDiscrepancy } from '../lib/employees'
 
 const profile: EmployeeDetailResponse = {
   data: {
@@ -66,6 +79,23 @@ const mockedPerformance = vi.mocked(getEmployeePerformance)
 const mockedAttendance = vi.mocked(getEmployeeAttendance)
 const mockedAppraisals = vi.mocked(getEmployeeAppraisals)
 const mockedCompensation = vi.mocked(getEmployeeCompensation)
+const mockedListDiscrepancies = vi.mocked(listEmployeeDiscrepancies)
+const mockedRaiseDiscrepancy = vi.mocked(raiseEmployeeDiscrepancy)
+const mockedResolveDiscrepancy = vi.mocked(resolveEmployeeDiscrepancy)
+
+const openFlag: EmployeeDiscrepancy = {
+  id: '01JDISCREPANCY0000000000001',
+  category: 'attendance',
+  category_label: 'Attendance record',
+  section: 'attendance',
+  explanation: 'Marked absent on 24 Oct although HR slip #1049 approved the day.',
+  status: 'open',
+  status_label: 'Under Review',
+  subject: null,
+  raised_by: { id: profile.data.id, name: 'Sam Salesrep' },
+  raised_at: '2026-11-20T01:00:00Z',
+  resolved: null,
+}
 
 const renderPage = () => render(
   <MemoryRouter initialEntries={[`/employees/${profile.data.id}`]}>
@@ -77,9 +107,12 @@ describe('Employee 360 profile', () => {
   beforeEach(() => {
     mockedGetEmployee.mockReset().mockResolvedValue(profile)
     mockedPerformance.mockReset().mockResolvedValue({ data: performance, meta: { range: '30d' } })
-    mockedAttendance.mockReset().mockResolvedValue({ data: attendance, meta: { source: profile.meta.source, read_only: true, as_of: profile.meta.as_of, core2_available: true, range: '30d' } })
+    mockedAttendance.mockReset().mockResolvedValue({ data: attendance, meta: { source: profile.meta.source, read_only: true, as_of: profile.meta.as_of, core2_available: true, range: '30d', open_discrepancies: [] } })
     mockedAppraisals.mockReset().mockResolvedValue({ data: appraisals, meta: { source: profile.meta.source, read_only: true, as_of: profile.meta.as_of, core2_available: true } })
     mockedCompensation.mockReset().mockResolvedValue({ data: { user_id: profile.data.id, base_salary: 45000, fixed_allowances: 5000, is_masked: false, commission: { won_value: 1250000, quota_value: 500000, attainment_percent: 250, baseline_rate_percent: 2, accelerator_rate_percent: 3.5, baseline_commission: 10000, accelerator_commission: 26250, total_earned_commission: 36250, tier_applied: 'accelerator' }, recent_payslips: [{ period: '2026-10', gross_pay: 50000, net_pay: 46000, status: 'released' }] }, meta: { source: profile.meta.source, read_only: true, as_of: profile.meta.as_of, core2_available: true, range: '30d', commission: { won_value: 1250000, quota_value: 500000, attainment_percent: 250, baseline_rate_percent: 2, accelerator_rate_percent: 3.5, baseline_commission: 10000, accelerator_commission: 26250, total_earned_commission: 36250, tier_applied: 'accelerator' } } })
+    mockedListDiscrepancies.mockReset().mockResolvedValue({ data: [], meta: { total: 0, open: 0, can_raise: false, can_resolve: false } })
+    mockedRaiseDiscrepancy.mockReset()
+    mockedResolveDiscrepancy.mockReset()
   })
 
   it('shows the Core 2 identity details and overview metrics', async () => {
@@ -114,7 +147,7 @@ describe('Employee 360 profile', () => {
 
   it('omits the Adjusted Quota badge when no leave was taken', async () => {
     mockedGetEmployee.mockResolvedValue({ ...profile, data: { ...profile.data, adjusted_quota: 500000 } })
-    mockedAttendance.mockResolvedValue({ data: { ...attendance, approved_leave_days: 0, net_working_days: 22 }, meta: { source: profile.meta.source, read_only: true, as_of: profile.meta.as_of, core2_available: true, range: '30d' } })
+    mockedAttendance.mockResolvedValue({ data: { ...attendance, approved_leave_days: 0, net_working_days: 22 }, meta: { source: profile.meta.source, read_only: true, as_of: profile.meta.as_of, core2_available: true, range: '30d', open_discrepancies: [] } })
     renderPage()
     await screen.findByText('Senior Account Executive')
 
@@ -145,7 +178,7 @@ describe('Employee 360 profile', () => {
 
   it('shows graceful em-dash fallbacks and an unavailable banner when Core 2 is down', async () => {
     mockedGetEmployee.mockResolvedValue({ ...profile, data: { ...profile.data, profile: null, attendance: null }, meta: { ...profile.meta, core2_available: false } })
-    mockedAttendance.mockResolvedValue({ data: null, meta: { source: profile.meta.source, read_only: true, as_of: profile.meta.as_of, core2_available: false, range: '30d' } })
+    mockedAttendance.mockResolvedValue({ data: null, meta: { source: profile.meta.source, read_only: true, as_of: profile.meta.as_of, core2_available: false, range: '30d', open_discrepancies: [] } })
     mockedAppraisals.mockResolvedValue({ data: null, meta: { source: profile.meta.source, read_only: true, as_of: profile.meta.as_of, core2_available: false } })
     renderPage()
     expect(await screen.findByText('Core 2 HR Service Unavailable')).toBeInTheDocument()
@@ -190,5 +223,57 @@ describe('Employee 360 profile', () => {
     mockedGetEmployee.mockRejectedValue({ response: { status: 403 } })
     renderPage()
     expect(await screen.findByText(/do not have permission/i)).toBeInTheDocument()
+  })
+
+  it('badges the attendance tab while a flag is under review', async () => {
+    mockedListDiscrepancies.mockResolvedValue({ data: [openFlag], meta: { total: 1, open: 1, can_raise: true, can_resolve: false } })
+    renderPage()
+    await screen.findByText('Senior Account Executive')
+
+    // The review panel lists the dispute with the stored state's label.
+    expect(screen.getAllByText('Under Review').length).toBeGreaterThan(0)
+    expect(screen.getByText(openFlag.explanation)).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Core 2 Attendance' }))
+    expect(screen.getByText('Timekeeping summary · Last 30 days')).toBeInTheDocument()
+    expect(screen.getAllByText('Under Review').length).toBeGreaterThan(0)
+  })
+
+  it('lets the employee report a discrepancy and sends the explanation', async () => {
+    mockedListDiscrepancies.mockResolvedValue({ data: [], meta: { total: 0, open: 0, can_raise: true, can_resolve: false } })
+    mockedRaiseDiscrepancy.mockResolvedValue(openFlag)
+    renderPage()
+    await screen.findByText('Senior Account Executive')
+
+    fireEvent.click(screen.getByRole('button', { name: /Report a discrepancy/ }))
+    const dialog = screen.getByRole('dialog', { name: 'Report a discrepancy' })
+    expect(dialog).toBeInTheDocument()
+
+    // The API's 10-character floor is enforced here, so the button stays disabled.
+    fireEvent.change(screen.getByLabelText(/What happened/), { target: { value: 'too short' } })
+    expect(screen.getByRole('button', { name: 'Submit for review' })).toBeDisabled()
+
+    fireEvent.change(screen.getByLabelText(/What happened/), {
+      target: { value: 'The scanner missed my punch on the early shift again.' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Submit for review' }))
+
+    expect(mockedRaiseDiscrepancy).toHaveBeenCalledWith(profile.data.id, {
+      category: 'attendance',
+      explanation: 'The scanner missed my punch on the early shift again.',
+    })
+  })
+
+  it('lets a manager resolve an open flag with an optional note', async () => {
+    mockedListDiscrepancies.mockResolvedValue({ data: [openFlag], meta: { total: 1, open: 1, can_raise: false, can_resolve: true } })
+    mockedResolveDiscrepancy.mockResolvedValue({ ...openFlag, status: 'resolved', status_label: 'Resolved' })
+    renderPage()
+    await screen.findByText('Senior Account Executive')
+
+    expect(screen.queryByRole('button', { name: /Report a discrepancy/ })).not.toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText(/Resolution note/), { target: { value: 'HR restored the punch.' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Mark resolved' }))
+
+    expect(mockedResolveDiscrepancy).toHaveBeenCalledWith(profile.data.id, openFlag.id, 'HR restored the punch.')
   })
 })

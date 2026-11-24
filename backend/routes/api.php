@@ -28,6 +28,7 @@ use App\Http\Controllers\Api\V1\ContractRateCardController;
 use App\Http\Controllers\Api\V1\DashboardController;
 use App\Http\Controllers\Api\V1\DeploymentBookController;
 use App\Http\Controllers\Api\V1\EmployeeController;
+use App\Http\Controllers\Api\V1\EmployeeDiscrepancyController;
 use App\Http\Controllers\Api\V1\FollowUpController;
 use App\Http\Controllers\Api\V1\LeadAssignmentController;
 use App\Http\Controllers\Api\V1\LeadController;
@@ -156,6 +157,12 @@ Route::prefix('v1')->group(function (): void {
         // Module 09 S2 — read-only employee profiles, CRM output and Core 2 projections.
         Route::get('employees/leaderboard', [EmployeeController::class, 'leaderboard']);
         Route::patch('employees/{employee:public_id}/quota', [EmployeeController::class, 'updateQuota']);
+        // Module 09 slice T4 — discrepancy escalation (spec 21 §T4, ADR-0033). A rep raises and
+        // reads their own flags; a manager/admin reads their team's and settles them. No route
+        // writes Core 2 — the flag is an internal escalation trail.
+        Route::get('employees/{employee:public_id}/discrepancies', [EmployeeDiscrepancyController::class, 'index']);
+        Route::post('employees/{employee:public_id}/discrepancies', [EmployeeDiscrepancyController::class, 'store']);
+        Route::post('employees/{employee:public_id}/discrepancies/{discrepancy}/resolve', [EmployeeDiscrepancyController::class, 'resolve']);
         Route::get('employees', [EmployeeController::class, 'index']);
         Route::get('employees/{employee:public_id}/performance', [EmployeeController::class, 'performance']);
         Route::get('employees/{employee:public_id}/attendance', [EmployeeController::class, 'attendance']);

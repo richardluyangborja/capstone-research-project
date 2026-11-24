@@ -33,6 +33,36 @@ export interface EmployeeRow {
   quota_attainment: number | null
   adjusted_quota: number | null
   can_update_quota: boolean
+  /** Module 09 T4 — open flags and the page's abilities (detail read only). */
+  discrepancies?: {
+    open: DiscrepancyCategory[]
+    open_count: number
+    can_raise: boolean
+    can_resolve: boolean
+  } | null
+}
+
+export type DiscrepancyCategory = 'attendance' | 'leave_balance' | 'commission_calculation' | 'missing_deal'
+
+export type DiscrepancyStatus = 'open' | 'resolved'
+
+export interface EmployeeDiscrepancy {
+  id: string
+  category: DiscrepancyCategory
+  category_label: string
+  section: 'attendance' | 'compensation'
+  explanation: string
+  status: DiscrepancyStatus
+  status_label: string
+  subject: { type: 'opportunity' | 'contract'; id: string; label: string } | null
+  raised_by: { id: string; name: string } | null
+  raised_at: string | null
+  resolved: { at: string; by: { id: string; name: string } | null; note: string | null } | null
+}
+
+export interface EmployeeDiscrepanciesResponse {
+  data: EmployeeDiscrepancy[]
+  meta: { total: number; open: number; can_raise: boolean; can_resolve: boolean }
 }
 
 export interface EmployeeFilters {
@@ -126,6 +156,34 @@ export const updateEmployeeQuota = async (id: string, quota: { monthly_quota?: n
   return data.data
 }
 
+/** The employee's flags, newest first (module 09 T4, spec 21 §T4). */
+export const listEmployeeDiscrepancies = async (id: string): Promise<EmployeeDiscrepanciesResponse> => {
+  const { data } = await api.get<EmployeeDiscrepanciesResponse>(`/employees/${id}/discrepancies`)
+  return data
+}
+
+export interface RaiseDiscrepancyPayload {
+  category: DiscrepancyCategory
+  explanation: string
+  subject_type?: 'opportunity' | 'contract'
+  subject_id?: string
+}
+
+/** Raise a flag on one's own record — the API refuses this for anybody else (ADR-0033). */
+export const raiseEmployeeDiscrepancy = async (id: string, payload: RaiseDiscrepancyPayload) => {
+  const { data } = await api.post<{ data: EmployeeDiscrepancy }>(`/employees/${id}/discrepancies`, payload)
+  return data.data
+}
+
+/** Settle a flag — manager/admin only; the note is optional. */
+export const resolveEmployeeDiscrepancy = async (id: string, discrepancyId: string, note?: string) => {
+  const { data } = await api.post<{ data: EmployeeDiscrepancy }>(
+    `/employees/${id}/discrepancies/${discrepancyId}/resolve`,
+    note === undefined ? {} : { note },
+  )
+  return data.data
+}
+
 export const getEmployee = async (id: string, range: EmployeeRange = '30d'): Promise<EmployeeDetailResponse> => {
   const { data } = await api.get<EmployeeDetailResponse>(`/employees/${id}`, { params: { range } })
   return data
@@ -142,7 +200,14 @@ export const getEmployeePerformance = async (id: string, range: EmployeeRange) =
 export const getEmployeeAttendance = async (id: string, range: EmployeeRange) => {
   const { data } = await api.get<{
     data: EmployeeAttendance | null
-    meta: { source: string; read_only: boolean; as_of: string; core2_available: boolean; range: EmployeeRange }
+    meta: {
+      source: string
+      read_only: boolean
+      as_of: string
+      core2_available: boolean
+      range: EmployeeRange
+      open_discrepancies: DiscrepancyCategory[]
+    }
   }>(`/employees/${id}/attendance`, { params: { range } })
   return data
 }

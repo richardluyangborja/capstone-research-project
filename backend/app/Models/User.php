@@ -82,6 +82,15 @@ class User extends Authenticatable implements JWTSubject
     }
 
     /**
+     * Figures this employee disputed (module 09 slice T4, ADR-0033). Separate from `activities()`,
+     * which is work they own; a discrepancy is about them, whoever raised it.
+     */
+    public function discrepancies(): HasMany
+    {
+        return $this->hasMany(EmployeeDiscrepancy::class, 'employee_id');
+    }
+
+    /**
      * Teams this user leads (module 08 S3). A team manager must keep the manager role and an
      * active account, so the directory checks this before a role change or suspension.
      */
