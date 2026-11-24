@@ -90,6 +90,10 @@ class AppServiceProvider extends ServiceProvider
         Gate::define('viewEmployeeAppraisals', [EmployeePolicy::class, 'viewAppraisals']);
         Gate::define('viewEmployeeCompensation', [EmployeePolicy::class, 'viewCompensation']);
         Gate::define('updateEmployeeQuota', [EmployeePolicy::class, 'updateQuota']);
+        // Module 09 slice T4 — discrepancy escalation (spec 21 §T4, ADR-0033).
+        Gate::define('raiseEmployeeDiscrepancy', [EmployeePolicy::class, 'raiseDiscrepancy']);
+        Gate::define('viewEmployeeDiscrepancies', [EmployeePolicy::class, 'viewDiscrepancies']);
+        Gate::define('resolveEmployeeDiscrepancy', [EmployeePolicy::class, 'resolveDiscrepancy']);
         Gate::policy(UserSession::class, UserSessionPolicy::class);
         Gate::define('viewPersonalSettings', [PersonalSettingsPolicy::class, 'view']);
         Gate::define('updatePersonalProfile', [PersonalSettingsPolicy::class, 'updateProfile']);

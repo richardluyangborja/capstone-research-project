@@ -1,6 +1,6 @@
 # 21 — Module 09 Performance & Commission Adjustments
 
-- Status: **Implemented (T1–T3); Specified (T4); Proposed (T5)**
+- Status: **Implemented (T1–T4); Proposed (T5)**
 - Depends on: ADR-0004, ADR-0005, ADR-0007, ADR-0016, ADR-0020, ADR-0021, ADR-0025, ADR-0030, ADR-0031, ADR-0032, `specs/14`, `specs/15`, `specs/19`, `specs/20-employee-performance-and-attendance-profiling.md`
 
 ## Purpose
@@ -117,7 +117,7 @@ the flag is an escalation trail for HR/Payroll to act on outside the CRM.
 | **T1** | `feature/module-09-adjustments-quotas-t1` | Per-User Quota Management | `PATCH /employees/{id}/quota`, user-setting resolution, directory/profile integration | Implemented |
 | **T2** | `feature/module-09-adjustments-commission-t2` | Tiered Accelerator Commission | Configurable baseline + accelerator rates, transparent breakdown in Compensation tab | Implemented |
 | **T3** | `feature/module-09-adjustments-leave-proration-t3` | Leave Proration & Adjusted Targets | Dynamic net working days, prorated attendance %, adjusted quota badge | Implemented |
-| **T4** | `feature/module-09-adjustments-discrepancies-t4` | In-CRM Discrepancy Escalation | `POST /employees/{id}/discrepancies`, manager + admin notifications, profile review status badges | Specified |
+| **T4** | `feature/module-09-adjustments-discrepancies-t4` | In-CRM Discrepancy Escalation | `POST /employees/{id}/discrepancies`, manager + admin notifications, profile review status badges | Implemented |
 | **T5** | `feature/module-09-adjustments-quadrants-ai-t5` | Leaderboard Quadrants & AI Workforce | Activate 4-quadrant scatter matrix on Leaderboard, FastAPI `"workforce"` report variant | Proposed |
 
 ---
@@ -187,7 +187,7 @@ the short window the monthly one, matching `GET /employees` — so the profile's
 `Adjusted quota · <range>` and `Attainment · <range>` labels describe the figures they show;
 `meta.range` echoes the applied range.
 
-### T4 — In-CRM Discrepancy Escalation Workflow *(Specified)*
+### T4 — In-CRM Discrepancy Escalation Workflow *(Implemented)*
 Deliver the discrepancy flagging mechanism for attendance and commission records.
 
 Design (ADR-0033): `employee_discrepancies` + `DiscrepancyCategory`/`DiscrepancyStatus` enums, an
@@ -197,12 +197,31 @@ Design (ADR-0033): `employee_discrepancies` + `DiscrepancyCategory`/`Discrepancy
 `employee.discrepancy_raised`/`employee.discrepancy_resolved`. `EmployeeResource` carries the open
 flag set so the profile can badge without a second call.
 
+Lives in `backend/database/migrations/2026_11_24_100000_create_employee_discrepancies_table.php`,
+`app/Models/EmployeeDiscrepancy.php`, `app/Enums/Discrepancy{Category,Status}.php`,
+`app/Http/Controllers/Api/V1/EmployeeDiscrepancyController.php`, `app/Http/Requests/Store|Resolve
+EmployeeDiscrepancyRequest.php`, `app/Http/Resources/EmployeeDiscrepancyResource.php`,
+`app/Events/EmployeeDiscrepancyRaised.php`, `app/Listeners/{NotifyManagerOfDiscrepancy,
+RecordDiscrepancyOnSubject}.php`, `app/Notifications/EmployeeDiscrepancyNotification.php`, the
+`EmployeeController` detail/meta wiring, `database/seeders/DemoEmployeeDiscrepancySeeder.php`, and
+`frontend/src/components/employees/{DiscrepancyDialog,EmployeeDiscrepancyPanel}.tsx` with
+`frontend/src/pages/EmployeeProfile.tsx` and `frontend/src/lib/{employees,employeeMeta}.ts`.
+
 Acceptance:
-- [ ] `POST /api/v1/employees/{public_id}/discrepancies` allows authenticated users to submit discrepancy reports on their own records.
-- [ ] Validates category (`attendance`, `leave_balance`, `commission_calculation`, `missing_deal`) and explanation length (10–1000 characters).
-- [ ] Dispatches a database notification to the salesrep's manager and admins, and writes an internal system `Activity` when the flag names a CRM record (ADR-0033: `attendance`/`leave_balance` flags have no CRM subject and get no timeline entry).
-- [ ] The affected record row displays an amber `Under Review` tag in the UI until resolved by a Manager/Admin.
-- [ ] Zero write operations executed on Core 2 (pure CRM internal workflow).
+- [x] `POST /api/v1/employees/{public_id}/discrepancies` allows authenticated users to submit discrepancy reports on their own records.
+- [x] Validates category (`attendance`, `leave_balance`, `commission_calculation`, `missing_deal`) and explanation length (10–1000 characters).
+- [x] Dispatches a database notification to the salesrep's manager and admins, and writes an internal system `Activity` when the flag names a CRM record (ADR-0033: `attendance`/`leave_balance` flags have no CRM subject and get no timeline entry).
+- [x] The affected record row displays an amber `Under Review` tag in the UI until resolved by a Manager/Admin.
+- [x] Zero write operations executed on Core 2 (pure CRM internal workflow).
+
+Verification: `php artisan test --filter='Employee'` passes (36 tests); the full backend suite passes
+(639 tests). `EmployeeDiscrepancyTest` covers self-only raising, category/explanation/reference
+validation, manager + admin notification delivery, the conditional system `Activity`, teammate
+privacy, resolve permissions, a second-resolve 422 and the badge meta. `frontend` passes
+`npm run lint`, `npm run test -- --run` (334 tests) and `npm run build`; `employeeProfile.test.tsx`
+covers the `Under Review` badge, the report dialog's 10-character floor and the resolve note. With the
+seeded demo data, `GET /employees/{public_id}/discrepancies` returns Sam's open attendance flag to the
+manager (`can_resolve: true`), and the profile/attendance payloads report it as under review.
 
 ### T5 — Full Leaderboard Quadrants & Workforce AI Report *(Proposed)*
 Deliver the four operational quadrants on `/employees/leaderboard` and the `"workforce"` AI management report variant.

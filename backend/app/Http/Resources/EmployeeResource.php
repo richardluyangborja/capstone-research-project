@@ -24,6 +24,8 @@ class EmployeeResource extends JsonResource
             'adjusted_quota' => $this->resource->getAttribute('adjusted_quota'),
             'quota_attainment' => $this->resource->getAttribute('quota_attainment'),
             'can_update_quota' => $request->user()?->can('updateEmployeeQuota', $this->resource) ?? false,
+            // Module 09 T4 — open discrepancy categories and the page's abilities (detail read only).
+            'discrepancies' => $this->resource->getAttribute('discrepancies'),
         ];
     }
 }

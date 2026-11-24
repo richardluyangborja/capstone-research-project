@@ -29,6 +29,8 @@ export const auditActionMeta: Record<string, { label: string; group: string }> =
   'team.updated': { label: 'Team updated', group: 'Teams' },
   'team.member_added': { label: 'Team member added', group: 'Teams' },
   'team.member_removed': { label: 'Team member removed', group: 'Teams' },
+  'employee.discrepancy_raised': { label: 'Employee discrepancy raised', group: 'Employees' },
+  'employee.discrepancy_resolved': { label: 'Employee discrepancy resolved', group: 'Employees' },
   'setting.updated': { label: 'Setting updated', group: 'Settings' },
   'setting.refreshed': { label: 'Configuration refreshed', group: 'Settings' },
   'audit.exported': { label: 'Audit exported', group: 'Audit' },

@@ -15,6 +15,7 @@ use App\Integrations\Core2EmployeeGateway;
 use App\Integrations\Core2EmployeeProfile;
 use App\Models\Activity;
 use App\Models\AuditLog;
+use App\Models\EmployeeDiscrepancy;
 use App\Models\Lead;
 use App\Models\Opportunity;
 use App\Models\Setting;
@@ -129,6 +130,8 @@ class EmployeeController extends Controller
             ? null
             : $core2->profile($employee->id);
         $employee->setAttribute('core2_profile', $profile === null ? null : $this->profileArray($profile));
+        // Module 09 T4 — the open flag set, so the profile can badge its tabs without another call.
+        $employee->setAttribute('discrepancies', $this->discrepancySummary($employee, $request->user()));
 
         return response()->json([
             'data' => (new EmployeeResource($employee))->resolve($request),
@@ -218,7 +221,10 @@ class EmployeeController extends Controller
                 'absences_count' => $summary->absencesCount,
                 'leave_balances' => $summary->leaveBalances,
             ],
-            'meta' => $this->provenance($summary !== null) + ['range' => $range],
+            'meta' => $this->provenance($summary !== null) + [
+                'range' => $range,
+                'open_discrepancies' => $this->openDiscrepancyCategories($employee),
+            ],
         ]);
     }
 
@@ -275,7 +281,10 @@ class EmployeeController extends Controller
                     'tier_applied' => $acceleratorBase > 0 ? 'accelerator' : 'baseline',
                 ],
             ],
-            'meta' => $this->provenance($summary !== null) + ['range' => $range],
+            'meta' => $this->provenance($summary !== null) + [
+                'range' => $range,
+                'open_discrepancies' => $this->openDiscrepancyCategories($employee),
+            ],
         ]);
     }
 
@@ -481,5 +490,44 @@ class EmployeeController extends Controller
     private function provenance(bool $available): array
     {
         return ['source' => self::SOURCE, 'read_only' => true, 'as_of' => now()->toIso8601String(), 'core2_available' => $available];
+    }
+
+    /**
+     * What the profile shows about discrepancies (module 09 T4, spec 21 §T4): the open categories,
+     * their count, and the two abilities the page needs to offer its actions. `null` when the caller
+     * may not read flags at all — a teammate's disputes are not theirs to see (ADR-0033).
+     *
+     * @return array{open: array<int, string>, open_count: int, can_raise: bool, can_resolve: bool}|null
+     */
+    private function discrepancySummary(User $employee, User $actor): ?array
+    {
+        if (! $actor->can('viewEmployeeDiscrepancies', $employee)) {
+            return null;
+        }
+
+        $open = $this->openDiscrepancyCategories($employee);
+
+        return [
+            'open' => $open,
+            'open_count' => count($open),
+            'can_raise' => $actor->can('raiseEmployeeDiscrepancy', $employee),
+            'can_resolve' => $actor->can('resolveEmployeeDiscrepancy', $employee),
+        ];
+    }
+
+    /**
+     * The category values of the employee's unresolved flags.
+     *
+     * @return array<int, string>
+     */
+    private function openDiscrepancyCategories(User $employee): array
+    {
+        return EmployeeDiscrepancy::query()
+            ->where('employee_id', $employee->id)
+            ->open()
+            ->get(['category'])
+            ->map(fn (EmployeeDiscrepancy $discrepancy): string => $discrepancy->category->value)
+            ->values()
+            ->all();
     }
 }

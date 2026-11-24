@@ -977,7 +977,7 @@ check joins the operations view, Module 06 scorecards link to `/employees/{id}` 
 `reliability_index`, compensation returns period-scoped closed-won commission, and the demo seed maps
 users to deterministic `core2_employee_id` values. The Module 07 `workforce` report variant remains
 deferred.
-**Module 09 adjustments (T1–T3 built — `specs/21`, ADR-0032).** T1 adds per-user quota targets
+**Module 09 adjustments (T1–T4 built — `specs/21`, ADR-0032, ADR-0033).** T1 adds per-user quota targets
 (`PATCH /employees/{public_id}/quota`, user-scoped `crm.quota.monthly_php`/`quarterly_php`/`annual_php`
 settings with `crm.employees.quota_default_php` and `crm.employees.annual_quota_default_php` fallbacks,
 audited as `employee.quota_updated`), so the directory's quota column and the profile's attainment are
@@ -986,8 +986,16 @@ supersedes the S5 note above — commission is now computed from
 `crm.employees.commission_rate_baseline_percent` (2.0% up to quota) plus
 `commission_rate_accelerator_percent` (3.5% on the excess) and returned as a `commission` block with
 `tier_applied`. T3 prorates Core 2 approved leave days into `net_working_days`, the attendance
-denominator and `adjusted_quota`. T4 (discrepancy escalation) and T5 (leaderboard quadrants plus the
-`workforce` AI variant) remain proposed.
+denominator and `adjusted_quota`. **T4 adds discrepancy escalation (ADR-0033):**
+`employee_discrepancies` (its own table — an `Activity` cannot hang off a user or hold a resolution)
+behind `GET|POST /employees/{public_id}/discrepancies` and
+`POST …/discrepancies/{discrepancy}/resolve`; a rep raises only their own flag
+(10–1000-character explanation), the team manager and every active admin get a database notification,
+`open` renders as the amber **Under Review** pill on the profile's attendance/compensation tabs, and
+a manager/admin settles it once with an optional note (`employee.discrepancy_raised|resolved` audited).
+A `system` `Activity` is written only when the flag names an opportunity/contract; Core 2 is never
+written. T5 (leaderboard quadrants plus the
+`workforce` AI variant) remains proposed.
 Dedup/merge and advanced/stored tier scoring are module-01 deferrals
 (ADR-0006), and automatic client aging stays one too (ADR-0018 §6). Other departments are consumed via
 **read-only mocked feeds** (ADR-0005, ADR-0025), not built here.
