@@ -1,6 +1,6 @@
 # 21 — Module 09 Performance & Commission Adjustments
 
-- Status: **Proposed (T1–T5)**
+- Status: **Implemented (T1–T3); Proposed (T4–T5)**
 - Depends on: ADR-0004, ADR-0005, ADR-0007, ADR-0016, ADR-0020, ADR-0021, ADR-0025, ADR-0030, ADR-0031, ADR-0032, `specs/14`, `specs/15`, `specs/19`, `specs/20-employee-performance-and-attendance-profiling.md`
 
 ## Purpose
@@ -98,9 +98,9 @@ When a rep flags an item, the CRM creates an internal activity and database noti
 
 | Slice | Branch | Focus | Key Deliverable | Status |
 | :--- | :--- | :--- | :--- | :--- |
-| **T1** | `feature/module-09-adjustments-quotas-t1` | Per-User Quota Management | `PATCH /employees/{id}/quota`, user-setting resolution, directory/profile integration | Proposed |
-| **T2** | `feature/module-09-adjustments-commission-t2` | Tiered Accelerator Commission | Configurable baseline + accelerator rates, transparent breakdown in Compensation tab | Proposed |
-| **T3** | `feature/module-09-adjustments-leave-proration-t3` | Leave Proration & Adjusted Targets | Dynamic net working days, prorated attendance %, adjusted quota badge | Proposed |
+| **T1** | `feature/module-09-adjustments-quotas-t1` | Per-User Quota Management | `PATCH /employees/{id}/quota`, user-setting resolution, directory/profile integration | Implemented |
+| **T2** | `feature/module-09-adjustments-commission-t2` | Tiered Accelerator Commission | Configurable baseline + accelerator rates, transparent breakdown in Compensation tab | Implemented |
+| **T3** | `feature/module-09-adjustments-leave-proration-t3` | Leave Proration & Adjusted Targets | Dynamic net working days, prorated attendance %, adjusted quota badge | Implemented |
 | **T4** | `feature/module-09-adjustments-discrepancies-t4` | In-CRM Discrepancy Escalation | `POST /discrepancies`, manager notifications, profile review status badges | Proposed |
 | **T5** | `feature/module-09-adjustments-quadrants-ai-t5` | Leaderboard Quadrants & AI Workforce | Activate 4-quadrant scatter matrix on Leaderboard, FastAPI `"workforce"` report variant | Proposed |
 
@@ -108,36 +108,57 @@ When a rep flags an item, the CRM creates an internal activity and database noti
 
 ## Slice Definitions & Acceptance Criteria
 
-### T1 — Per-User Quota Management & Assignment *(Proposed)*
+### T1 — Per-User Quota Management & Assignment *(Implemented)*
 Deliver the backend storage and API endpoints to manage per-user sales quotas, integrating the quota
 values into the Directory and Profile views.
 
-Acceptance:
-- [ ] User-scoped settings `crm.quota.monthly_php` and `crm.quota.quarterly_php` persist via `PATCH /api/v1/employees/{public_id}/quota`.
-- [ ] Policy gating: Admins can update any quota; Managers can update quotas for direct team members only; Salesreps are blocked with `403 Forbidden`.
-- [ ] System falls back to `crm.employees.quota_default_php` when no individual override is stored.
-- [ ] Quota Attainment (%) renders accurately on `/employees` (Directory Roster) and `/employees/{public_id}` (Profile Overview).
-- [ ] Audit log records `employee.quota_updated` on change.
+Lives in `backend/app/Http/Controllers/Api/V1/EmployeeController.php` (`updateQuota`, `quotasFor`,
+`quotaAttainment`), `backend/app/Policies/EmployeePolicy.php` (`updateQuota`),
+`backend/app/Settings/SettingRegistry.php` and the `settings.scope` migration; the directory column and
+the profile quota panel sit in `frontend/src/pages/Employees.tsx` and
+`frontend/src/pages/EmployeeProfile.tsx`.
 
-### T2 — Tiered Accelerator Commission Engine *(Proposed)*
+Acceptance:
+- [x] User-scoped settings `crm.quota.monthly_php` and `crm.quota.quarterly_php` persist via `PATCH /api/v1/employees/{public_id}/quota`.
+- [x] Policy gating: Admins can update any quota; Managers can update quotas for direct team members only; Salesreps are blocked with `403 Forbidden`.
+- [x] System falls back to `crm.employees.quota_default_php` when no individual override is stored.
+- [x] Quota Attainment (%) renders accurately on `/employees` (Directory Roster) and `/employees/{public_id}` (Profile Overview).
+- [x] Audit log records `employee.quota_updated` on change.
+
+### T2 — Tiered Accelerator Commission Engine *(Implemented)*
 Deliver the dynamic tiered commission calculation engine in `EmployeeService` and expose the calculation
 breakdown in the Compensation tab.
 
-Acceptance:
-- [ ] Adds `crm.employees.commission_rate_baseline_percent` and `crm.employees.commission_rate_accelerator_percent` to Module 08 settings allow-list.
-- [ ] Dynamic calculation applies baseline rate up to 100% quota and accelerator rate to excess revenue.
-- [ ] `/employees/{public_id}/compensation` returns the detailed `commission` object (won value, quota, attainment %, baseline commission, accelerator commission, total earned).
-- [ ] Compensation tab UI displays the transparent tiered breakdown card with an "Accelerator Active" badge when quota is exceeded.
-- [ ] If viewing a subordinate as manager, commission details remain visible while base salary remains masked.
+Lives in `EmployeeController::compensation` (rate resolution, `tier_applied`, the `commission` block), the
+`commission_rate_baseline_percent` / `commission_rate_accelerator_percent` keys in
+`backend/app/Settings/SettingRegistry.php`, and the breakdown card in
+`frontend/src/pages/EmployeeProfile.tsx`.
 
-### T3 — Leave Proration & Adjusted Targets *(Proposed)*
+Acceptance:
+- [x] Adds `crm.employees.commission_rate_baseline_percent` and `crm.employees.commission_rate_accelerator_percent` to Module 08 settings allow-list.
+- [x] Dynamic calculation applies baseline rate up to 100% quota and accelerator rate to excess revenue.
+- [x] `/employees/{public_id}/compensation` returns the detailed `commission` object (won value, quota, attainment %, baseline commission, accelerator commission, total earned).
+- [x] Compensation tab UI displays the transparent tiered breakdown card with an "Accelerator Active" badge when quota is exceeded.
+- [x] If viewing a subordinate as manager, commission details remain visible while base salary remains masked.
+
+### T3 — Leave Proration & Adjusted Targets *(Implemented)*
 Deliver working-day and quota proration based on Core 2 approved leave records (Vacation Leave, Sick Leave, Emergency Leave).
 
+Lives in `EmployeeController::businessDays`, `proratedAttendanceRate` and `adjustedQuota`, plus
+`approved_leave_days` / `net_working_days` / `adjusted_quota` on the employee payloads and the quota +
+attendance panels in `frontend/src/pages/EmployeeProfile.tsx`.
+
 Acceptance:
-- [ ] Net working days correctly subtracts Core 2 approved leave days from the period's business day count.
-- [ ] Attendance rate calculation uses net working days as denominator, preventing unfair tardiness penalization for approved absences.
-- [ ] Quota badge displays "Adjusted Quota" with an informational popover explaining the leave-prorated calculation.
-- [ ] Attendance tab indicates the number of approved leave days counted in the proration.
+- [x] Net working days correctly subtracts Core 2 approved leave days from the period's business day count.
+- [x] Attendance rate calculation uses net working days as denominator, preventing unfair tardiness penalization for approved absences.
+- [ ] Quota badge displays "Adjusted Quota" with an informational popover explaining the leave-prorated calculation. — built as a labelled metric (`Adjusted quota · <period>`) in the Quota targets panel plus an explanatory line in the Attendance tab; there is no badge/popover component. Presentation-only gap, tracked here rather than claimed done.
+- [x] Attendance tab indicates the number of approved leave days counted in the proration.
+
+Verification: `php artisan test --filter='EmployeeQuotaTest|EmployeeCommissionTest|EmployeeLeaveProrationTest'`
+passes (13 tests). `EmployeeLeaveProrationTest` previously hardcoded the prorated quota (`452380.95`, i.e.
+21 weekdays in the rolling 30-day window) and failed once the window held 22 weekdays; it now derives the
+expectation from the same weekday count the controller uses, via the test's `weekdaysInDefaultPeriod()`
+helper, so it is date-stable.
 
 ### T4 — In-CRM Discrepancy Escalation Workflow *(Proposed)*
 Deliver the discrepancy flagging mechanism for attendance and commission records.
