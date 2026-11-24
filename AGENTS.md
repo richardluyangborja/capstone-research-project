@@ -973,10 +973,12 @@ check joins the operations view, Module 06 scorecards link to `/employees/{id}` 
 users to deterministic `core2_employee_id` values. The Module 07 `workforce` report variant remains
 deferred.
 **Module 09 adjustments (T1–T3 built — `specs/21`, ADR-0032).** T1 adds per-user quota targets
-(`PATCH /employees/{public_id}/quota`, user-scoped `crm.quota.monthly_php`/`quarterly_php` settings with
-a `crm.employees.quota_default_php` fallback, audited as `employee.quota_updated`), so the directory's
-quota column and the profile's attainment are real. T2 supersedes the S5 note above — commission is now
-computed from `crm.employees.commission_rate_baseline_percent` (2.0% up to quota) plus
+(`PATCH /employees/{public_id}/quota`, user-scoped `crm.quota.monthly_php`/`quarterly_php`/`annual_php`
+settings with `crm.employees.quota_default_php` and `crm.employees.annual_quota_default_php` fallbacks,
+audited as `employee.quota_updated`), so the directory's quota column and the profile's attainment are
+real; a short window uses the monthly target, quarter the quarterly, year-to-date the annual. T2
+supersedes the S5 note above — commission is now computed from
+`crm.employees.commission_rate_baseline_percent` (2.0% up to quota) plus
 `commission_rate_accelerator_percent` (3.5% on the excess) and returned as a `commission` block with
 `tier_applied`. T3 prorates Core 2 approved leave days into `net_working_days`, the attendance
 denominator and `adjusted_quota`. T4 (discrepancy escalation) and T5 (leaderboard quadrants plus the

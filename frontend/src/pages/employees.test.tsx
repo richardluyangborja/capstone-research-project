@@ -15,7 +15,7 @@ const response: EmployeeDirectoryResponse = {
       role: 'salesrep',
       team: { id: '01JTEAMID000000000000000001', name: 'Business Development' },
       profile: null,
-      quota: { monthly: 500000, quarterly: 500000 },
+      quota: { monthly: 500000, quarterly: 500000, annual: 6000000 },
       quota_attainment: 250,
       adjusted_quota: null,
       can_update_quota: false,

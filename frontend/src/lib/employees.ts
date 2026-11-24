@@ -29,7 +29,7 @@ export interface EmployeeRow {
   } | null
   performance: EmployeePerformance
   attendance: { attendance_rate: number; late_arrivals_count: number } | null
-  quota: { monthly: number; quarterly: number }
+  quota: { monthly: number; quarterly: number; annual: number }
   quota_attainment: number | null
   adjusted_quota: number | null
   can_update_quota: boolean
@@ -121,8 +121,8 @@ export interface EmployeeDirectoryResponse {
   }
 }
 
-export const updateEmployeeQuota = async (id: string, quota: { monthly_quota?: number; quarterly_quota?: number }) => {
-  const { data } = await api.patch<{ data: { monthly: number; quarterly: number } }>(`/employees/${id}/quota`, quota)
+export const updateEmployeeQuota = async (id: string, quota: { monthly_quota?: number; quarterly_quota?: number; annual_quota?: number }) => {
+  const { data } = await api.patch<{ data: { monthly: number; quarterly: number; annual: number } }>(`/employees/${id}/quota`, quota)
   return data.data
 }
 

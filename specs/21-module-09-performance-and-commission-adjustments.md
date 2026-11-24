@@ -118,6 +118,13 @@ Lives in `backend/app/Http/Controllers/Api/V1/EmployeeController.php` (`updateQu
 the profile quota panel sit in `frontend/src/pages/Employees.tsx` and
 `frontend/src/pages/EmployeeProfile.tsx`.
 
+Targets are held per user for three horizons — `crm.quota.monthly_php`, `crm.quota.quarterly_php` and
+`crm.quota.annual_php` — each falling back to its system default (`crm.employees.quota_default_php`,
+`crm.employees.annual_quota_default_php`). A short listing window uses the monthly target, a quarter the
+quarterly one, and year-to-date the annual one, in both `GET /employees` and
+`GET /employees/{public_id}`. No migration accompanies the annual key: the `settings` table already
+stores one row per `(scope, scope_id, key)`, so a new horizon is a new key, not a new column.
+
 Acceptance:
 - [x] User-scoped settings `crm.quota.monthly_php` and `crm.quota.quarterly_php` persist via `PATCH /api/v1/employees/{public_id}/quota`.
 - [x] Policy gating: Admins can update any quota; Managers can update quotas for direct team members only; Salesreps are blocked with `403 Forbidden`.
@@ -159,9 +166,10 @@ passes (14 tests). `EmployeeLeaveProrationTest` previously hardcoded the prorate
 21 weekdays in the rolling 30-day window) and failed once the window held 22 weekdays; it now derives the
 expectation from the same weekday count the controller uses, via the test's `weekdaysInDefaultPeriod()`
 helper, so it is date-stable. `GET /employees/{public_id}` now takes `range` (`30d` default, `quarter`,
-`ytd`) and prorates that range's quota — `quarter` uses the quarterly target, the other ranges the
-monthly one, matching `GET /employees` — so the profile's `Adjusted quota · <range>` and
-`Attainment · <range>` labels describe the figures they show; `meta.range` echoes the applied range.
+`ytd`) and prorates that range's quota — `quarter` uses the quarterly target, `ytd` the annual one and
+the short window the monthly one, matching `GET /employees` — so the profile's
+`Adjusted quota · <range>` and `Attainment · <range>` labels describe the figures they show;
+`meta.range` echoes the applied range.
 
 ### T4 — In-CRM Discrepancy Escalation Workflow *(Proposed)*
 Deliver the discrepancy flagging mechanism for attendance and commission records.

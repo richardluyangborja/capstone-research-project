@@ -59,6 +59,7 @@ return [
 
     'employees' => [
         'quota_default_php' => (float) env('CRM_EMPLOYEE_QUOTA_DEFAULT_PHP', 500000),
+        'annual_quota_default_php' => (float) env('CRM_EMPLOYEE_ANNUAL_QUOTA_DEFAULT_PHP', 6000000),
         'commission_rate_baseline_percent' => (float) env('CRM_EMPLOYEE_COMMISSION_RATE_BASELINE_PERCENT', 2.0),
         'commission_rate_accelerator_percent' => (float) env('CRM_EMPLOYEE_COMMISSION_RATE_ACCELERATOR_PERCENT', 3.5),
         'attendance_benchmark_percent' => (float) env('CRM_EMPLOYEE_ATTENDANCE_BENCHMARK_PERCENT', 95),

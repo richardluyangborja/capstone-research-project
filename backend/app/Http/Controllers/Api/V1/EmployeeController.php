@@ -56,7 +56,11 @@ class EmployeeController extends Controller
             $quota = $quotas[$employee->id];
             $employee->setAttribute('quota', $quota);
             $attendanceRow = $attendance[$employee->id] ?? null;
-            $periodQuota = $quota[($validated['range'] ?? '30d') === 'quarter' ? 'quarterly' : 'monthly'];
+            $periodQuota = match ($validated['range'] ?? '30d') {
+                'quarter' => $quota['quarterly'],
+                'ytd' => $quota['annual'],
+                default => $quota['monthly'],
+            };
             $adjustedQuota = $attendanceRow === null ? null : $this->adjustedQuota($periodQuota, $period, $attendanceRow['approved_leave_days']);
             $employee->setAttribute('adjusted_quota', $adjustedQuota);
             $employee->setAttribute('quota_attainment', $adjustedQuota === null ? null : $this->quotaAttainment($rows[$employee->id]['won_value'] ?? 0, $adjustedQuota));
@@ -110,7 +114,11 @@ class EmployeeController extends Controller
         $quota = $this->quotaFor($employee);
         $employee->setAttribute('quota', $quota);
         $leaveProration = $attendance[$employee->id] ?? null;
-        $periodQuota = $quota[$range === 'quarter' ? 'quarterly' : 'monthly'];
+        $periodQuota = match ($range) {
+            'quarter' => $quota['quarterly'],
+            'ytd' => $quota['annual'],
+            default => $quota['monthly'],
+        };
         $adjustedQuota = $leaveProration === null ? null : $this->adjustedQuota($periodQuota, $period, $leaveProration['approved_leave_days']);
         $employee->setAttribute('adjusted_quota', $adjustedQuota);
         $performance = $this->buildPerformance($employees, $period)[$employee->id] ?? $this->emptyPerformance();
@@ -131,14 +139,15 @@ class EmployeeController extends Controller
     public function updateQuota(Request $request, User $employee): JsonResponse
     {
         Gate::authorize('updateEmployeeQuota', $employee);
-        $unknown = array_diff(array_keys($request->all()), ['monthly_quota', 'quarterly_quota']);
+        $unknown = array_diff(array_keys($request->all()), ['monthly_quota', 'quarterly_quota', 'annual_quota']);
         if ($unknown !== []) {
-            abort(422, 'Only monthly_quota and quarterly_quota are accepted.');
+            abort(422, 'Only monthly_quota, quarterly_quota and annual_quota are accepted.');
         }
 
         $validated = $request->validate([
             'monthly_quota' => ['sometimes', 'nullable', 'numeric', 'min:0', 'max:1000000000'],
             'quarterly_quota' => ['sometimes', 'nullable', 'numeric', 'min:0', 'max:1000000000'],
+            'annual_quota' => ['sometimes', 'nullable', 'numeric', 'min:0', 'max:1000000000'],
         ]);
 
         if ($validated === []) {
@@ -146,14 +155,17 @@ class EmployeeController extends Controller
         }
 
         $before = $this->quotaFor($employee);
-        foreach (['monthly' => 'monthly_quota', 'quarterly' => 'quarterly_quota'] as $period => $field) {
+        foreach (['monthly' => 'monthly_quota', 'quarterly' => 'quarterly_quota', 'annual' => 'annual_quota'] as $period => $field) {
             if (! array_key_exists($field, $validated)) {
                 continue;
             }
 
             $key = "crm.quota.{$period}_php";
+            $default = $period === 'annual'
+                ? (float) config('crm.employees.annual_quota_default_php', 6000000)
+                : (float) config('crm.employees.quota_default_php', 500000);
             $value = $validated[$field] === null ? null : (float) $validated[$field];
-            if ($value === null || $value === (float) config('crm.employees.quota_default_php', 500000)) {
+            if ($value === null || $value === $default) {
                 Setting::query()->where('scope', 'user')->where('scope_id', $employee->id)->where('key', $key)->delete();
             } else {
                 Setting::query()->updateOrCreate(
@@ -411,29 +423,31 @@ class EmployeeController extends Controller
     }
 
     /** @param Collection<int, User> $employees
-     * @return array<int, array{monthly: float, quarterly: float}>
+     * @return array<int, array{monthly: float, quarterly: float, annual: float}>
      */
     private function quotasFor(Collection $employees): array
     {
         $employeeIds = $employees->pluck('id')->all();
         $overrides = Setting::query()->where('scope', 'user')->whereIn('scope_id', $employeeIds)
-            ->whereIn('key', ['crm.quota.monthly_php', 'crm.quota.quarterly_php'])
+            ->whereIn('key', ['crm.quota.monthly_php', 'crm.quota.quarterly_php', 'crm.quota.annual_php'])
             ->get(['scope_id', 'key', 'value'])->groupBy('scope_id');
-        $default = (float) config('crm.employees.quota_default_php', 500000);
+        $monthlyDefault = (float) config('crm.employees.quota_default_php', 500000);
+        $annualDefault = (float) config('crm.employees.annual_quota_default_php', 6000000);
         $quotas = [];
 
         foreach ($employeeIds as $employeeId) {
             $rows = $overrides->get($employeeId, collect())->keyBy('key');
             $quotas[$employeeId] = [
-                'monthly' => (float) ($rows->get('crm.quota.monthly_php')?->value ?? $default),
-                'quarterly' => (float) ($rows->get('crm.quota.quarterly_php')?->value ?? $default),
+                'monthly' => (float) ($rows->get('crm.quota.monthly_php')?->value ?? $monthlyDefault),
+                'quarterly' => (float) ($rows->get('crm.quota.quarterly_php')?->value ?? $monthlyDefault),
+                'annual' => (float) ($rows->get('crm.quota.annual_php')?->value ?? $annualDefault),
             ];
         }
 
         return $quotas;
     }
 
-    /** @return array{monthly: float, quarterly: float} */
+    /** @return array{monthly: float, quarterly: float, annual: float} */
     private function quotaFor(User $employee): array
     {
         return $this->quotasFor(collect([$employee]))[$employee->id];

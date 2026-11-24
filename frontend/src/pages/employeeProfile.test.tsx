@@ -29,7 +29,7 @@ const profile: EmployeeDetailResponse = {
       shift_schedule: '08:00 - 17:00 PHT, Mon-Fri',
       direct_manager: 'Maria Santos',
     },
-    quota: { monthly: 500000, quarterly: 1500000 },
+    quota: { monthly: 500000, quarterly: 1500000, annual: 6000000 },
     quota_attainment: 250,
     adjusted_quota: 466666.67,
     can_update_quota: false,
@@ -89,6 +89,8 @@ describe('Employee 360 profile', () => {
     expect(screen.getByText('18 months')).toBeInTheDocument()
     expect(screen.getAllByText('core2 · HR (read-only)').length).toBeGreaterThan(0)
     expect(screen.getByText('₱1,250,000.00')).toBeInTheDocument()
+    expect(screen.getByText('Annual quota')).toBeInTheDocument()
+    expect(screen.getByText('₱6,000,000.00')).toBeInTheDocument()
   })
 
   it('explains the leave-prorated quota behind the Adjusted Quota badge', async () => {

@@ -27,6 +27,7 @@ class EmployeeQuotaTest extends TestCase
         $repRow = collect($response->json('data'))->firstWhere('id', $rep->public_id);
         $this->assertSame(750000.0, (float) $repRow['quota']['monthly']);
         $this->assertSame(500000.0, (float) $repRow['quota']['quarterly']);
+        $this->assertSame(6000000.0, (float) $repRow['quota']['annual']);
         $this->assertSame(0.0, (float) $repRow['quota_attainment']);
         $this->getJson("/api/v1/employees/{$rep->public_id}")
             ->assertOk()->assertJsonPath('data.quota.monthly', 750000);
@@ -38,10 +39,11 @@ class EmployeeQuotaTest extends TestCase
         $admin = User::factory()->admin()->create();
 
         $this->actingAs($admin, 'api')->patchJson("/api/v1/employees/{$employee->public_id}/quota", [
-            'monthly_quota' => 750000, 'quarterly_quota' => 2250000,
-        ])->assertOk()->assertJsonPath('data.monthly', 750000)->assertJsonPath('data.quarterly', 2250000);
+            'monthly_quota' => 750000, 'quarterly_quota' => 2250000, 'annual_quota' => 7000000,
+        ])->assertOk()->assertJsonPath('data.monthly', 750000)->assertJsonPath('data.quarterly', 2250000)->assertJsonPath('data.annual', 7000000);
 
         $this->assertDatabaseHas('settings', ['scope' => 'user', 'scope_id' => $employee->id, 'key' => 'crm.quota.monthly_php']);
+        $this->assertDatabaseHas('settings', ['scope' => 'user', 'scope_id' => $employee->id, 'key' => 'crm.quota.annual_php']);
         $this->assertDatabaseHas('audit_logs', [
             'action' => 'employee.quota_updated', 'severity' => AuditSeverity::Info->value,
             'actor_id' => $admin->id, 'subject_id' => $employee->id,
@@ -76,9 +78,11 @@ class EmployeeQuotaTest extends TestCase
         $employee = User::factory()->salesrep()->create();
         $admin = User::factory()->admin()->create();
         Setting::query()->create(['scope' => 'user', 'scope_id' => $employee->id, 'key' => 'crm.quota.monthly_php', 'value' => 700000, 'updated_by' => $admin->id]);
+        Setting::query()->create(['scope' => 'user', 'scope_id' => $employee->id, 'key' => 'crm.quota.annual_php', 'value' => 7000000, 'updated_by' => $admin->id]);
 
-        $this->actingAs($admin, 'api')->patchJson("/api/v1/employees/{$employee->public_id}/quota", ['monthly_quota' => 500000])
-            ->assertOk()->assertJsonPath('data.monthly', 500000);
+        $this->actingAs($admin, 'api')->patchJson("/api/v1/employees/{$employee->public_id}/quota", ['monthly_quota' => 500000, 'annual_quota' => 6000000])
+            ->assertOk()->assertJsonPath('data.monthly', 500000)->assertJsonPath('data.annual', 6000000);
         $this->assertDatabaseMissing('settings', ['scope' => 'user', 'scope_id' => $employee->id, 'key' => 'crm.quota.monthly_php']);
+        $this->assertDatabaseMissing('settings', ['scope' => 'user', 'scope_id' => $employee->id, 'key' => 'crm.quota.annual_php']);
     }
 }

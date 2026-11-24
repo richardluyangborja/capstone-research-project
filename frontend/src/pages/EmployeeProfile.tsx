@@ -66,6 +66,7 @@ export default function EmployeeProfile() {
   const [error, setError] = useState('')
   const [monthlyQuota, setMonthlyQuota] = useState('')
   const [quarterlyQuota, setQuarterlyQuota] = useState('')
+  const [annualQuota, setAnnualQuota] = useState('')
   const [quotaSaving, setQuotaSaving] = useState(false)
   const [quotaMessage, setQuotaMessage] = useState('')
   const canManageQuota = employee?.can_update_quota ?? false
@@ -83,6 +84,7 @@ export default function EmployeeProfile() {
       setEmployee(profileResponse.data)
       setMonthlyQuota(String(profileResponse.data.quota.monthly))
       setQuarterlyQuota(String(profileResponse.data.quota.quarterly))
+      setAnnualQuota(String(profileResponse.data.quota.annual))
       try {
         const compensationResponse = await getEmployeeCompensation(id, selectedRange)
         setCompensation(compensationResponse.data)
@@ -226,6 +228,7 @@ export default function EmployeeProfile() {
             <dl className="mt-3 grid grid-cols-2 gap-4 text-sm">
               <Metric label="Monthly quota" value={formatCurrency(employee.quota.monthly)} />
               <Metric label="Quarterly quota" value={formatCurrency(employee.quota.quarterly)} />
+              <Metric label="Annual quota" value={formatCurrency(employee.quota.annual)} />
               <Metric label={`Adjusted quota · ${rangeLabels[range]}`} value={employee.adjusted_quota === null ? '—' : formatCurrency(employee.adjusted_quota)} />
               <Metric label={`Attainment · ${rangeLabels[range]}`} value={employee.quota_attainment === null ? '—' : `${employee.quota_attainment}%`} />
             </dl>
@@ -234,7 +237,7 @@ export default function EmployeeProfile() {
               setQuotaSaving(true)
               setQuotaMessage('')
               try {
-                const quota = await updateEmployeeQuota(id, { monthly_quota: Number(monthlyQuota), quarterly_quota: Number(quarterlyQuota) })
+                const quota = await updateEmployeeQuota(id, { monthly_quota: Number(monthlyQuota), quarterly_quota: Number(quarterlyQuota), annual_quota: Number(annualQuota) })
                 setEmployee({ ...employee, quota })
                 setQuotaMessage('Quota targets saved.')
                 await load(range)
@@ -246,6 +249,7 @@ export default function EmployeeProfile() {
             }}>
               <label className="text-sm text-foreground">Monthly quota (PHP)<input type="number" min="0" max="1000000000" step="0.01" value={monthlyQuota} onChange={(event) => setMonthlyQuota(event.target.value)} className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2" required /></label>
               <label className="text-sm text-foreground">Quarterly quota (PHP)<input type="number" min="0" max="1000000000" step="0.01" value={quarterlyQuota} onChange={(event) => setQuarterlyQuota(event.target.value)} className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2" required /></label>
+              <label className="text-sm text-foreground">Annual quota (PHP)<input type="number" min="0" max="1000000000" step="0.01" value={annualQuota} onChange={(event) => setAnnualQuota(event.target.value)} className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2" required /></label>
               <button type="submit" disabled={quotaSaving} className="w-fit rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50">{quotaSaving ? 'Saving…' : 'Save quota'}</button>
               {quotaMessage && <p role="status" className="self-center text-sm text-muted-foreground">{quotaMessage}</p>}
             </form>}

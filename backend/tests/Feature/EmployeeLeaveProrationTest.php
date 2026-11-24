@@ -35,6 +35,7 @@ class EmployeeLeaveProrationTest extends TestCase
         $employee = User::factory()->salesrep()->create();
         Setting::query()->create(['scope' => 'user', 'scope_id' => $employee->id, 'key' => 'crm.quota.monthly_php', 'value' => 500000]);
         Setting::query()->create(['scope' => 'user', 'scope_id' => $employee->id, 'key' => 'crm.quota.quarterly_php', 'value' => 1500000]);
+        Setting::query()->create(['scope' => 'user', 'scope_id' => $employee->id, 'key' => 'crm.quota.annual_php', 'value' => 6500000]);
         $this->app->instance(Core2EmployeeGateway::class, $this->gatewayWithAttendance($employee->id, 20, 0));
 
         $this->actingAs($employee, 'api')
@@ -45,7 +46,7 @@ class EmployeeLeaveProrationTest extends TestCase
 
         $this->getJson("/api/v1/employees/{$employee->public_id}?range=ytd")
             ->assertOk()
-            ->assertJsonPath('data.adjusted_quota', 500000)
+            ->assertJsonPath('data.adjusted_quota', 6500000)
             ->assertJsonPath('meta.range', 'ytd');
 
         $this->getJson("/api/v1/employees/{$employee->public_id}")
