@@ -20,13 +20,14 @@ class EmployeeLeaveProrationTest extends TestCase
         $employee = User::factory()->salesrep()->create();
         Setting::query()->create(['scope' => 'user', 'scope_id' => $employee->id, 'key' => 'crm.quota.monthly_php', 'value' => 500000]);
         $this->app->instance(Core2EmployeeGateway::class, $this->gatewayWithAttendance($employee->id, 20, 2));
+        $weekdays = $this->weekdaysInDefaultPeriod();
 
         $this->actingAs($employee, 'api')
             ->getJson("/api/v1/employees/{$employee->public_id}")
             ->assertOk()
             ->assertJsonPath('data.attendance.attendance_rate', 100)
             ->assertJsonPath('data.attendance.approved_leave_days', 2)
-            ->assertJsonPath('data.adjusted_quota', 452380.95);
+            ->assertJsonPath('data.adjusted_quota', round(500000 * ($weekdays - 2) / $weekdays, 2));
     }
 
     public function test_attendance_percentage_is_capped_when_days_present_exceed_net_weekdays(): void
@@ -43,6 +44,21 @@ class EmployeeLeaveProrationTest extends TestCase
     public function test_zero_net_weekdays_uses_one_as_safe_denominator(): void
     {
         $employee = User::factory()->salesrep()->create();
+        $this->app->instance(Core2EmployeeGateway::class, $this->gatewayWithAttendance($employee->id, 2, (float) $this->weekdaysInDefaultPeriod()));
+
+        $this->actingAs($employee, 'api')
+            ->getJson("/api/v1/employees/{$employee->public_id}/attendance")
+            ->assertOk()
+            ->assertJsonPath('data.net_working_days', 1)
+            ->assertJsonPath('data.attendance_rate', 100);
+    }
+
+    /**
+     * Weekday count of the controller's default 30-day period, so proration expectations
+     * follow the rolling window instead of a fixed date-dependent constant.
+     */
+    private function weekdaysInDefaultPeriod(): int
+    {
         $from = now('Asia/Manila')->subDays(29)->startOfDay();
         $to = now('Asia/Manila')->endOfDay();
         $weekdays = 0;
@@ -51,13 +67,8 @@ class EmployeeLeaveProrationTest extends TestCase
                 $weekdays++;
             }
         }
-        $this->app->instance(Core2EmployeeGateway::class, $this->gatewayWithAttendance($employee->id, 2, (float) $weekdays));
 
-        $this->actingAs($employee, 'api')
-            ->getJson("/api/v1/employees/{$employee->public_id}/attendance")
-            ->assertOk()
-            ->assertJsonPath('data.net_working_days', 1)
-            ->assertJsonPath('data.attendance_rate', 100);
+        return $weekdays;
     }
 
     private function gatewayWithAttendance(int $userId, int $daysPresent, float $leaveDays): Core2EmployeeGateway
