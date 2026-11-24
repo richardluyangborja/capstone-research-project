@@ -39,6 +39,8 @@ check this list first:
   Delivery tab, with source/as-of provenance and no mutation actions (module 01 refresh S9) — **done**
 - `AccountHealthPanel` — explainable account-health state, flags, source and suggested action
   (module 01 refresh S13; reused by the manager dashboard) — **done**
+- `InfoPopover` — labelled info badge that discloses its explanation on click/keyboard, closes on
+  Escape or outside click (module 09 T3 leave-prorated quota) — **done**
 
 Rules: tokens/utilities only (no hardcoded hex or arbitrary px); icons from `lucide-react`; render
 dashboards inside `DashboardShell`.

@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import { ArrowLeft, CalendarClock, Clock3, RefreshCw, UserRound } from 'lucide-react'
 import AlertItem from '../components/common/AlertItem'
 import EmptyState from '../components/common/EmptyState'
+import InfoPopover from '../components/common/InfoPopover'
 import PageHeader from '../components/common/PageHeader'
 import StatCard from '../components/common/StatCard'
 import StatusBadge from '../components/common/StatusBadge'
@@ -139,6 +140,10 @@ export default function EmployeeProfile() {
   if (employee === null) return null
   const profile = employee.profile
   const currentPerformance = performance ?? employee.performance
+  const quotaProration =
+    attendance !== null && attendance.approved_leave_days > 0 && employee.adjusted_quota !== null
+      ? attendance
+      : null
 
   return (
     <div className="space-y-6">
@@ -206,7 +211,18 @@ export default function EmployeeProfile() {
             <StatCard label="Attendance" value={attendance ? `${attendance.attendance_rate}%` : '—'} domain="people" />
           </div>
           <section className="rounded-lg border border-border bg-card p-4">
-            <h3 className="font-semibold text-foreground">Quota targets</h3>
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="font-semibold text-foreground">Quota targets</h3>
+              {quotaProration && (
+                <InfoPopover label="Adjusted Quota" title="Leave-prorated target">
+                  Core 2 reports {quotaProration.approved_leave_days}{' '}
+                  {quotaProration.approved_leave_days === 1 ? 'approved leave day' : 'approved leave days'} for this
+                  period, so the target shrinks in proportion:{' '}
+                  {quotaProration.standard_business_days} business days − {quotaProration.approved_leave_days} leave ={' '}
+                  {quotaProration.net_working_days} net working days. Public holidays are not excluded.
+                </InfoPopover>
+              )}
+            </div>
             <dl className="mt-3 grid grid-cols-2 gap-4 text-sm">
               <Metric label="Monthly quota" value={formatCurrency(employee.quota.monthly)} />
               <Metric label="Quarterly quota" value={formatCurrency(employee.quota.quarterly)} />

@@ -151,7 +151,7 @@ attendance panels in `frontend/src/pages/EmployeeProfile.tsx`.
 Acceptance:
 - [x] Net working days correctly subtracts Core 2 approved leave days from the period's business day count.
 - [x] Attendance rate calculation uses net working days as denominator, preventing unfair tardiness penalization for approved absences.
-- [ ] Quota badge displays "Adjusted Quota" with an informational popover explaining the leave-prorated calculation. — built as a labelled metric (`Adjusted quota · <period>`) in the Quota targets panel plus an explanatory line in the Attendance tab; there is no badge/popover component. Presentation-only gap, tracked here rather than claimed done.
+- [x] Quota badge displays "Adjusted Quota" with an informational popover explaining the leave-prorated calculation. — shared `InfoPopover` badge in the Quota targets panel, opened by click/keyboard and dismissed with Escape or an outside click.
 - [x] Attendance tab indicates the number of approved leave days counted in the proration.
 
 Verification: `php artisan test --filter='EmployeeQuotaTest|EmployeeCommissionTest|EmployeeLeaveProrationTest'`

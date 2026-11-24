@@ -91,6 +91,34 @@ describe('Employee 360 profile', () => {
     expect(screen.getByText('₱1,250,000.00')).toBeInTheDocument()
   })
 
+  it('explains the leave-prorated quota behind the Adjusted Quota badge', async () => {
+    renderPage()
+    await screen.findByText('Senior Account Executive')
+    const badge = screen.getByRole('button', { name: /Adjusted Quota/ })
+    expect(badge).toHaveAttribute('aria-expanded', 'false')
+
+    fireEvent.click(badge)
+
+    expect(badge).toHaveAttribute('aria-expanded', 'true')
+    const panel = screen.getByText('Leave-prorated target').parentElement
+    expect(panel).toHaveTextContent('1.5 approved leave days')
+    expect(panel).toHaveTextContent('22 business days − 1.5 leave = 20.5 net working days')
+
+    fireEvent.keyDown(document, { key: 'Escape' })
+
+    expect(badge).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByText('Leave-prorated target')).not.toBeInTheDocument()
+  })
+
+  it('omits the Adjusted Quota badge when no leave was taken', async () => {
+    mockedGetEmployee.mockResolvedValue({ ...profile, data: { ...profile.data, adjusted_quota: 500000 } })
+    mockedAttendance.mockResolvedValue({ data: { ...attendance, approved_leave_days: 0, net_working_days: 22 }, meta: { source: profile.meta.source, read_only: true, as_of: profile.meta.as_of, core2_available: true, range: '30d' } })
+    renderPage()
+    await screen.findByText('Senior Account Executive')
+
+    expect(screen.queryByRole('button', { name: /Adjusted Quota/ })).not.toBeInTheDocument()
+  })
+
   it('renders late arrivals, undertime and leave meters on the attendance tab', async () => {
     renderPage()
     await screen.findByText('Senior Account Executive')
