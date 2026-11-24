@@ -96,12 +96,17 @@ Run from the repo root unless a directory is noted; start the DB first, or let t
 it for you.
 
 - **Whole stack (from root):** `./up.sh` starts Postgres + backend + AI + frontend in the background
-  (logs/PIDs in `.run/`); `./down.sh` stops every tracked process, sweeps leftover listeners and
+  (logs/PIDs in `.run/`) and applies pending `php artisan migrate` migrations after Postgres is
+  healthy and before the API boots, so a new migration never leaves the API running against a stale
+  schema; `./down.sh` stops every tracked process, sweeps leftover listeners and
   removes the DB container (the data volume is kept); `./status.sh` prints the health table and exits
-  non-zero if anything is down.
+  non-zero if anything is down. A health failure made this way is a schema/exception problem, not a
+  health-endpoint one — read the `laravel.log` excerpt `up.sh` prints and `backend/storage/logs/laravel.log`.
 - **DB:** `docker compose up -d --wait db` (Postgres :5432; credentials in `backend/.env`)
 - **Backend (`backend/`):** `composer install` · `php artisan migrate` · `php artisan serve`
-  (API at http://localhost:8000; health `/api/v1/health`)
+  (API at http://localhost:8000; health `/api/v1/health`). A new migration must be applied before
+  judging API behavior: a pending migration shows up as a 500 on every request (including
+  `/api/v1/health`) because the API reads the schema on each request.
   - Test: `php artisan test` (single: `php artisan test --filter=Name`); format: `vendor/bin/pint`
 - **Frontend (`frontend/`):** `npm install` · `npm run dev` (http://localhost:5173)
   - Verify: `npm run lint` · `npm run test` · `npm run build`; format: `npm run format`

@@ -155,6 +155,21 @@ fi
 info "Starting Postgres..."
 docker compose up -d --wait db
 
+# --- migrations ----------------------------------------------------------------
+# The API applies settings and reads every domain table on each request, so booting it
+# against a stale schema makes /api/v1/health fail with a 500 instead of a clear error.
+# Apply pending migrations here; `migrate` is a no-op when nothing is pending.
+info "Applying pending migrations..."
+if ! migrate_output="$(cd "$ROOT_DIR/backend" && php artisan migrate --force 2>&1)"; then
+  printf '%s\n' "$migrate_output" >&2
+  fail "Database migrations failed. Fix the failing migration, then run ./up.sh again."
+fi
+if grep -q 'DONE' <<< "$migrate_output"; then
+  printf '%s\n' "$migrate_output"
+else
+  info "No pending migrations."
+fi
+
 # --- application services ------------------------------------------------------
 start_service \
   "backend" \
@@ -166,6 +181,13 @@ start_service \
 
 if ! wait_for_http "Backend" "http://127.0.0.1:8000/api/v1/health" 45; then
   tail -n 40 "$LOG_DIR/backend.log" >&2 || true
+  # The artisan serve log only records request timings; the exception itself lands in
+  # Laravel's log, so surface its last error block before failing.
+  if [[ -f "$ROOT_DIR/backend/storage/logs/laravel.log" ]]; then
+    printf '\nLast Laravel error:\n' >&2
+    grep -E 'ERROR|Exception|SQLSTATE' "$ROOT_DIR/backend/storage/logs/laravel.log" | tail -n 5 >&2 || true
+    printf 'See %s for the full trace.\n' "$ROOT_DIR/backend/storage/logs/laravel.log" >&2
+  fi
   fail "Backend did not become healthy. See $LOG_DIR/backend.log. Run ./down.sh to stop partial services."
 fi
 
