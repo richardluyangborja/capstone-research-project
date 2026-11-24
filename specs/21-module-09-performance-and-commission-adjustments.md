@@ -155,10 +155,13 @@ Acceptance:
 - [x] Attendance tab indicates the number of approved leave days counted in the proration.
 
 Verification: `php artisan test --filter='EmployeeQuotaTest|EmployeeCommissionTest|EmployeeLeaveProrationTest'`
-passes (13 tests). `EmployeeLeaveProrationTest` previously hardcoded the prorated quota (`452380.95`, i.e.
+passes (14 tests). `EmployeeLeaveProrationTest` previously hardcoded the prorated quota (`452380.95`, i.e.
 21 weekdays in the rolling 30-day window) and failed once the window held 22 weekdays; it now derives the
 expectation from the same weekday count the controller uses, via the test's `weekdaysInDefaultPeriod()`
-helper, so it is date-stable.
+helper, so it is date-stable. `GET /employees/{public_id}` now takes `range` (`30d` default, `quarter`,
+`ytd`) and prorates that range's quota — `quarter` uses the quarterly target, the other ranges the
+monthly one, matching `GET /employees` — so the profile's `Adjusted quota · <range>` and
+`Attainment · <range>` labels describe the figures they show; `meta.range` echoes the applied range.
 
 ### T4 — In-CRM Discrepancy Escalation Workflow *(Proposed)*
 Deliver the discrepancy flagging mechanism for attendance and commission records.

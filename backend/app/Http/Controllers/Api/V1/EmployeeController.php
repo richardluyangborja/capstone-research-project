@@ -101,17 +101,21 @@ class EmployeeController extends Controller
     public function show(Request $request, User $employee, Core2EmployeeGateway $core2): JsonResponse
     {
         Gate::authorize('viewEmployee', $employee);
-        $period = $this->period('30d');
+        $validated = $request->validate(['range' => ['nullable', Rule::in(['30d', 'quarter', 'ytd'])]]);
+        $range = (string) ($validated['range'] ?? '30d');
+        $period = $this->period($range);
         $employees = collect([$employee->load('team:id,name')]);
         $mayViewAttendance = $request->user()->role !== Role::Salesrep || $request->user()->is($employee);
         $attendance = $mayViewAttendance ? $this->attendanceFor($core2, $employees, $period) : null;
         $quota = $this->quotaFor($employee);
         $employee->setAttribute('quota', $quota);
         $leaveProration = $attendance[$employee->id] ?? null;
-        $adjustedQuota = $leaveProration === null ? null : $this->adjustedQuota($quota['monthly'], $period, $leaveProration['approved_leave_days']);
+        $periodQuota = $quota[$range === 'quarter' ? 'quarterly' : 'monthly'];
+        $adjustedQuota = $leaveProration === null ? null : $this->adjustedQuota($periodQuota, $period, $leaveProration['approved_leave_days']);
         $employee->setAttribute('adjusted_quota', $adjustedQuota);
-        $employee->setAttribute('quota_attainment', $this->quotaAttainment($this->buildPerformance($employees, $period)[$employee->id]['won_value'] ?? 0, $adjustedQuota ?? $quota['monthly']));
-        $employee->setAttribute('performance', $this->buildPerformance($employees, $period)[$employee->id] ?? $this->emptyPerformance());
+        $performance = $this->buildPerformance($employees, $period)[$employee->id] ?? $this->emptyPerformance();
+        $employee->setAttribute('quota_attainment', $this->quotaAttainment($performance['won_value'], $adjustedQuota ?? $periodQuota));
+        $employee->setAttribute('performance', $performance);
         $employee->setAttribute('attendance', $attendance === null ? null : ($attendance[$employee->id] ?? null));
         $profile = $request->user()->role === Role::Salesrep && ! $request->user()->is($employee)
             ? null
@@ -120,7 +124,7 @@ class EmployeeController extends Controller
 
         return response()->json([
             'data' => (new EmployeeResource($employee))->resolve($request),
-            'meta' => $this->provenance($attendance !== null),
+            'meta' => $this->provenance($attendance !== null) + ['range' => $range],
         ]);
     }
 

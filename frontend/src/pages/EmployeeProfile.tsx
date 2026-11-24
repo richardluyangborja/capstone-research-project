@@ -75,7 +75,7 @@ export default function EmployeeProfile() {
     setError('')
     try {
       const [profileResponse, performanceResponse, attendanceResponse, appraisalResponse] = await Promise.all([
-        getEmployee(id),
+        getEmployee(id, selectedRange),
         getEmployeePerformance(id, selectedRange),
         getEmployeeAttendance(id, selectedRange),
         getEmployeeAppraisals(id),

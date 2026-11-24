@@ -36,7 +36,7 @@ const profile: EmployeeDetailResponse = {
     performance: { leads_handled: 4, deals_won: 2, won_value: 1250000, conversion_rate: 50, open_pipeline_count: 3, open_pipeline_value: 800000, follow_up_on_time: 90 },
     attendance: { attendance_rate: 96, late_arrivals_count: 1 },
   },
-  meta: { source: 'Core 2 HR, Attendance & Payroll (read-only)', read_only: true, as_of: '2026-11-15T00:00:00Z', core2_available: true },
+  meta: { source: 'Core 2 HR, Attendance & Payroll (read-only)', read_only: true, as_of: '2026-11-15T00:00:00Z', core2_available: true, range: '30d' },
 }
 const performance: EmployeePerformance = profile.data.performance
 const attendance: EmployeeAttendance = {

@@ -101,6 +101,7 @@ export interface EmployeeDetailResponse {
     read_only: boolean
     as_of: string
     core2_available: boolean
+    range: EmployeeRange
   }
 }
 
@@ -125,8 +126,8 @@ export const updateEmployeeQuota = async (id: string, quota: { monthly_quota?: n
   return data.data
 }
 
-export const getEmployee = async (id: string): Promise<EmployeeDetailResponse> => {
-  const { data } = await api.get<EmployeeDetailResponse>(`/employees/${id}`)
+export const getEmployee = async (id: string, range: EmployeeRange = '30d'): Promise<EmployeeDetailResponse> => {
+  const { data } = await api.get<EmployeeDetailResponse>(`/employees/${id}`, { params: { range } })
   return data
 }
 
