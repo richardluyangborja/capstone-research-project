@@ -41,6 +41,9 @@ business rules:
    - An "Adjusted Quota" badge and calculation is displayed alongside the nominal quota to provide fair performance evaluation during extended leaves.
 
 4. **In-CRM Discrepancy Flagging Workflow.**
+   > **Storage superseded by [ADR-0033](0033-employee-discrepancy-records.md).** The workflow below
+   > stands, but a flag is an `employee_discrepancies` row, not an `Activity`, because an activity
+   > cannot hang off a user and cannot hold category/resolution fields.
    Sales reps may flag attendance, leave balance, or commission calculation discrepancies:
    - Exposed as `POST /api/v1/employees/{public_id}/discrepancies`.
    - Records an internal CRM `Activity` (`type: 'system'`) and dispatches a database notification to the user's direct Manager and Admin.

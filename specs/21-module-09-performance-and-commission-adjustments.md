@@ -1,6 +1,6 @@
 # 21 — Module 09 Performance & Commission Adjustments
 
-- Status: **Implemented (T1–T3); Proposed (T4–T5)**
+- Status: **Implemented (T1–T3); Specified (T4); Proposed (T5)**
 - Depends on: ADR-0004, ADR-0005, ADR-0007, ADR-0016, ADR-0020, ADR-0021, ADR-0025, ADR-0030, ADR-0031, ADR-0032, `specs/14`, `specs/15`, `specs/19`, `specs/20-employee-performance-and-attendance-profiling.md`
 
 ## Purpose
@@ -22,6 +22,7 @@ It directly addresses the capabilities deferred in `specs/20` during slices S3, 
 | :--- | :--- |
 | **0031** | Core 2 HR, attendance, payroll, and appraisals are strictly read-only projections; no CRM employee CRUD or timesheet mutation. |
 | **0032** | Tiered accelerator commission model, per-user quota overrides via user-scoped `Setting`, leave-prorated attendance, and in-CRM discrepancy flags. |
+| **0033** | A discrepancy is its own `employee_discrepancies` record, not an `Activity`: a rep raises their own flag, the team manager and admins are notified, and a manager/admin resolves it. Core 2 is never written. |
 
 ---
 
@@ -80,17 +81,32 @@ $$\text{Prorated Attendance \%} = \min\left(100.0, \frac{D_{\text{present}}}{\te
 $$\text{Prorated Quota} = Q \times \frac{\text{Working Days Net}}{D_{\text{total}}}$$
 
 ### 4. Discrepancy Flagging Contract
-When a rep flags an item, the CRM creates an internal activity and database notification:
+
+A discrepancy is an `employee_discrepancies` row (ADR-0033), scoped to one employee. A rep may raise
+only their own; the team manager and admins are notified; a manager/admin resolves it.
+
 ```jsonc
-// POST /api/v1/employees/{public_id}/discrepancies
+// POST /api/v1/employees/{public_id}/discrepancies   (self only)
 {
   "category": "attendance|leave_balance|commission_calculation|missing_deal",
-  "record_reference": "2026-10-24 Biometric Punch",
-  "disputed_value": "Marked Absent",
-  "claimed_value": "Present (Manual HR slip #1049 approved)",
-  "notes": "Scanner malfunction at client site; slip signed by supervisor."
+  "explanation": "Marked absent on 2026-10-24 though HR slip #1049 approved the day; scanner malfunction at the client site.", // required, 10–1000
+  "subject_type": "opportunity|contract",              // nullable; the CRM record the flag is about
+  "subject_id": "01J..."                              // nullable; must be visible to the caller
 }
+
+// GET /api/v1/employees/{public_id}/discrepancies     (the employee, or manager/admin in scope)
+// POST /api/v1/employees/{public_id}/discrepancies/{discrepancy}/resolve   (manager+)
+// { "note": "Optional explanation of the outcome" }
 ```
+
+Stored statuses are `open` and `resolved`; the profile shows an `open` row as an amber **Under Review**
+pill, so the label is the UI's word for the state rather than a third stored value. A second resolve is
+422. The row is CRM-internal history and is never deleted.
+
+A `system` `Activity` is written **only** when `subject_type` names a real CRM record
+(`missing_deal` → its opportunity, `commission_calculation` → its contract); `attendance` and
+`leave_balance` flags have no CRM subject and therefore no timeline entry. No Core 2 call is made —
+the flag is an escalation trail for HR/Payroll to act on outside the CRM.
 
 ---
 
@@ -101,7 +117,7 @@ When a rep flags an item, the CRM creates an internal activity and database noti
 | **T1** | `feature/module-09-adjustments-quotas-t1` | Per-User Quota Management | `PATCH /employees/{id}/quota`, user-setting resolution, directory/profile integration | Implemented |
 | **T2** | `feature/module-09-adjustments-commission-t2` | Tiered Accelerator Commission | Configurable baseline + accelerator rates, transparent breakdown in Compensation tab | Implemented |
 | **T3** | `feature/module-09-adjustments-leave-proration-t3` | Leave Proration & Adjusted Targets | Dynamic net working days, prorated attendance %, adjusted quota badge | Implemented |
-| **T4** | `feature/module-09-adjustments-discrepancies-t4` | In-CRM Discrepancy Escalation | `POST /discrepancies`, manager notifications, profile review status badges | Proposed |
+| **T4** | `feature/module-09-adjustments-discrepancies-t4` | In-CRM Discrepancy Escalation | `POST /employees/{id}/discrepancies`, manager + admin notifications, profile review status badges | Specified |
 | **T5** | `feature/module-09-adjustments-quadrants-ai-t5` | Leaderboard Quadrants & AI Workforce | Activate 4-quadrant scatter matrix on Leaderboard, FastAPI `"workforce"` report variant | Proposed |
 
 ---
@@ -171,13 +187,20 @@ the short window the monthly one, matching `GET /employees` — so the profile's
 `Adjusted quota · <range>` and `Attainment · <range>` labels describe the figures they show;
 `meta.range` echoes the applied range.
 
-### T4 — In-CRM Discrepancy Escalation Workflow *(Proposed)*
+### T4 — In-CRM Discrepancy Escalation Workflow *(Specified)*
 Deliver the discrepancy flagging mechanism for attendance and commission records.
+
+Design (ADR-0033): `employee_discrepancies` + `DiscrepancyCategory`/`DiscrepancyStatus` enums, an
+`EmployeeDiscrepancy` model, `EmployeeDiscrepancyController` (`index`/`store`/`resolve`) over
+`EmployeePolicy::{raiseDiscrepancy, viewDiscrepancies, resolveDiscrepancy}`, an
+`EmployeeDiscrepancyNotification` written to the team manager and every admin, and audit rows
+`employee.discrepancy_raised`/`employee.discrepancy_resolved`. `EmployeeResource` carries the open
+flag set so the profile can badge without a second call.
 
 Acceptance:
 - [ ] `POST /api/v1/employees/{public_id}/discrepancies` allows authenticated users to submit discrepancy reports on their own records.
 - [ ] Validates category (`attendance`, `leave_balance`, `commission_calculation`, `missing_deal`) and explanation length (10–1000 characters).
-- [ ] Dispatches a database notification to the salesrep's manager and logs an internal system `Activity`.
+- [ ] Dispatches a database notification to the salesrep's manager and admins, and writes an internal system `Activity` when the flag names a CRM record (ADR-0033: `attendance`/`leave_balance` flags have no CRM subject and get no timeline entry).
 - [ ] The affected record row displays an amber `Under Review` tag in the UI until resolved by a Manager/Admin.
 - [ ] Zero write operations executed on Core 2 (pure CRM internal workflow).
 
@@ -195,17 +218,17 @@ Acceptance:
 
 ## Verification & Test Plan
 
-1. **Backend Unit & Feature Tests (`backend/tests/Feature/EmployeeAdjustmentsTest.php`)**:
+1. **Backend Unit & Feature Tests** — the existing `backend/tests/Feature/Employee{Quota,Commission,LeaveProration,Api}Test.php` files:
    - Quota override resolution (user override vs team vs global default).
    - Tiered commission math validation (below quota, exact quota, above quota accelerator).
    - Leave proration edge cases (zero leave days, partial days, leave exceeding working days).
-   - Discrepancy submission validation and notification delivery.
+   - `backend/tests/Feature/EmployeeDiscrepancyTest.php`: self-only raise (403 for another employee's row), category/notes bounds, manager + admin notification delivery, audit rows, resolve permissions and a second-resolve 422, and the `Under Review` flag in the employee payload.
    - Leaderboard quadrant assignment logic.
 
 2. **Frontend Component & Route Tests (`frontend/src/pages/`)**:
    - Quota attainment percentage formatting on Directory and Profile.
    - Compensation tab tiered breakdown rendering.
-   - Discrepancy modal form submission and `Under Review` badge display.
+   - Discrepancy modal form submission and `Under Review` badge display (`frontend/src/pages/employeeProfile.test.tsx`).
    - Leaderboard quadrant visualization and sorting.
 
 3. **Code Style & Static Analysis**:
